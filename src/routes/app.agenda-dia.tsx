@@ -91,6 +91,17 @@ function AgendaDiaPage() {
     qc.invalidateQueries({ queryKey: ["agenda-dia"] });
   };
 
+  const handleDelete = async (a: any) => {
+    const { error } = await supabase.from("agendamentos").delete().eq("id", a.id);
+    if (error) return toast.error(error.message);
+    if (a.slot_id) {
+      await supabase.from("slots").update({ status: "livre" }).eq("id", a.slot_id);
+    }
+    toast.success("Agendamento excluído");
+    setExcluir(null);
+    qc.invalidateQueries({ queryKey: ["agenda-dia"] });
+  };
+
   return (
     <div className="space-y-4">
       <Card>
