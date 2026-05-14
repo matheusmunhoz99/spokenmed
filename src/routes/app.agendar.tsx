@@ -155,6 +155,7 @@ function AgendarPage() {
       slot_id: slot.id, paciente_id: paciente.id, profissional_id: profId, unidade_id: unidadeId,
       data, hora_inicio: slot.hora_inicio,
       motivo: motivo || null, criado_por: user?.id,
+      procedimento_id: procedimentoId || null,
     }).select("id").single();
     setSubmitting(false);
     if (e2 || !created) {
