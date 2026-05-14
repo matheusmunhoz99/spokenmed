@@ -262,8 +262,8 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>E-mail</TableHead>
-                  <TableHead>Cargo</TableHead>
                   <TableHead>Perfil</TableHead>
+                  <TableHead>Unidades</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -271,11 +271,11 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                 {users.map((u) => {
                   const isMe = u.id === currentUserId;
                   const role = (u.roles[0] as "admin" | "recepcionista") ?? "recepcionista";
+                  const isAdminUser = role === "admin";
                   return (
                     <TableRow key={u.id}>
                       <TableCell className="font-medium">{u.nome || "—"} {isMe && <Badge variant="outline" className="ml-2">você</Badge>}</TableCell>
                       <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                      <TableCell className="text-muted-foreground">{u.cargo || "—"}</TableCell>
                       <TableCell>
                         <Select
                           value={role}
