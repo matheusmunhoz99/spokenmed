@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppRelatoriosRouteImport } from './routes/app.relatorios'
 import { Route as AppProfissionaisRouteImport } from './routes/app.profissionais'
 import { Route as AppPacientesRouteImport } from './routes/app.pacientes'
 import { Route as AppFilaRouteImport } from './routes/app.fila'
@@ -47,6 +48,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRelatoriosRoute = AppRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
   getParentRoute: () => AppRoute,
 } as any)
 const AppProfissionaisRoute = AppProfissionaisRouteImport.update({
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/app/fila': typeof AppFilaRoute
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
+  '/app/relatorios': typeof AppRelatoriosRoute
   '/app/': typeof AppIndexRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
 }
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/app/fila': typeof AppFilaRoute
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
+  '/app/relatorios': typeof AppRelatoriosRoute
   '/app': typeof AppIndexRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
 }
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/app/fila': typeof AppFilaRoute
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
+  '/app/relatorios': typeof AppRelatoriosRoute
   '/app/': typeof AppIndexRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
 }
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
     | '/app/fila'
     | '/app/pacientes'
     | '/app/profissionais'
+    | '/app/relatorios'
     | '/app/'
     | '/app/configuracoes/sistema'
   fileRoutesByTo: FileRoutesByTo
@@ -173,6 +183,7 @@ export interface FileRouteTypes {
     | '/app/fila'
     | '/app/pacientes'
     | '/app/profissionais'
+    | '/app/relatorios'
     | '/app'
     | '/app/configuracoes/sistema'
   id:
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
     | '/app/fila'
     | '/app/pacientes'
     | '/app/profissionais'
+    | '/app/relatorios'
     | '/app/'
     | '/app/configuracoes/sistema'
   fileRoutesById: FileRoutesById
@@ -235,6 +247,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/relatorios': {
+      id: '/app/relatorios'
+      path: '/relatorios'
+      fullPath: '/app/relatorios'
+      preLoaderRoute: typeof AppRelatoriosRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/profissionais': {
@@ -323,6 +342,7 @@ interface AppRouteChildren {
   AppFilaRoute: typeof AppFilaRoute
   AppPacientesRoute: typeof AppPacientesRoute
   AppProfissionaisRoute: typeof AppProfissionaisRoute
+  AppRelatoriosRoute: typeof AppRelatoriosRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -335,6 +355,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFilaRoute: AppFilaRoute,
   AppPacientesRoute: AppPacientesRoute,
   AppProfissionaisRoute: AppProfissionaisRoute,
+  AppRelatoriosRoute: AppRelatoriosRoute,
   AppIndexRoute: AppIndexRoute,
 }
 
@@ -349,3 +370,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
