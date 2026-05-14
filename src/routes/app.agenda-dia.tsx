@@ -103,6 +103,26 @@ function AgendaDiaPage() {
               </SelectContent>
             </Select>
           </div>
+          <div className="ml-auto self-end">
+            <Button
+              variant="outline"
+              disabled={!ags || ags.length === 0}
+              onClick={() => {
+                if (!ags || ags.length === 0) return;
+                const unidadeNome = unidadeId === "all"
+                  ? "Todas as unidades"
+                  : (unidades?.find((u: any) => u.id === unidadeId)?.nome ?? "Unidade");
+                gerarPdfAgenda({
+                  data,
+                  unidadeNome,
+                  agendamentos: ags as any,
+                  usuarioNome: profile?.nome || user?.email || "Usuário",
+                });
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" /> Exportar PDF
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
