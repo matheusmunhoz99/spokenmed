@@ -23,6 +23,7 @@ export const Route = createFileRoute("/app/agenda-dia")({
 function AgendaDiaPage() {
   const search = Route.useSearch();
   const qc = useQueryClient();
+  const { profile, user } = useAuth();
   const [data, setData] = useState(search.data || format(new Date(), "yyyy-MM-dd"));
   const [unidadeId, setUnidadeId] = useState<string>("all");
   const [profId, setProfId] = useState<string>("all");
