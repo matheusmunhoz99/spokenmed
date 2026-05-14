@@ -338,3 +338,62 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
     </Card>
   );
 }
+
+function UnidadesPicker({
+  unidades, selected, onChange, emptyHint, compact,
+}: {
+  unidades: Unidade[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  emptyHint?: string;
+  compact?: boolean;
+}) {
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+  const label = useMemo(() => {
+    if (selected.length === 0) return "Nenhuma unidade";
+    if (selected.length === unidades.length && unidades.length > 0) return "Todas as unidades";
+    if (selected.length <= 2) {
+      return unidades.filter((u) => selectedSet.has(u.id)).map((u) => u.nome).join(", ");
+    }
+    return `${selected.length} unidades`;
+  }, [selected, selectedSet, unidades]);
+
+  const toggle = (id: string) => {
+    const next = selectedSet.has(id) ? selected.filter((x) => x !== id) : [...selected, id];
+    onChange(next);
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size={compact ? "sm" : "default"}
+          className={compact ? "h-8 justify-between font-normal" : "w-full justify-between font-normal"}
+        >
+          <span className="flex items-center gap-2 truncate">
+            <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="truncate">{label}</span>
+          </span>
+          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 opacity-50 shrink-0" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-2" align="start">
+        {unidades.length === 0 ? (
+          <div className="text-xs text-muted-foreground p-2">Nenhuma unidade cadastrada.</div>
+        ) : (
+          <div className="space-y-1 max-h-72 overflow-auto">
+            {unidades.map((u) => (
+              <label key={u.id} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-accent cursor-pointer">
+                <Checkbox checked={selectedSet.has(u.id)} onCheckedChange={() => toggle(u.id)} />
+                <span className="text-sm">{u.nome}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        {emptyHint && <div className="mt-2 border-t pt-2 text-[11px] text-muted-foreground">{emptyHint}</div>}
+      </PopoverContent>
+    </Popover>
+  );
+}
