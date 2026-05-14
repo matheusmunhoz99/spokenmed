@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2, Download } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { StatusBadge } from "./app.index";
 import { formatTime } from "@/lib/format";
 import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
+import { useAuth } from "@/hooks/use-auth";
+import { gerarPdfAgenda } from "@/lib/pdf-agenda";
 
 export const Route = createFileRoute("/app/agenda-dia")({
   component: AgendaDiaPage,
