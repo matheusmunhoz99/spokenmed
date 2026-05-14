@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, Navigate, useRouterState } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
+import { useIdleLogout } from "@/hooks/use-idle-logout";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
@@ -18,10 +19,12 @@ const titles: Record<string, string> = {
   "/app/configuracoes/sistema": "Configurações",
   "/app/auditoria": "Central de Auditoria",
   "/app/relatorios": "Relatórios & Dashboards",
+  "/app/sessoes": "Segurança & Sessões",
 };
 
 function AppLayout() {
   const { user, loading } = useAuth();
+  useIdleLogout();
   const path = useRouterState({ select: (r) => r.location.pathname });
 
   if (loading) {

@@ -10,11 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Pencil, Loader2, Download } from "lucide-react";
+import { Plus, Search, Pencil, Loader2, Download, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { formatCPF, formatCNS, formatPhone, formatCEP, onlyDigits, formatDate } from "@/lib/format";
+import { maskCPF, maskCNS, maskPhone } from "@/lib/mask";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
+import { logViewOnce } from "@/lib/audit";
 
 import { useAuth } from "@/hooks/use-auth";
 import { SemAcesso } from "@/components/sem-acesso";
@@ -32,6 +34,16 @@ function PacientesPage() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Paciente | null>(null);
+  const [reveal, setReveal] = useState(false);
+  const toggleReveal = () => {
+    setReveal((r) => {
+      if (!r) toast.info("Dados sensíveis revelados — esta ação ficará registrada na auditoria ao abrir cada paciente.");
+      return !r;
+    });
+  };
+  const showCPF = (p: any) => reveal ? (p.cpf ? formatCPF(p.cpf) : "—") : maskCPF(p.cpf);
+  const showCNS = (p: any) => reveal ? (p.cns ? formatCNS(p.cns) : "—") : maskCNS(p.cns);
+  const showPhone = (p: any) => reveal ? (p.telefone ? formatPhone(p.telefone) : "—") : maskPhone(p.telefone);
 
   const { data, isLoading } = useQuery({
     queryKey: ["pacientes", search],
@@ -52,7 +64,11 @@ function PacientesPage() {
   });
 
   const openNew = () => { setEditing(null); setOpen(true); };
-  const openEdit = (p: Paciente) => { setEditing(p); setOpen(true); };
+  const openEdit = (p: Paciente) => {
+    logViewOnce("pacientes", p.id, "pacientes");
+    setEditing(p);
+    setOpen(true);
+  };
 
   return (
     <div className="space-y-4">
@@ -63,6 +79,9 @@ function PacientesPage() {
             value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={toggleReveal}>
+            {reveal ? <><EyeOff className="mr-1 h-4 w-4" /> Ocultar dados</> : <><Eye className="mr-1 h-4 w-4" /> Revelar dados</>}
+          </Button>
           <Button
             variant="outline"
             disabled={!data || data.length === 0}
@@ -88,6 +107,7 @@ function PacientesPage() {
                 { header: "UF", get: (p: any) => p.uf ?? "" },
                 { header: "Observações", get: (p: any) => p.observacoes ?? "" },
               ]);
+              import("@/lib/audit").then((m) => m.logExport("pacientes", "pacientes", { search, count: data.length }));
               toast.success(`${data.length} pacientes exportados`);
             }}
           >
@@ -119,10 +139,10 @@ function PacientesPage() {
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-semibold">{p.nome}</div>
               <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                {p.cpf ? `CPF ${formatCPF(p.cpf)}` : p.cns ? `CNS ${formatCNS(p.cns)}` : "—"}
+                {p.cpf ? `CPF ${showCPF(p)}` : p.cns ? `CNS ${showCNS(p)}` : "—"}
               </div>
               <div className="truncate text-xs text-muted-foreground">
-                {p.telefone ? formatPhone(p.telefone) : "Sem telefone"}
+                {p.telefone ? showPhone(p) : "Sem telefone"}
                 {p.cidade ? ` · ${p.cidade}/${p.uf ?? ""}` : ""}
               </div>
             </div>
@@ -160,10 +180,10 @@ function PacientesPage() {
               {data?.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.nome}</TableCell>
-                  <TableCell>{p.cpf ? formatCPF(p.cpf) : "—"}</TableCell>
-                  <TableCell>{p.cns ? formatCNS(p.cns) : "—"}</TableCell>
+                  <TableCell>{showCPF(p)}</TableCell>
+                  <TableCell>{showCNS(p)}</TableCell>
                   <TableCell>{formatDate(p.data_nascimento)}</TableCell>
-                  <TableCell>{p.telefone ? formatPhone(p.telefone) : "—"}</TableCell>
+                  <TableCell>{showPhone(p)}</TableCell>
                   <TableCell>{p.cidade ? `${p.cidade}/${p.uf ?? ""}` : "—"}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
