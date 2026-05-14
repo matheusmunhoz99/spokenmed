@@ -47,6 +47,9 @@ function AgendaDiaPage() {
   const [profId, setProfId] = useState<string>("all");
   const [chamar, setChamar] = useState<any>(null);
   const [excluir, setExcluir] = useState<any>(null);
+  const [reagendar, setReagendar] = useState<any>(null);
+  const [historico, setHistorico] = useState<any>(null);
+  const [encaixeOpen, setEncaixeOpen] = useState(false);
 
   const { data: unidades } = useAllowedUnidades();
   const allowedIds = useMemo(() => (unidades ?? []).map((u: any) => u.id), [unidades]);
@@ -76,7 +79,7 @@ function AgendaDiaPage() {
     enabled: !!unidades,
     queryFn: async () => {
       let q = supabase.from("agendamentos")
-        .select("id, hora_inicio, status, motivo, paciente_id, slot_id, unidade_id, pacientes(nome, cpf, telefone), profissionais(nome, sala, especialidades(nome)), unidades(nome)")
+        .select("id, hora_inicio, status, motivo, paciente_id, slot_id, profissional_id, unidade_id, is_encaixe, encaixe_prioridade, encaixe_justificativa, reagendado_em, pacientes(nome, cpf, telefone), profissionais(id, nome, sala, especialidades(nome)), unidades(nome)")
         .eq("data", data).order("hora_inicio");
       if (profId !== "all") q = q.eq("profissional_id", profId);
       if (unidadeId !== "all") q = q.eq("unidade_id", unidadeId);
