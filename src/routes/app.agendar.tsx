@@ -133,7 +133,7 @@ function AgendarPage() {
     },
   });
 
-  const { data: pacResults } = useQuery({
+  const { data: pacResults, isFetching: pacLoading } = useQuery({
     queryKey: ["pac-search-ag", search],
     enabled: search.length >= 2,
     queryFn: async () => {
