@@ -14,16 +14,463 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      agendamentos: {
+        Row: {
+          created_at: string
+          criado_por: string | null
+          data: string
+          hora_inicio: string
+          id: string
+          motivo: string | null
+          observacoes: string | null
+          paciente_id: string
+          profissional_id: string
+          slot_id: string
+          status: Database["public"]["Enums"]["agendamento_status"]
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por?: string | null
+          data: string
+          hora_inicio: string
+          id?: string
+          motivo?: string | null
+          observacoes?: string | null
+          paciente_id: string
+          profissional_id: string
+          slot_id: string
+          status?: Database["public"]["Enums"]["agendamento_status"]
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string | null
+          data?: string
+          hora_inicio?: string
+          id?: string
+          motivo?: string | null
+          observacoes?: string | null
+          paciente_id?: string
+          profissional_id?: string
+          slot_id?: string
+          status?: Database["public"]["Enums"]["agendamento_status"]
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agendamentos_paciente_id_fkey"
+            columns: ["paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendamentos_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendamentos_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: true
+            referencedRelation: "slots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendamentos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agendas_config: {
+        Row: {
+          created_at: string
+          dias_semana: number[]
+          duracao_min: number
+          id: string
+          manha_fim: string | null
+          manha_inicio: string | null
+          observacoes: string | null
+          profissional_id: string
+          tarde_fim: string | null
+          tarde_inicio: string | null
+          unidade_id: string | null
+          vigencia_fim: string
+          vigencia_inicio: string
+        }
+        Insert: {
+          created_at?: string
+          dias_semana: number[]
+          duracao_min?: number
+          id?: string
+          manha_fim?: string | null
+          manha_inicio?: string | null
+          observacoes?: string | null
+          profissional_id: string
+          tarde_fim?: string | null
+          tarde_inicio?: string | null
+          unidade_id?: string | null
+          vigencia_fim: string
+          vigencia_inicio: string
+        }
+        Update: {
+          created_at?: string
+          dias_semana?: number[]
+          duracao_min?: number
+          id?: string
+          manha_fim?: string | null
+          manha_inicio?: string | null
+          observacoes?: string | null
+          profissional_id?: string
+          tarde_fim?: string | null
+          tarde_inicio?: string | null
+          unidade_id?: string | null
+          vigencia_fim?: string
+          vigencia_inicio?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agendas_config_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendas_config_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      especialidades: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      pacientes: {
+        Row: {
+          ativo: boolean
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          cns: string | null
+          complemento: string | null
+          cpf: string | null
+          created_at: string
+          data_nascimento: string | null
+          email: string | null
+          id: string
+          logradouro: string | null
+          nome: string
+          nome_mae: string | null
+          numero: string | null
+          observacoes: string | null
+          rg: string | null
+          sexo: Database["public"]["Enums"]["sexo_tipo"] | null
+          telefone: string | null
+          uf: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cns?: string | null
+          complemento?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          email?: string | null
+          id?: string
+          logradouro?: string | null
+          nome: string
+          nome_mae?: string | null
+          numero?: string | null
+          observacoes?: string | null
+          rg?: string | null
+          sexo?: Database["public"]["Enums"]["sexo_tipo"] | null
+          telefone?: string | null
+          uf?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cns?: string | null
+          complemento?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          email?: string | null
+          id?: string
+          logradouro?: string | null
+          nome?: string
+          nome_mae?: string | null
+          numero?: string | null
+          observacoes?: string | null
+          rg?: string | null
+          sexo?: Database["public"]["Enums"]["sexo_tipo"] | null
+          telefone?: string | null
+          uf?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          cargo: string | null
+          created_at: string
+          id: string
+          nome: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          cargo?: string | null
+          created_at?: string
+          id: string
+          nome: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cargo?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profissionais: {
+        Row: {
+          ativo: boolean
+          conselho: string | null
+          conselho_numero: string | null
+          conselho_uf: string | null
+          created_at: string
+          email: string | null
+          especialidade_id: string | null
+          id: string
+          nome: string
+          telefone: string | null
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          conselho?: string | null
+          conselho_numero?: string | null
+          conselho_uf?: string | null
+          created_at?: string
+          email?: string | null
+          especialidade_id?: string | null
+          id?: string
+          nome: string
+          telefone?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          conselho?: string | null
+          conselho_numero?: string | null
+          conselho_uf?: string | null
+          created_at?: string
+          email?: string | null
+          especialidade_id?: string | null
+          id?: string
+          nome?: string
+          telefone?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profissionais_especialidade_id_fkey"
+            columns: ["especialidade_id"]
+            isOneToOne: false
+            referencedRelation: "especialidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profissionais_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slots: {
+        Row: {
+          agenda_config_id: string | null
+          created_at: string
+          data: string
+          hora_fim: string
+          hora_inicio: string
+          id: string
+          profissional_id: string
+          status: Database["public"]["Enums"]["slot_status"]
+          unidade_id: string | null
+        }
+        Insert: {
+          agenda_config_id?: string | null
+          created_at?: string
+          data: string
+          hora_fim: string
+          hora_inicio: string
+          id?: string
+          profissional_id: string
+          status?: Database["public"]["Enums"]["slot_status"]
+          unidade_id?: string | null
+        }
+        Update: {
+          agenda_config_id?: string | null
+          created_at?: string
+          data?: string
+          hora_fim?: string
+          hora_inicio?: string
+          id?: string
+          profissional_id?: string
+          status?: Database["public"]["Enums"]["slot_status"]
+          unidade_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slots_agenda_config_id_fkey"
+            columns: ["agenda_config_id"]
+            isOneToOne: false
+            referencedRelation: "agendas_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slots_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slots_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      unidades: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          endereco: string | null
+          id: string
+          nome: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          endereco?: string | null
+          id?: string
+          nome: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          endereco?: string | null
+          id?: string
+          nome?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      gerar_slots: { Args: { _config_id: string }; Returns: number }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_authenticated_staff: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      agendamento_status:
+        | "agendado"
+        | "confirmado"
+        | "atendido"
+        | "faltou"
+        | "cancelado"
+      app_role: "admin" | "recepcionista"
+      sexo_tipo: "M" | "F" | "O"
+      slot_status: "livre" | "reservado" | "bloqueado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +597,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      agendamento_status: [
+        "agendado",
+        "confirmado",
+        "atendido",
+        "faltou",
+        "cancelado",
+      ],
+      app_role: ["admin", "recepcionista"],
+      sexo_tipo: ["M", "F", "O"],
+      slot_status: ["livre", "reservado", "bloqueado"],
+    },
   },
 } as const
