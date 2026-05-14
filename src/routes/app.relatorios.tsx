@@ -281,7 +281,7 @@ function RelatoriosPage() {
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
           <CardTitle className="text-base flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Filtros</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-5">
+        <CardContent className="grid gap-3 md:grid-cols-6">
           <div>
             <Label>De</Label>
             <Input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} />
@@ -317,6 +317,18 @@ function RelatoriosPage() {
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 {(profs ?? []).map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Procedimento (SIGTAP)</Label>
+            <Select value={procId} onValueChange={setProcId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {(procedimentos ?? []).map((p: any) => (
+                  <SelectItem key={p.id} value={p.id}>{p.codigo_sigtap} — {p.nome}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
