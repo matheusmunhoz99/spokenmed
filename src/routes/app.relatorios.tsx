@@ -19,6 +19,8 @@ import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { useAuth } from "@/hooks/use-auth";
 import { SemAcesso } from "@/components/sem-acesso";
 import { logExport } from "@/lib/audit";
+import { LoadingState } from "@/components/loading-state";
+import { EmptyState } from "@/components/empty-state";
 
 function Guard() {
   const { can } = useAuth();
@@ -511,8 +513,8 @@ function Kpi({ label, value, sub, accent }: { label: string; value: any; sub?: s
 }
 
 function Skel() {
-  return <div className="flex h-48 items-center justify-center text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...</div>;
+  return <LoadingState variant="chart" />;
 }
 function Empty() {
-  return <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">Sem dados para os filtros selecionados.</div>;
+  return <EmptyState icon={BarChart3} title="Sem dados" description="Nenhum registro para os filtros selecionados." compact />;
 }
