@@ -36,6 +36,10 @@ type Resultado = {
   unidade_nome: string | null;
   unidade_endereco: string | null;
   unidade_telefone: string | null;
+  unidade_cnes: string | null;
+  procedimento_codigo: string | null;
+  procedimento_nome: string | null;
+  profissional_cbo: string | null;
   observacoes: string | null;
 };
 
