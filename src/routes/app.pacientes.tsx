@@ -10,9 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Pencil, Loader2 } from "lucide-react";
+import { Plus, Search, Pencil, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { formatCPF, formatCNS, formatPhone, formatCEP, onlyDigits, formatDate } from "@/lib/format";
+import { downloadCsv } from "@/lib/csv";
+import { format } from "date-fns";
 
 export const Route = createFileRoute("/app/pacientes")({ component: PacientesPage });
 
