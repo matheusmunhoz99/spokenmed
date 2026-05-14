@@ -172,7 +172,7 @@ function AgendarPage() {
     if (!ultimoAgendamentoId) return;
     const { data: ag } = await supabase
       .from("agendamentos")
-      .select("id, codigo, data, hora_inicio, motivo, pacientes(nome, cpf, cns, telefone), profissionais(nome, especialidades(nome)), unidades(nome, endereco, telefone)")
+      .select("id, codigo, data, hora_inicio, motivo, pacientes(nome, cpf, cns, telefone), profissionais(nome, cbo, especialidades(nome)), unidades(nome, endereco, telefone, cnes), procedimentos(codigo_sigtap, nome)")
       .eq("id", ultimoAgendamentoId)
       .single();
     if (!ag) return toast.error("Não foi possível carregar o comprovante");
@@ -189,12 +189,17 @@ function AgendarPage() {
       profissional: {
         nome: (ag.profissionais as any)?.nome ?? "—",
         especialidade: (ag.profissionais as any)?.especialidades?.nome,
+        cbo: (ag.profissionais as any)?.cbo,
       },
       unidade: {
         nome: (ag.unidades as any)?.nome ?? "—",
         endereco: (ag.unidades as any)?.endereco,
         telefone: (ag.unidades as any)?.telefone,
+        cnes: (ag.unidades as any)?.cnes,
       },
+      procedimento: (ag as any).procedimentos
+        ? { codigo: (ag as any).procedimentos.codigo_sigtap, nome: (ag as any).procedimentos.nome }
+        : null,
       motivo: ag.motivo,
       emitidoPor: profile?.nome || user?.email || "",
     });
