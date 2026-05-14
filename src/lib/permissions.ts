@@ -43,7 +43,7 @@ export function defaultPermsFor(role: AppRole): PermRow[] {
   }
   // administrativo (recepcionista)
   return MODULES.map((m) => {
-    if (m.key === "agenda_dia" || m.key === "agendar" || m.key === "pacientes") {
+    if (m.key === "agenda_dia" || m.key === "agendar" || m.key === "pacientes" || m.key === "painel") {
       return { module: m.key, can_view: true, can_manage: true };
     }
     if (m.key === "profissionais" || m.key === "agendas") {
