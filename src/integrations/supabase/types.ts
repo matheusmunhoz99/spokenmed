@@ -128,6 +128,7 @@ export type Database = {
           motivo: string | null
           observacoes: string | null
           paciente_id: string
+          procedimento_id: string | null
           profissional_id: string
           reagendado_de: string | null
           reagendado_em: string | null
@@ -151,6 +152,7 @@ export type Database = {
           motivo?: string | null
           observacoes?: string | null
           paciente_id: string
+          procedimento_id?: string | null
           profissional_id: string
           reagendado_de?: string | null
           reagendado_em?: string | null
@@ -174,6 +176,7 @@ export type Database = {
           motivo?: string | null
           observacoes?: string | null
           paciente_id?: string
+          procedimento_id?: string | null
           profissional_id?: string
           reagendado_de?: string | null
           reagendado_em?: string | null
@@ -188,6 +191,13 @@ export type Database = {
             columns: ["paciente_id"]
             isOneToOne: false
             referencedRelation: "pacientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendamentos_procedimento_id_fkey"
+            columns: ["procedimento_id"]
+            isOneToOne: false
+            referencedRelation: "procedimentos"
             referencedColumns: ["id"]
           },
           {
@@ -222,6 +232,7 @@ export type Database = {
           manha_fim: string | null
           manha_inicio: string | null
           observacoes: string | null
+          procedimento_id: string | null
           profissional_id: string
           tarde_fim: string | null
           tarde_inicio: string | null
@@ -237,6 +248,7 @@ export type Database = {
           manha_fim?: string | null
           manha_inicio?: string | null
           observacoes?: string | null
+          procedimento_id?: string | null
           profissional_id: string
           tarde_fim?: string | null
           tarde_inicio?: string | null
@@ -252,6 +264,7 @@ export type Database = {
           manha_fim?: string | null
           manha_inicio?: string | null
           observacoes?: string | null
+          procedimento_id?: string | null
           profissional_id?: string
           tarde_fim?: string | null
           tarde_inicio?: string | null
@@ -260,6 +273,13 @@ export type Database = {
           vigencia_inicio?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "agendas_config_procedimento_id_fkey"
+            columns: ["procedimento_id"]
+            isOneToOne: false
+            referencedRelation: "procedimentos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "agendas_config_profissional_id_fkey"
             columns: ["profissional_id"]
@@ -530,6 +550,36 @@ export type Database = {
         }
         Relationships: []
       }
+      procedimentos: {
+        Row: {
+          ativo: boolean
+          codigo_sigtap: string
+          created_at: string
+          id: string
+          nome: string
+          updated_at: string
+          valor_sus: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          codigo_sigtap: string
+          created_at?: string
+          id?: string
+          nome: string
+          updated_at?: string
+          valor_sus?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          codigo_sigtap?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+          valor_sus?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           cargo: string | null
@@ -560,6 +610,7 @@ export type Database = {
       profissionais: {
         Row: {
           ativo: boolean
+          cbo: string | null
           conselho: string | null
           conselho_numero: string | null
           conselho_uf: string | null
@@ -576,6 +627,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          cbo?: string | null
           conselho?: string | null
           conselho_numero?: string | null
           conselho_uf?: string | null
@@ -592,6 +644,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          cbo?: string | null
           conselho?: string | null
           conselho_numero?: string | null
           conselho_uf?: string | null
@@ -717,6 +770,7 @@ export type Database = {
       unidades: {
         Row: {
           ativo: boolean
+          cnes: string | null
           created_at: string
           endereco: string | null
           id: string
@@ -726,6 +780,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          cnes?: string | null
           created_at?: string
           endereco?: string | null
           id?: string
@@ -735,6 +790,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          cnes?: string | null
           created_at?: string
           endereco?: string | null
           id?: string
@@ -833,9 +889,13 @@ export type Database = {
           is_encaixe: boolean
           observacoes: string
           paciente_nome: string
+          procedimento_codigo: string
+          procedimento_nome: string
+          profissional_cbo: string
           profissional_conselho: string
           profissional_nome: string
           status: Database["public"]["Enums"]["agendamento_status"]
+          unidade_cnes: string
           unidade_endereco: string
           unidade_nome: string
           unidade_telefone: string
