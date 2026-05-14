@@ -41,10 +41,10 @@ function ProfissionaisPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-stretch sm:justify-end">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => { setEditing(null); setOpen(true); }}>
+            <Button onClick={() => { setEditing(null); setOpen(true); }} className="w-full sm:w-auto">
               <Plus className="mr-1 h-4 w-4" /> Novo profissional
             </Button>
           </DialogTrigger>
@@ -53,7 +53,46 @@ function ProfissionaisPage() {
         </Dialog>
       </div>
 
-      <Card>
+      {/* Mobile cards */}
+      <div className="grid gap-2 md:hidden">
+        {isLoading && <div className="rounded-md border bg-card p-6 text-center text-muted-foreground"><Loader2 className="inline mr-2 h-4 w-4 animate-spin"/>Carregando...</div>}
+        {!isLoading && lista?.length === 0 && (
+          <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">Nenhum profissional cadastrado.</div>
+        )}
+        {lista?.map((p: any) => {
+          const us = (p.profissional_unidades ?? []).map((pu: any) => pu.unidades).filter(Boolean);
+          return (
+            <div key={p.id} className="rounded-lg border bg-card p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold">{p.nome}</div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {p.especialidades?.nome ?? "Sem especialidade"}
+                    {p.conselho ? ` · ${p.conselho} ${p.conselho_numero ?? ""}/${p.conselho_uf ?? ""}` : ""}
+                  </div>
+                </div>
+                {p.ativo ? <Badge className="bg-success/15 text-success border-0">Ativo</Badge> : <Badge variant="secondary">Inativo</Badge>}
+              </div>
+              {us.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {us.map((u: any) => <Badge key={u.id} variant="outline" className="font-normal">{u.nome}</Badge>)}
+                </div>
+              )}
+              <div className="mt-3 flex gap-2">
+                <Button asChild variant="outline" size="sm" className="flex-1">
+                  <Link to="/app/agendas" search={{ profissional: p.id } as any}><CalendarCog className="h-4 w-4 mr-1" />Agenda</Link>
+                </Button>
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => { setEditing({ ...p, _unidade_ids: us.map((u: any) => u.id) }); setOpen(true); }}>
+                  <Pencil className="h-4 w-4 mr-1" /> Editar
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop table */}
+      <Card className="hidden md:block">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
