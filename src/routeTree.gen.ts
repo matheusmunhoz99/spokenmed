@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppSessoesRouteImport } from './routes/app.sessoes'
 import { Route as AppRelatoriosRouteImport } from './routes/app.relatorios'
 import { Route as AppProfissionaisRouteImport } from './routes/app.profissionais'
 import { Route as AppPacientesRouteImport } from './routes/app.pacientes'
@@ -48,6 +49,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSessoesRoute = AppSessoesRouteImport.update({
+  id: '/sessoes',
+  path: '/sessoes',
   getParentRoute: () => AppRoute,
 } as any)
 const AppRelatoriosRoute = AppRelatoriosRouteImport.update({
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
   '/app/relatorios': typeof AppRelatoriosRoute
+  '/app/sessoes': typeof AppSessoesRoute
   '/app/': typeof AppIndexRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
 }
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
   '/app/relatorios': typeof AppRelatoriosRoute
+  '/app/sessoes': typeof AppSessoesRoute
   '/app': typeof AppIndexRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
 }
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
   '/app/relatorios': typeof AppRelatoriosRoute
+  '/app/sessoes': typeof AppSessoesRoute
   '/app/': typeof AppIndexRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
 }
@@ -168,6 +177,7 @@ export interface FileRouteTypes {
     | '/app/pacientes'
     | '/app/profissionais'
     | '/app/relatorios'
+    | '/app/sessoes'
     | '/app/'
     | '/app/configuracoes/sistema'
   fileRoutesByTo: FileRoutesByTo
@@ -184,6 +194,7 @@ export interface FileRouteTypes {
     | '/app/pacientes'
     | '/app/profissionais'
     | '/app/relatorios'
+    | '/app/sessoes'
     | '/app'
     | '/app/configuracoes/sistema'
   id:
@@ -201,6 +212,7 @@ export interface FileRouteTypes {
     | '/app/pacientes'
     | '/app/profissionais'
     | '/app/relatorios'
+    | '/app/sessoes'
     | '/app/'
     | '/app/configuracoes/sistema'
   fileRoutesById: FileRoutesById
@@ -247,6 +259,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/sessoes': {
+      id: '/app/sessoes'
+      path: '/sessoes'
+      fullPath: '/app/sessoes'
+      preLoaderRoute: typeof AppSessoesRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/relatorios': {
@@ -343,6 +362,7 @@ interface AppRouteChildren {
   AppPacientesRoute: typeof AppPacientesRoute
   AppProfissionaisRoute: typeof AppProfissionaisRoute
   AppRelatoriosRoute: typeof AppRelatoriosRoute
+  AppSessoesRoute: typeof AppSessoesRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -356,6 +376,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPacientesRoute: AppPacientesRoute,
   AppProfissionaisRoute: AppProfissionaisRoute,
   AppRelatoriosRoute: AppRelatoriosRoute,
+  AppSessoesRoute: AppSessoesRoute,
   AppIndexRoute: AppIndexRoute,
 }
 
