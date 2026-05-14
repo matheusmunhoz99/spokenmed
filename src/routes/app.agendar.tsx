@@ -267,13 +267,25 @@ function AgendarPage() {
           <div className="space-y-2">
             <div className="text-xs font-medium uppercase text-muted-foreground">Vagas livres</div>
             {!profId ? (
-              <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
-                <CalIcon className="mx-auto mb-2 h-6 w-6" /> Selecione um profissional para ver as vagas
+              <EmptyState
+                icon={CalIcon}
+                title="Selecione um profissional"
+                description="Escolha unidade e profissional para visualizar as vagas livres da data."
+                compact
+              />
+            ) : slotsLoading ? (
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="h-11 animate-pulse rounded-md bg-muted" />
+                ))}
               </div>
             ) : !slots || slots.length === 0 ? (
-              <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
-                Sem vagas livres nesta data/unidade.
-              </div>
+              <EmptyState
+                icon={CalIcon}
+                title="Sem vagas livres"
+                description="Não há horários disponíveis nesta data e unidade. Tente outra data ou crie um encaixe."
+                compact
+              />
             ) : (
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
                 {slots.map((s: any) => (
