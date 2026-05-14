@@ -39,7 +39,7 @@ function AgendaDiaPage() {
     },
   });
 
-  const updateStatus = async (a: any, status: string) => {
+  const updateStatus = async (a: any, status: "agendado"|"confirmado"|"atendido"|"faltou"|"cancelado") => {
     const { error } = await supabase.from("agendamentos").update({ status }).eq("id", a.id);
     if (error) return toast.error(error.message);
     if (status === "cancelado") {
