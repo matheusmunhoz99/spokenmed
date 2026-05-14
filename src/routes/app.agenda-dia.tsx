@@ -179,10 +179,16 @@ function AgendaDiaPage() {
                   <div className="flex items-center justify-between gap-2 md:contents">
                     <StatusBadge status={a.status} />
                     <div className="flex flex-wrap gap-1">
+                      {a.unidade_id && (
+                        <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-primary" title="Chamar paciente" onClick={() => setChamar(a)}><Megaphone className="h-4 w-4" /></Button>
+                      )}
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Confirmar" onClick={() => updateStatus(a, "confirmado")}><CheckCircle2 className="h-4 w-4" /></Button>
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Atendido" onClick={() => updateStatus(a, "atendido")}><UserCheck className="h-4 w-4" /></Button>
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Faltou" onClick={() => updateStatus(a, "faltou")}><AlertTriangle className="h-4 w-4" /></Button>
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Cancelar" onClick={() => updateStatus(a, "cancelado")}><XCircle className="h-4 w-4" /></Button>
+                      {isAdmin && (
+                        <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-destructive hover:text-destructive" title="Excluir" onClick={() => setExcluir(a)}><Trash2 className="h-4 w-4" /></Button>
+                      )}
                     </div>
                   </div>
                 </li>
@@ -191,6 +197,28 @@ function AgendaDiaPage() {
           )}
         </CardContent>
       </Card>
+
+      <ChamarDialog
+        open={!!chamar}
+        onOpenChange={(v) => !v && setChamar(null)}
+        agendamento={chamar}
+        userId={user?.id}
+      />
+
+      <AlertDialog open={!!excluir} onOpenChange={(v) => !v && setExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir agendamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação removerá permanentemente o agendamento de <strong>{excluir?.pacientes?.nome}</strong> às {excluir && formatTime(excluir.hora_inicio)}. O horário voltará a ficar livre.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => excluir && handleDelete(excluir)}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
