@@ -50,13 +50,16 @@ function LoginPage() {
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="hidden lg:flex flex-col justify-between bg-sidebar p-12 text-sidebar-foreground">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-            <HeartPulse className="h-6 w-6" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white shadow-sm overflow-hidden">
+            <img src={logo} alt="SpokenMED" className="h-11 w-11 object-contain" />
           </div>
           <div>
-            <div className="text-lg font-semibold">SpokenMed</div>
+            <div className="text-lg font-semibold">SpokenMED</div>
             <div className="text-xs text-sidebar-foreground/60">Secretaria Municipal de Saúde</div>
           </div>
+        </div>
+        <div className="flex justify-center">
+          <img src={logo} alt="" aria-hidden className="w-72 max-w-full opacity-90 drop-shadow-2xl" />
         </div>
         <div className="space-y-4 max-w-md">
           <h1 className="text-3xl font-semibold tracking-tight">Atendimento organizado, pacientes bem cuidados.</h1>
