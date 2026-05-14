@@ -89,11 +89,21 @@ export async function gerarComprovante(c: ComprovanteData) {
   }
 
   // ===== Lembretes =====
+  const pageH = doc.internal.pageSize.getHeight();
+  const lembretesH = 64;
+  if (y + 18 + lembretesH > pageH - PDF_FOOTER_MARGIN) {
+    doc.addPage();
+    y = drawHeader(doc, {
+      titulo: "Comprovante de Agendamento",
+      subtitulo: "SpokenMED · Sistema de Agendamento Médico",
+      logo,
+    });
+  }
   y += 18;
   doc.setFillColor(...PDF_COLORS.warnBg);
   doc.setDrawColor(...PDF_COLORS.warnBorder);
   doc.setLineWidth(0.6);
-  doc.roundedRect(marginX, y, pageW - marginX * 2, 64, 6, 6, "FD");
+  doc.roundedRect(marginX, y, pageW - marginX * 2, lembretesH, 6, 6, "FD");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(...PDF_COLORS.warnText);
