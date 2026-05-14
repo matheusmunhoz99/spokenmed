@@ -154,6 +154,60 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          acao: string
+          after_data: Json | null
+          before_data: Json | null
+          created_at: string
+          diff: Json | null
+          id: string
+          ip: unknown
+          modulo: string | null
+          registro_id: string | null
+          tabela: string
+          unidade_id: string | null
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+          user_role: string | null
+        }
+        Insert: {
+          acao: string
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          diff?: Json | null
+          id?: string
+          ip?: unknown
+          modulo?: string | null
+          registro_id?: string | null
+          tabela: string
+          unidade_id?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          user_role?: string | null
+        }
+        Update: {
+          acao?: string
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          diff?: Json | null
+          id?: string
+          ip?: unknown
+          modulo?: string | null
+          registro_id?: string | null
+          tabela?: string
+          unidade_id?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          user_role?: string | null
+        }
+        Relationships: []
+      }
       chamadas: {
         Row: {
           agendamento_id: string | null
@@ -660,6 +714,36 @@ export type Database = {
         Returns: boolean
       }
       is_authenticated_staff: { Args: { _user_id: string }; Returns: boolean }
+      log_auth: {
+        Args: { p_acao: string; p_ip?: string; p_ua?: string }
+        Returns: undefined
+      }
+      log_export: {
+        Args: {
+          p_filtros: Json
+          p_ip?: string
+          p_modulo: string
+          p_tabela: string
+          p_ua?: string
+        }
+        Returns: undefined
+      }
+      log_view: {
+        Args: {
+          p_ip?: string
+          p_modulo: string
+          p_registro_id: string
+          p_tabela: string
+          p_ua?: string
+        }
+        Returns: undefined
+      }
+      set_audit_context: {
+        Args: { p_ip?: string; p_modulo?: string; p_ua?: string }
+        Returns: undefined
+      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       user_can_access_unidade: {
         Args: { _unidade: string; _user: string }
         Returns: boolean
