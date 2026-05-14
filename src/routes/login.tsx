@@ -5,15 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { HeartPulse, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import logo from "@/assets/spokenmed-logo.png";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
 function LoginPage() {
-  const { user, loading, signIn, signUp } = useAuth();
+  const { user, loading, signIn } = useAuth();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,21 +28,6 @@ function LoginPage() {
     setSubmitting(false);
     if (error) toast.error(error);
     else toast.success("Bem-vindo!");
-  };
-
-  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    setSubmitting(true);
-    const { error } = await signUp(
-      String(fd.get("email")),
-      String(fd.get("password")),
-      String(fd.get("nome")),
-      String(fd.get("cargo") ?? ""),
-    );
-    setSubmitting(false);
-    if (error) toast.error(error);
-    else toast.success("Conta criada! Você já pode entrar.");
   };
 
   return (
@@ -72,56 +56,25 @@ function LoginPage() {
           </div>
           <CardHeader>
             <CardTitle className="text-xl sm:text-2xl">Acesso ao sistema</CardTitle>
-            <CardDescription>Entre com suas credenciais ou crie a primeira conta administradora.</CardDescription>
+            <CardDescription>Acesso restrito. Sua conta é criada e liberada por um administrador.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="signin">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Entrar</TabsTrigger>
-                <TabsTrigger value="signup">Criar conta</TabsTrigger>
-              </TabsList>
-              <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-4 mt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">E-mail</Label>
-                    <Input id="email" name="email" type="email" required autoComplete="email" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Senha</Label>
-                    <Input id="password" name="password" type="password" required autoComplete="current-password" />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={submitting}>
-                    {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Entrar
-                  </Button>
-                </form>
-              </TabsContent>
-              <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-4 mt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="nome">Nome completo</Label>
-                    <Input id="nome" name="nome" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cargo">Cargo / Função</Label>
-                    <Input id="cargo" name="cargo" placeholder="Ex.: Recepcionista UBS Centro" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">E-mail</Label>
-                    <Input id="signup-email" name="email" type="email" required autoComplete="email" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Senha</Label>
-                    <Input id="signup-password" name="password" type="password" required minLength={6} autoComplete="new-password" />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={submitting}>
-                    {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Criar conta
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    O <strong>primeiro usuário</strong> criado vira administrador automaticamente. Os demais entram como recepcionistas.
-                  </p>
-                </form>
-              </TabsContent>
-            </Tabs>
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">E-mail</Label>
+                <Input id="email" name="email" type="email" required autoComplete="email" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha</Label>
+                <Input id="password" name="password" type="password" required autoComplete="current-password" />
+              </div>
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Entrar
+              </Button>
+              <p className="pt-2 text-center text-xs text-muted-foreground">
+                Não tem acesso? Solicite ao administrador da Secretaria.
+              </p>
+            </form>
             <div className="mt-6 text-center text-xs text-muted-foreground">
               <Link to="/" className="hover:underline">Voltar</Link>
             </div>
