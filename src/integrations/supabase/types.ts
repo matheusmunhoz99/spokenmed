@@ -337,6 +337,39 @@ export type Database = {
           },
         ]
       }
+      profissional_unidades: {
+        Row: {
+          created_at: string
+          profissional_id: string
+          unidade_id: string
+        }
+        Insert: {
+          created_at?: string
+          profissional_id: string
+          unidade_id: string
+        }
+        Update: {
+          created_at?: string
+          profissional_id?: string
+          unidade_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profissional_unidades_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profissional_unidades_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       slots: {
         Row: {
           agenda_config_id: string | null
@@ -446,6 +479,32 @@ export type Database = {
         }
         Relationships: []
       }
+      user_unidades: {
+        Row: {
+          created_at: string
+          unidade_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          unidade_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          unidade_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_unidades_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -460,6 +519,14 @@ export type Database = {
         Returns: boolean
       }
       is_authenticated_staff: { Args: { _user_id: string }; Returns: boolean }
+      user_can_access_unidade: {
+        Args: { _unidade: string; _user: string }
+        Returns: boolean
+      }
+      user_can_see_profissional: {
+        Args: { _prof: string; _user: string }
+        Returns: boolean
+      }
     }
     Enums: {
       agendamento_status:
