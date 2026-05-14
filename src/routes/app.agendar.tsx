@@ -20,7 +20,6 @@ import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { formatCPF, formatCNS, formatTime, onlyDigits } from "@/lib/format";
 import { gerarComprovante } from "@/lib/pdf-comprovante";
 
-import { useAuth } from "@/hooks/use-auth";
 import { SemAcesso } from "@/components/sem-acesso";
 function AgendarGuard() {
   const { can } = useAuth();
