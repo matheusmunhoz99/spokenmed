@@ -19,6 +19,7 @@ import { ChamarDialog } from "@/components/chamar-dialog";
 import { ReagendarDialog } from "@/components/reagendar-dialog";
 import { HistoricoDialog } from "@/components/historico-dialog";
 import { EncaixeDialog } from "@/components/encaixe-dialog";
+import { AnexosDialog } from "@/components/anexos-dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -50,6 +51,7 @@ function AgendaDiaPage() {
   const [reagendar, setReagendar] = useState<any>(null);
   const [historico, setHistorico] = useState<any>(null);
   const [encaixeOpen, setEncaixeOpen] = useState(false);
+  const [anexos, setAnexos] = useState<any>(null);
 
   const { data: unidades } = useAllowedUnidades();
   const allowedIds = useMemo(() => (unidades ?? []).map((u: any) => u.id), [unidades]);
@@ -223,6 +225,7 @@ function AgendaDiaPage() {
                       {!a.is_encaixe && a.slot_id && (
                         <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Reagendar" onClick={() => setReagendar(a)}><CalendarClock className="h-4 w-4" /></Button>
                       )}
+                      <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Anexos" onClick={() => setAnexos(a)}><Paperclip className="h-4 w-4" /></Button>
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Histórico" onClick={() => setHistorico(a)}><History className="h-4 w-4" /></Button>
                       {isAdmin && (
                         <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-destructive hover:text-destructive" title="Excluir" onClick={() => setExcluir(a)}><Trash2 className="h-4 w-4" /></Button>
@@ -272,6 +275,12 @@ function AgendaDiaPage() {
       />
 
       <EncaixeDialog open={encaixeOpen} onOpenChange={setEncaixeOpen} />
+
+      <AnexosDialog
+        open={!!anexos}
+        onOpenChange={(v) => !v && setAnexos(null)}
+        agendamento={anexos}
+      />
     </div>
   );
 }
