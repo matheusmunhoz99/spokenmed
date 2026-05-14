@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      agendamento_anexos: {
+        Row: {
+          agendamento_id: string
+          categoria: Database["public"]["Enums"]["anexo_categoria"]
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          descricao: string | null
+          id: string
+          mime: string
+          nome_original: string
+          paciente_id: string | null
+          storage_path: string
+          tamanho_bytes: number
+          unidade_id: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          agendamento_id: string
+          categoria?: Database["public"]["Enums"]["anexo_categoria"]
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          descricao?: string | null
+          id?: string
+          mime: string
+          nome_original: string
+          paciente_id?: string | null
+          storage_path: string
+          tamanho_bytes: number
+          unidade_id?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          agendamento_id?: string
+          categoria?: Database["public"]["Enums"]["anexo_categoria"]
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          descricao?: string | null
+          id?: string
+          mime?: string
+          nome_original?: string
+          paciente_id?: string | null
+          storage_path?: string
+          tamanho_bytes?: number
+          unidade_id?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       agendamento_historico: {
         Row: {
           agendamento_id: string
@@ -828,6 +879,12 @@ export type Database = {
         | "atendido"
         | "faltou"
         | "cancelado"
+      anexo_categoria:
+        | "pedido_medico"
+        | "exame"
+        | "documento"
+        | "foto"
+        | "outro"
       app_role: "admin" | "recepcionista" | "medico"
       fila_status: "aguardando" | "agendado" | "concluido" | "cancelado"
       fila_urgencia: "normal" | "prioritaria" | "urgente"
@@ -967,6 +1024,7 @@ export const Constants = {
         "faltou",
         "cancelado",
       ],
+      anexo_categoria: ["pedido_medico", "exame", "documento", "foto", "outro"],
       app_role: ["admin", "recepcionista", "medico"],
       fila_status: ["aguardando", "agendado", "concluido", "cancelado"],
       fila_urgencia: ["normal", "prioritaria", "urgente"],
