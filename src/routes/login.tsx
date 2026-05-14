@@ -60,10 +60,18 @@ function LoginPage() {
         <div className="text-xs text-sidebar-foreground/50">© SpokenMED · Uso institucional</div>
       </div>
 
-      <div className="flex items-center justify-center p-6">
+      <div
+        className="flex items-center justify-center px-4 py-8 sm:p-6"
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 2rem)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 2rem)" }}
+      >
         <Card className="w-full max-w-md">
+          <div className="flex flex-col items-center gap-2 pt-6 lg:hidden">
+            <img src={logo} alt="SpokenMED" className="h-16 w-16 object-contain drop-shadow-md" />
+            <div className="text-base font-semibold">SpokenMED</div>
+            <div className="text-[11px] text-muted-foreground">Secretaria Municipal de Saúde</div>
+          </div>
           <CardHeader>
-            <CardTitle className="text-2xl">Acesso ao sistema</CardTitle>
+            <CardTitle className="text-xl sm:text-2xl">Acesso ao sistema</CardTitle>
             <CardDescription>Entre com suas credenciais ou crie a primeira conta administradora.</CardDescription>
           </CardHeader>
           <CardContent>
