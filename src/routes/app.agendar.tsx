@@ -121,7 +121,7 @@ function AgendarPage() {
 
   useEffect(() => { setSlot(null); }, [profId, data]);
 
-  const { data: slots } = useQuery({
+  const { data: slots, isLoading: slotsLoading } = useQuery({
     queryKey: ["slots-ag", profId, data, unidadeId],
     enabled: !!profId && !!data && !!unidadeId,
     queryFn: async () => {
