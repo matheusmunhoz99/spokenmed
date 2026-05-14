@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import { formatCPF, formatPhone, formatTime } from "./format";
-import { PDF_COLORS, drawHeader, drawFooterAllPages, loadLogo, openPdf } from "./pdf-shared";
+import { PDF_COLORS, drawHeader, drawFooterAllPages, loadLogo, openPdf, PDF_FOOTER_MARGIN } from "./pdf-shared";
 
 export type ComprovanteData = {
   codigo: string;
