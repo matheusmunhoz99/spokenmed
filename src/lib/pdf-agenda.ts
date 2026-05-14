@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatCPF, formatPhone, formatTime } from "./format";
-import { PDF_COLORS, drawHeader, drawFooterAllPages, loadLogo, openPdf, STATUS_LABEL } from "./pdf-shared";
+import { PDF_COLORS, drawHeader, drawFooterAllPages, loadLogo, openPdf, STATUS_LABEL, PDF_FOOTER_MARGIN } from "./pdf-shared";
 
 export type AgendaItem = {
   hora_inicio: string;
