@@ -149,12 +149,12 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<any>(editing ?? {
     nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "",
-    especialidade_id: "", email: "", telefone: "", ativo: true,
+    especialidade_id: "", email: "", telefone: "", sala: "", ativo: true,
   });
   const [unidadeIds, setUnidadeIds] = useState<string[]>(editing?._unidade_ids ?? []);
 
   useEffect(() => {
-    setForm(editing ?? { nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "", especialidade_id: "", email: "", telefone: "", ativo: true });
+    setForm(editing ?? { nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "", especialidade_id: "", email: "", telefone: "", sala: "", ativo: true });
     setUnidadeIds(editing?._unidade_ids ?? []);
   }, [editing]);
 
