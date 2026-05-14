@@ -107,6 +107,7 @@ function PacientesPage() {
                 { header: "UF", get: (p: any) => p.uf ?? "" },
                 { header: "Observações", get: (p: any) => p.observacoes ?? "" },
               ]);
+              import("@/lib/audit").then((m) => m.logExport("pacientes", "pacientes", { search, count: data.length }));
               toast.success(`${data.length} pacientes exportados`);
             }}
           >
