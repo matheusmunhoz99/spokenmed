@@ -252,6 +252,15 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
           <Label className="text-xs">E-mail</Label>
           <Input type="email" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} />
         </div>
+        <div className="space-y-1.5 md:col-span-2">
+          <Label className="text-xs">Sala padrão</Label>
+          <Input
+            value={form.sala ?? ""}
+            placeholder="Ex.: Consultório 3, Sala 12, Triagem A"
+            onChange={(e) => set("sala", e.target.value)}
+          />
+          <p className="text-[11px] text-muted-foreground">Usada como sugestão ao chamar o paciente no painel.</p>
+        </div>
         <DialogFooter className="md:col-span-2">
           <Button type="submit" disabled={submitting}>
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
