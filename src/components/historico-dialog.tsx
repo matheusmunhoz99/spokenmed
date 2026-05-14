@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { History, Loader2 } from "lucide-react";
+import { History } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
+import { LoadingState } from "@/components/loading-state";
 
 const EVENTO_LABEL: Record<string, { label: string; color: string }> = {
   criado: { label: "Criado", color: "bg-blue-100 text-blue-800 border-blue-200" },
@@ -37,11 +39,9 @@ export function HistoricoDialog({
         </DialogHeader>
 
         {isLoading ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            <Loader2 className="inline h-4 w-4 animate-spin mr-2" /> Carregando...
-          </div>
+          <LoadingState variant="list" rows={3} />
         ) : !rows || rows.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">Sem eventos.</div>
+          <EmptyState icon={History} title="Sem eventos no histórico" compact />
         ) : (
           <ol className="relative space-y-4 border-l border-muted pl-6">
             {rows.map((r: any) => {

@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, CalendarClock } from "lucide-react";
+import { Loader2, CalendarClock, CalendarX } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { formatTime } from "@/lib/format";
 
 type Props = {
@@ -105,11 +106,13 @@ export function ReagendarDialog({ open, onOpenChange, agendamento }: Props) {
           <div className="space-y-1.5">
             <Label className="text-xs">Novo horário (vagas livres)</Label>
             {isLoading ? (
-              <div className="text-sm text-muted-foreground"><Loader2 className="inline h-3.5 w-3.5 animate-spin mr-2" />Carregando...</div>
-            ) : !slots || slots.length === 0 ? (
-              <div className="rounded-md border border-dashed p-3 text-center text-sm text-muted-foreground">
-                Sem vagas livres nesta data.
+              <div className="grid max-h-48 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="h-10 animate-pulse rounded-md bg-muted" />
+                ))}
               </div>
+            ) : !slots || slots.length === 0 ? (
+              <EmptyState icon={CalendarX} title="Sem vagas livres nesta data" compact />
             ) : (
               <div className="grid max-h-48 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
                 {slots.map((s: any) => (

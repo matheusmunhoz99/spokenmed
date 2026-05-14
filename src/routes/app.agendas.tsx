@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, Trash2 } from "lucide-react";
+import { Loader2, Sparkles, Trash2, CalendarPlus } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { formatTime } from "@/lib/format";
@@ -121,9 +122,11 @@ function AgendasPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {!configs || configs.length === 0 ? (
-                <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
-                  Nenhuma agenda nesta unidade. Crie a primeira acima para gerar as vagas.
-                </div>
+                <EmptyState
+                  icon={CalendarPlus}
+                  title="Nenhuma agenda configurada"
+                  description="Crie a primeira configuração de agenda acima para gerar as vagas desta unidade."
+                />
               ) : (
                 configs.map((c: any) => <ConfigItem key={c.id} cfg={c} onChanged={refetch} />)
               )}

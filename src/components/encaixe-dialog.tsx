@@ -11,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Search, ZapIcon } from "lucide-react";
+import { Loader2, Search, ZapIcon, UserSearch } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
+import { LoadingState } from "@/components/loading-state";
 import { useAuth } from "@/hooks/use-auth";
 import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { formatCPF, onlyDigits } from "@/lib/format";
@@ -53,7 +55,7 @@ export function EncaixeDialog({ open, onOpenChange }: Props) {
     },
   });
 
-  const { data: pacResults } = useQuery({
+  const { data: pacResults, isFetching: pacLoading } = useQuery({
     queryKey: ["enc-pac", search],
     enabled: search.length >= 2,
     queryFn: async () => {
@@ -158,6 +160,8 @@ export function EncaixeDialog({ open, onOpenChange }: Props) {
                 <div className="text-xs text-muted-foreground">{paciente.cpf ? formatCPF(paciente.cpf) : ""}</div>
                 <Button variant="link" size="sm" className="px-0 h-auto" onClick={() => setPaciente(null)}>Trocar</Button>
               </div>
+            ) : search.length >= 2 && pacLoading ? (
+              <LoadingState variant="list" rows={2} />
             ) : pacResults && pacResults.length > 0 ? (
               <ul className="max-h-40 divide-y overflow-y-auto rounded-md border">
                 {pacResults.map((p: any) => (
@@ -169,6 +173,8 @@ export function EncaixeDialog({ open, onOpenChange }: Props) {
                   </li>
                 ))}
               </ul>
+            ) : search.length >= 2 ? (
+              <EmptyState icon={UserSearch} title="Nenhum paciente encontrado" compact />
             ) : null}
           </div>
 

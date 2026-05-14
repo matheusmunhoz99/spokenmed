@@ -12,7 +12,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Search, Check, Calendar as CalIcon, FileText } from "lucide-react";
+import { Loader2, Search, Check, Calendar as CalIcon, FileText, UserSearch, UserPlus } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
+import { LoadingState } from "@/components/loading-state";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
@@ -119,7 +121,7 @@ function AgendarPage() {
 
   useEffect(() => { setSlot(null); }, [profId, data]);
 
-  const { data: slots } = useQuery({
+  const { data: slots, isLoading: slotsLoading } = useQuery({
     queryKey: ["slots-ag", profId, data, unidadeId],
     enabled: !!profId && !!data && !!unidadeId,
     queryFn: async () => {
@@ -131,7 +133,7 @@ function AgendarPage() {
     },
   });
 
-  const { data: pacResults } = useQuery({
+  const { data: pacResults, isFetching: pacLoading } = useQuery({
     queryKey: ["pac-search-ag", search],
     enabled: search.length >= 2,
     queryFn: async () => {
@@ -265,13 +267,25 @@ function AgendarPage() {
           <div className="space-y-2">
             <div className="text-xs font-medium uppercase text-muted-foreground">Vagas livres</div>
             {!profId ? (
-              <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
-                <CalIcon className="mx-auto mb-2 h-6 w-6" /> Selecione um profissional para ver as vagas
+              <EmptyState
+                icon={CalIcon}
+                title="Selecione um profissional"
+                description="Escolha unidade e profissional para visualizar as vagas livres da data."
+                compact
+              />
+            ) : slotsLoading ? (
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="h-11 animate-pulse rounded-md bg-muted" />
+                ))}
               </div>
             ) : !slots || slots.length === 0 ? (
-              <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
-                Sem vagas livres nesta data/unidade.
-              </div>
+              <EmptyState
+                icon={CalIcon}
+                title="Sem vagas livres"
+                description="Não há horários disponíveis nesta data e unidade. Tente outra data ou crie um encaixe."
+                compact
+              />
             ) : (
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
                 {slots.map((s: any) => (
@@ -304,6 +318,8 @@ function AgendarPage() {
               </div>
               <Button variant="link" size="sm" className="px-0 h-auto" onClick={() => setPaciente(null)}>Trocar paciente</Button>
             </div>
+          ) : search.length >= 2 && pacLoading ? (
+            <LoadingState variant="list" rows={3} />
           ) : pacResults && pacResults.length > 0 ? (
             <ul className="rounded-md border divide-y max-h-60 overflow-y-auto">
               {pacResults.map((p: any) => (
@@ -316,8 +332,21 @@ function AgendarPage() {
               ))}
             </ul>
           ) : search.length >= 2 ? (
-            <div className="text-xs text-muted-foreground py-2">Nenhum paciente encontrado. <a href="/app/pacientes" className="text-primary hover:underline">Cadastrar novo</a></div>
-          ) : null}
+            <EmptyState
+              icon={UserSearch}
+              title="Nenhum paciente encontrado"
+              description="Verifique a grafia do nome, ou cadastre um novo paciente."
+              action={{ label: "Cadastrar novo", icon: UserPlus, onClick: () => navigate({ to: "/app/pacientes" }) }}
+              compact
+            />
+          ) : (
+            <EmptyState
+              icon={Search}
+              title="Busque um paciente"
+              description="Digite ao menos 2 letras do nome ou 3 dígitos do CPF/CNS."
+              compact
+            />
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-xs">Procedimento SIGTAP</Label>

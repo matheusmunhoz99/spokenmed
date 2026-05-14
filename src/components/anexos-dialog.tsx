@@ -10,6 +10,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { Loader2, Upload, Download, Trash2, Paperclip, FileText, Image as ImageIcon, File } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
+import { LoadingState } from "@/components/loading-state";
 import { format } from "date-fns";
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -185,9 +187,9 @@ export function AnexosDialog({
         <div className="space-y-2">
           <h4 className="text-sm font-medium">Arquivos ({anexos?.length ?? 0})</h4>
           {isLoading ? (
-            <div className="py-6 text-center text-sm text-muted-foreground"><Loader2 className="inline h-4 w-4 animate-spin" /> Carregando...</div>
+            <LoadingState variant="list" rows={3} />
           ) : !anexos?.length ? (
-            <div className="rounded-md border border-dashed py-6 text-center text-sm text-muted-foreground">Nenhum anexo enviado.</div>
+            <EmptyState icon={Paperclip} title="Nenhum anexo enviado" description="Envie pedidos médicos, exames ou documentos relacionados ao agendamento." compact />
           ) : (
             <ul className="divide-y rounded-md border">
               {anexos.map((a: any) => (
