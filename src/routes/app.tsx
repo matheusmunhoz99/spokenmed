@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, Navigate, useRouterState } from "@tanstack/rea
 import { useAuth } from "@/hooks/use-auth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/app")({ component: AppLayout });
@@ -36,18 +37,25 @@ function AppLayout() {
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
-        <div className="flex flex-1 flex-col">
-          <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b bg-card/80 px-4 backdrop-blur">
-            <SidebarTrigger />
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-semibold">{title}</span>
-              <span className="text-[11px] text-muted-foreground">SpokenMed · Secretaria de Saúde</span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header
+            className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-card/85 px-3 backdrop-blur sm:px-4"
+            style={{ paddingTop: "env(safe-area-inset-top, 0px)", height: "calc(3.5rem + env(safe-area-inset-top, 0px))" }}
+          >
+            <SidebarTrigger className="shrink-0" />
+            <div className="flex min-w-0 flex-col leading-tight">
+              <span className="truncate text-sm font-semibold">{title}</span>
+              <span className="truncate text-[11px] text-muted-foreground">SpokenMED · Secretaria de Saúde</span>
             </div>
           </header>
-          <main className="flex-1 p-6">
+          <main
+            className="min-w-0 flex-1 p-4 pb-24 sm:p-5 md:p-6 md:pb-6"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5.5rem)" }}
+          >
             <Outlet />
           </main>
         </div>
+        <MobileBottomNav />
       </div>
     </SidebarProvider>
   );

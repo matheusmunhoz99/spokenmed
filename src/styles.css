@@ -115,9 +115,25 @@
 
 @layer base {
   * { border-color: var(--color-border); }
+  html, body {
+    overscroll-behavior-y: none;
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+  /* Evita zoom automático do iOS ao focar inputs (fonte mínima 16px no mobile) */
+  @media (max-width: 767px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+  }
+  /* Inputs com aparência de app no mobile */
+  input[type="date"],
+  input[type="time"] {
+    min-height: 2.5rem;
   }
 }
