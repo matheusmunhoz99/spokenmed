@@ -39,11 +39,9 @@ export function HistoricoDialog({
         </DialogHeader>
 
         {isLoading ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            <Loader2 className="inline h-4 w-4 animate-spin mr-2" /> Carregando...
-          </div>
+          <LoadingState variant="list" rows={3} />
         ) : !rows || rows.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">Sem eventos.</div>
+          <EmptyState icon={History} title="Sem eventos no histórico" compact />
         ) : (
           <ol className="relative space-y-4 border-l border-muted pl-6">
             {rows.map((r: any) => {
