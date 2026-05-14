@@ -223,6 +223,7 @@ export type Database = {
           status: Database["public"]["Enums"]["fila_status"]
           unidade_id: string
           updated_at: string
+          urgencia: Database["public"]["Enums"]["fila_urgencia"]
         }
         Insert: {
           agendamento_id?: string | null
@@ -235,6 +236,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["fila_status"]
           unidade_id: string
           updated_at?: string
+          urgencia?: Database["public"]["Enums"]["fila_urgencia"]
         }
         Update: {
           agendamento_id?: string | null
@@ -247,6 +249,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["fila_status"]
           unidade_id?: string
           updated_at?: string
+          urgencia?: Database["public"]["Enums"]["fila_urgencia"]
         }
         Relationships: [
           {
@@ -675,6 +678,7 @@ export type Database = {
         | "cancelado"
       app_role: "admin" | "recepcionista" | "medico"
       fila_status: "aguardando" | "agendado" | "concluido" | "cancelado"
+      fila_urgencia: "normal" | "prioritaria" | "urgente"
       sexo_tipo: "M" | "F" | "O"
       slot_status: "livre" | "reservado" | "bloqueado"
     }
@@ -813,6 +817,7 @@ export const Constants = {
       ],
       app_role: ["admin", "recepcionista", "medico"],
       fila_status: ["aguardando", "agendado", "concluido", "cancelado"],
+      fila_urgencia: ["normal", "prioritaria", "urgente"],
       sexo_tipo: ["M", "F", "O"],
       slot_status: ["livre", "reservado", "bloqueado"],
     },
