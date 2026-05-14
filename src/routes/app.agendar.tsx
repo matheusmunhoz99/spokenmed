@@ -318,6 +318,8 @@ function AgendarPage() {
               </div>
               <Button variant="link" size="sm" className="px-0 h-auto" onClick={() => setPaciente(null)}>Trocar paciente</Button>
             </div>
+          ) : search.length >= 2 && pacLoading ? (
+            <LoadingState variant="list" rows={3} />
           ) : pacResults && pacResults.length > 0 ? (
             <ul className="rounded-md border divide-y max-h-60 overflow-y-auto">
               {pacResults.map((p: any) => (
@@ -330,8 +332,21 @@ function AgendarPage() {
               ))}
             </ul>
           ) : search.length >= 2 ? (
-            <div className="text-xs text-muted-foreground py-2">Nenhum paciente encontrado. <a href="/app/pacientes" className="text-primary hover:underline">Cadastrar novo</a></div>
-          ) : null}
+            <EmptyState
+              icon={UserSearch}
+              title="Nenhum paciente encontrado"
+              description="Verifique a grafia do nome, ou cadastre um novo paciente."
+              action={{ label: "Cadastrar novo", icon: UserPlus, onClick: () => navigate({ to: "/app/pacientes" }) }}
+              compact
+            />
+          ) : (
+            <EmptyState
+              icon={Search}
+              title="Busque um paciente"
+              description="Digite ao menos 2 letras do nome ou 3 dígitos do CPF/CNS."
+              compact
+            />
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-xs">Procedimento SIGTAP</Label>
