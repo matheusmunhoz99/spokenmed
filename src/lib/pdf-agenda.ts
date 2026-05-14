@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatCPF, formatPhone, formatTime } from "./format";
-import { PDF_COLORS, drawHeader, drawFooterAllPages, loadLogo, STATUS_LABEL } from "./pdf-shared";
+import { PDF_COLORS, drawHeader, drawFooterAllPages, loadLogo, openPdf, STATUS_LABEL } from "./pdf-shared";
 
 export type AgendaItem = {
   hora_inicio: string;
@@ -180,5 +180,5 @@ function saveDoc(doc: jsPDF, unidadeNome: string, data: string) {
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "") || "todas";
-  doc.save(`agenda_${slug}_${data}.pdf`);
+  openPdf(doc, `agenda_${slug}_${data}.pdf`);
 }

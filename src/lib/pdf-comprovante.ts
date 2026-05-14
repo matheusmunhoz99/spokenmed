@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import { formatCPF, formatPhone, formatTime } from "./format";
-import { PDF_COLORS, drawHeader, drawFooterAllPages, loadLogo } from "./pdf-shared";
+import { PDF_COLORS, drawHeader, drawFooterAllPages, loadLogo, openPdf } from "./pdf-shared";
 
 export type ComprovanteData = {
   codigo: string;
@@ -104,7 +104,7 @@ export async function gerarComprovante(c: ComprovanteData) {
   doc.text("• Em caso de impossibilidade, entre em contato com pelo menos 24h de antecedência.", marginX + 14, y + 52);
 
   drawFooterAllPages(doc, { emitidoPor: c.emitidoPor, logo });
-  doc.save(`comprovante_${c.codigo.slice(0, 8)}.pdf`);
+  openPdf(doc, `comprovante_${c.codigo.slice(0, 8)}.pdf`);
 }
 
 type CardLine = { label: string; value: string; full?: boolean };
