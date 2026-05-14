@@ -291,6 +291,7 @@ export type Database = {
           telefone: string | null
           unidade_id: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           ativo?: boolean
@@ -305,6 +306,7 @@ export type Database = {
           telefone?: string | null
           unidade_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           ativo?: boolean
@@ -319,6 +321,7 @@ export type Database = {
           telefone?: string | null
           unidade_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -458,6 +461,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_permissions: {
+        Row: {
+          can_manage: boolean
+          can_view: boolean
+          created_at: string
+          module: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          can_manage?: boolean
+          can_view?: boolean
+          created_at?: string
+          module: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          can_manage?: boolean
+          can_view?: boolean
+          created_at?: string
+          module?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -511,6 +541,10 @@ export type Database = {
     }
     Functions: {
       gerar_slots: { Args: { _config_id: string }; Returns: number }
+      has_permission: {
+        Args: { _action: string; _module: string; _user: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -535,7 +569,7 @@ export type Database = {
         | "atendido"
         | "faltou"
         | "cancelado"
-      app_role: "admin" | "recepcionista"
+      app_role: "admin" | "recepcionista" | "medico"
       sexo_tipo: "M" | "F" | "O"
       slot_status: "livre" | "reservado" | "bloqueado"
     }
@@ -672,7 +706,7 @@ export const Constants = {
         "faltou",
         "cancelado",
       ],
-      app_role: ["admin", "recepcionista"],
+      app_role: ["admin", "recepcionista", "medico"],
       sexo_tipo: ["M", "F", "O"],
       slot_status: ["livre", "reservado", "bloqueado"],
     },
