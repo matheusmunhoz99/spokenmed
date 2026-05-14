@@ -75,7 +75,8 @@ export async function gerarPdfAgenda({ data, unidadeNome, agendamentos, usuarioN
   }
 
   for (const g of gruposOrdenados) {
-    if (y > pageH - 140) {
+    // garante espaço para faixa do prof + cabeçalho da tabela + 1 linha (~140pt) antes de iniciar bloco
+    if (y > pageH - PDF_FOOTER_MARGIN - 140) {
       doc.addPage();
       y = 60;
     }
