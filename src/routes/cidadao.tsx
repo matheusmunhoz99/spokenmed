@@ -225,7 +225,19 @@ function Resultado({ data, onNova }: { data: Resultado; onNova: () => void }) {
                 <Phone className="mr-1 inline h-3 w-3" /> {data.unidade_telefone}
               </div>
             )}
+            {data.unidade_cnes && (
+              <div className="mt-1 text-xs text-muted-foreground font-mono">CNES {data.unidade_cnes}</div>
+            )}
           </Section>
+
+          {(data.procedimento_codigo || data.procedimento_nome) && (
+            <Section icon={<></>} title="Procedimento (SIGTAP)">
+              <div className="text-sm">
+                {data.procedimento_codigo && <span className="font-mono mr-2">{data.procedimento_codigo}</span>}
+                {data.procedimento_nome}
+              </div>
+            </Section>
+          )}
 
           <Section icon={<></>} title="Paciente">
             <div className="text-base font-medium">{data.paciente_nome}</div>
