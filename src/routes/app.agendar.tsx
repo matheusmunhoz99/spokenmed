@@ -315,6 +315,18 @@ function AgendarPage() {
           ) : null}
 
           <div className="space-y-1.5">
+            <Label className="text-xs">Procedimento SIGTAP</Label>
+            <Select value={procedimentoId} onValueChange={setProcedimentoId}>
+              <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
+              <SelectContent>
+                {(procedimentos ?? []).map((p: any) => (
+                  <SelectItem key={p.id} value={p.id}>{p.codigo_sigtap} · {p.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
             <Label className="text-xs">Motivo / queixa</Label>
             <Textarea rows={2} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Opcional" />
           </div>
