@@ -39,9 +39,11 @@ function UnidadesCard() {
 
   const add = async () => {
     if (!nome) return;
-    const { error } = await supabase.from("unidades").insert({ nome, endereco: endereco || null, telefone: telefone || null });
+    const cnesClean = cnes.replace(/\D/g, "");
+    if (cnesClean && cnesClean.length !== 7) return toast.error("CNES deve ter 7 dígitos.");
+    const { error } = await supabase.from("unidades").insert({ nome, endereco: endereco || null, telefone: telefone || null, cnes: cnesClean || null });
     if (error) return toast.error(error.message);
-    setNome(""); setEndereco(""); setTelefone(""); toast.success("Unidade cadastrada");
+    setNome(""); setEndereco(""); setTelefone(""); setCnes(""); toast.success("Unidade cadastrada");
     qc.invalidateQueries({ queryKey: ["unidades"] });
   };
   const toggle = async (u: any) => {
