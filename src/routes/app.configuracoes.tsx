@@ -22,9 +22,12 @@ export const Route = createFileRoute("/app/configuracoes")({ component: ConfigGu
 
 function ConfigPage() {
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <UnidadesCard />
-      <EspecialidadesCard />
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <UnidadesCard />
+        <EspecialidadesCard />
+      </div>
+      <ProcedimentosCard />
     </div>
   );
 }
