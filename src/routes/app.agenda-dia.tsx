@@ -257,6 +257,21 @@ function AgendaDiaPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ReagendarDialog
+        open={!!reagendar}
+        onOpenChange={(v) => !v && setReagendar(null)}
+        agendamento={reagendar}
+      />
+
+      <HistoricoDialog
+        open={!!historico}
+        onOpenChange={(v) => !v && setHistorico(null)}
+        agendamentoId={historico?.id ?? null}
+        pacienteNome={historico?.pacientes?.nome}
+      />
+
+      <EncaixeDialog open={encaixeOpen} onOpenChange={setEncaixeOpen} />
     </div>
   );
 }
