@@ -74,6 +74,7 @@ function RelatoriosPage() {
   const [unidadeId, setUnidadeId] = useState<string>("all");
   const [profId, setProfId] = useState<string>("all");
   const [espId, setEspId] = useState<string>("all");
+  const [procId, setProcId] = useState<string>("all");
 
   const { data: unidades } = useAllowedUnidades();
   const allowedIds = useMemo(() => (unidades ?? []).map((u: any) => u.id), [unidades]);
@@ -82,6 +83,15 @@ function RelatoriosPage() {
     queryKey: ["esp-rel"],
     queryFn: async () => {
       const { data, error } = await supabase.from("especialidades").select("id,nome").eq("ativo", true).order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: procedimentos } = useQuery({
+    queryKey: ["proc-rel"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("procedimentos").select("id,codigo_sigtap,nome").eq("ativo", true).order("codigo_sigtap");
       if (error) throw error;
       return data;
     },
@@ -101,12 +111,12 @@ function RelatoriosPage() {
 
   // Agendamentos no período
   const { data: ags, isLoading: loadingAgs } = useQuery({
-    queryKey: ["rel-ags", from, to, unidadeId, profId, espId, allowedIds.join(",")],
+    queryKey: ["rel-ags", from, to, unidadeId, profId, espId, procId, allowedIds.join(",")],
     enabled: !!unidades,
     queryFn: async () => {
       let q = supabase
         .from("agendamentos")
-        .select("id,data,status,is_encaixe,unidade_id,profissional_id,profissionais(nome,especialidade_id,especialidades(nome)),unidades(nome)")
+        .select("id,data,status,is_encaixe,unidade_id,profissional_id,procedimento_id,profissionais(nome,especialidade_id,especialidades(nome)),unidades(nome),procedimentos(codigo_sigtap,nome)")
         .gte("data", from)
         .lte("data", to)
         .order("data", { ascending: true })
@@ -114,6 +124,7 @@ function RelatoriosPage() {
       if (unidadeId !== "all") q = q.eq("unidade_id", unidadeId);
       else if (allowedIds.length) q = q.in("unidade_id", allowedIds);
       if (profId !== "all") q = q.eq("profissional_id", profId);
+      if (procId !== "all") q = q.eq("procedimento_id", procId);
       const { data, error } = await q;
       if (error) throw error;
       let rows = data ?? [];
