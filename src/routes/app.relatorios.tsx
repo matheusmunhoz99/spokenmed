@@ -248,10 +248,12 @@ function RelatoriosPage() {
       profissional: r.profissionais?.nome ?? "",
       especialidade: r.profissionais?.especialidades?.nome ?? "",
       unidade: r.unidades?.nome ?? "",
+      procedimento_sigtap: r.procedimentos?.codigo_sigtap ?? "",
+      procedimento_nome: r.procedimentos?.nome ?? "",
       encaixe: r.is_encaixe ? "sim" : "nao",
     }));
     downloadCsv(`producao_${from}_a_${to}.csv`, rows);
-    logExport("agendamentos", "relatorios", { from, to, unidadeId, profId, espId });
+    logExport("agendamentos", "relatorios", { from, to, unidadeId, profId, espId, procId });
   }
   function exportFila() {
     const rows = (fila ?? []).map((r: any) => ({
