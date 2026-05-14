@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-router";
 import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/sonner";
+import { InstallPwaPrompt } from "@/components/install-pwa-prompt";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -45,7 +46,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "SpokenMed — Agendamento Médico Municipal" },
       { name: "description", content: "Sistema de agendamento médico para a Secretaria de Saúde." },
       { property: "og:title", content: "SpokenMed — Agendamento Médico Municipal" },
@@ -55,8 +56,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "author", content: "Matheus Munhoz" },
       { name: "twitter:card", content: "summary" },
       { property: "og:type", content: "website" },
+      // PWA / mobile app
+      { name: "theme-color", content: "#0b1220" },
+      { name: "application-name", content: "SpokenMED" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "SpokenMED" },
+      { name: "format-detection", content: "telephone=no" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
+      { rel: "icon", type: "image/png", sizes: "192x192", href: "/icons/icon-192.png" },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -79,7 +93,8 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Outlet />
-        <Toaster richColors position="top-right" />
+        <Toaster richColors position="top-center" mobileOffset={{ top: 8 }} />
+        <InstallPwaPrompt />
       </AuthProvider>
     </QueryClientProvider>
   );
