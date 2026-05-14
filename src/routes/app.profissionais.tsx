@@ -170,7 +170,7 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
       nome: form.nome, conselho: form.conselho || null, conselho_numero: form.conselho_numero || null,
       conselho_uf: form.conselho_uf || null, especialidade_id: form.especialidade_id || null,
       unidade_id: unidadeIds[0], // primeira como "principal" (compat)
-      email: form.email || null, telefone: form.telefone || null, ativo: form.ativo,
+      email: form.email || null, telefone: form.telefone || null, sala: form.sala || null, ativo: form.ativo,
     };
 
     let profId = editing?.id;
