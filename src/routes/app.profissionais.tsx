@@ -148,7 +148,7 @@ function ProfissionaisPage() {
 function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any) {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<any>(editing ?? {
-    nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "",
+    nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "", cbo: "",
     especialidade_id: "", email: "", telefone: "", sala: "", ativo: true,
   });
   const [unidadeIds, setUnidadeIds] = useState<string[]>(editing?._unidade_ids ?? []);
