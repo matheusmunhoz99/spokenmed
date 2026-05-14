@@ -48,27 +48,16 @@ function LoginPage() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="hidden lg:flex flex-col justify-between bg-sidebar p-12 text-sidebar-foreground">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white shadow-sm overflow-hidden">
-            <img src={logo} alt="SpokenMED" className="h-11 w-11 object-contain" />
-          </div>
-          <div>
-            <div className="text-lg font-semibold">SpokenMED</div>
-            <div className="text-xs text-sidebar-foreground/60">Secretaria Municipal de Saúde</div>
-          </div>
-        </div>
-        <div className="flex justify-center">
-          <img src={logo} alt="" aria-hidden className="w-72 max-w-full opacity-90 drop-shadow-2xl" />
-        </div>
-        <div className="space-y-4 max-w-md">
+      <div className="hidden lg:flex flex-col justify-center items-center gap-10 bg-sidebar p-12 text-sidebar-foreground">
+        <img src={logo} alt="SpokenMED" className="w-80 max-w-full drop-shadow-2xl" />
+        <div className="space-y-4 max-w-md text-center">
           <h1 className="text-3xl font-semibold tracking-tight">Atendimento organizado, pacientes bem cuidados.</h1>
           <p className="text-sm text-sidebar-foreground/70 leading-relaxed">
             Plataforma única para gerenciar a agenda dos profissionais, o cadastro completo dos pacientes
             e o fluxo de atendimento das unidades de saúde do município.
           </p>
         </div>
-        <div className="text-xs text-sidebar-foreground/50">© SpokenMed · Uso institucional</div>
+        <div className="text-xs text-sidebar-foreground/50">© SpokenMED · Uso institucional</div>
       </div>
 
       <div className="flex items-center justify-center p-6">
