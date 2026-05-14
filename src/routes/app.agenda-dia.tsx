@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { StatusBadge } from "./app.index";
 import { formatTime } from "@/lib/format";
+import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 
 export const Route = createFileRoute("/app/agenda-dia")({
   component: AgendaDiaPage,
@@ -21,20 +22,42 @@ function AgendaDiaPage() {
   const search = Route.useSearch();
   const qc = useQueryClient();
   const [data, setData] = useState(search.data || format(new Date(), "yyyy-MM-dd"));
+  const [unidadeId, setUnidadeId] = useState<string>("all");
   const [profId, setProfId] = useState<string>("all");
 
+  const { data: unidades } = useAllowedUnidades();
+  const allowedIds = useMemo(() => (unidades ?? []).map((u: any) => u.id), [unidades]);
+
   const { data: profs } = useQuery({
-    queryKey: ["profs-day"],
-    queryFn: async () => (await supabase.from("profissionais").select("id, nome").eq("ativo", true).order("nome")).data ?? [],
+    queryKey: ["profs-day", unidadeId, allowedIds.join(",")],
+    enabled: !!unidades,
+    queryFn: async () => {
+      // RLS já restringe profissionais. Se filtrarmos por unidade, juntamos via profissional_unidades.
+      if (unidadeId !== "all") {
+        const { data } = await supabase
+          .from("profissional_unidades")
+          .select("profissional_id, profissionais(id, nome, ativo)")
+          .eq("unidade_id", unidadeId);
+        return (data ?? [])
+          .map((r: any) => r.profissionais)
+          .filter((p: any) => p && p.ativo)
+          .sort((a: any, b: any) => a.nome.localeCompare(b.nome));
+      }
+      const { data } = await supabase.from("profissionais").select("id, nome").eq("ativo", true).order("nome");
+      return data ?? [];
+    },
   });
 
   const { data: ags, isLoading } = useQuery({
-    queryKey: ["agenda-dia", data, profId],
+    queryKey: ["agenda-dia", data, profId, unidadeId, allowedIds.join(",")],
+    enabled: !!unidades,
     queryFn: async () => {
       let q = supabase.from("agendamentos")
-        .select("id, hora_inicio, status, motivo, paciente_id, slot_id, pacientes(nome, cpf, telefone), profissionais(nome, especialidades(nome))")
+        .select("id, hora_inicio, status, motivo, paciente_id, slot_id, unidade_id, pacientes(nome, cpf, telefone), profissionais(nome, especialidades(nome)), unidades(nome)")
         .eq("data", data).order("hora_inicio");
       if (profId !== "all") q = q.eq("profissional_id", profId);
+      if (unidadeId !== "all") q = q.eq("unidade_id", unidadeId);
+      else if (allowedIds.length > 0) q = q.in("unidade_id", allowedIds);
       return (await q).data ?? [];
     },
   });
@@ -56,6 +79,16 @@ function AgendaDiaPage() {
           <div className="space-y-1.5">
             <div className="text-xs text-muted-foreground">Data</div>
             <Input type="date" value={data} onChange={(e) => setData(e.target.value)} className="w-auto" />
+          </div>
+          <div className="space-y-1.5 min-w-[200px]">
+            <div className="text-xs text-muted-foreground">Unidade</div>
+            <Select value={unidadeId} onValueChange={(v) => { setUnidadeId(v); setProfId("all"); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {unidades?.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5 min-w-[220px]">
             <div className="text-xs text-muted-foreground">Profissional</div>
@@ -84,7 +117,10 @@ function AgendaDiaPage() {
                   <div className="w-16 font-mono text-sm">{formatTime(a.hora_inicio)}</div>
                   <div className="flex-1 min-w-[200px]">
                     <div className="text-sm font-medium">{a.pacientes?.nome}</div>
-                    <div className="text-xs text-muted-foreground">{a.profissionais?.nome} · {a.profissionais?.especialidades?.nome ?? ""}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {a.profissionais?.nome} · {a.profissionais?.especialidades?.nome ?? ""}
+                      {a.unidades?.nome && <> · <span className="text-primary/80">{a.unidades.nome}</span></>}
+                    </div>
                     {a.motivo && <div className="mt-1 text-xs italic text-muted-foreground">"{a.motivo}"</div>}
                   </div>
                   <StatusBadge status={a.status} />
