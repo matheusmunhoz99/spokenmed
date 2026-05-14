@@ -8,12 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Search, Check, Calendar as CalIcon } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Loader2, Search, Check, Calendar as CalIcon, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
 import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { formatCPF, formatCNS, formatTime, onlyDigits } from "@/lib/format";
+import { gerarComprovante } from "@/lib/pdf-comprovante";
 
 export const Route = createFileRoute("/app/agendar")({ component: AgendarPage });
 
