@@ -224,6 +224,10 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
           <Input maxLength={2} value={form.conselho_uf ?? ""} onChange={(e) => set("conselho_uf", e.target.value.toUpperCase())} />
         </div>
         <div className="space-y-1.5">
+          <Label className="text-xs">CBO (6 dígitos)</Label>
+          <Input maxLength={6} value={form.cbo ?? ""} placeholder="Ex.: 225125" onChange={(e) => set("cbo", e.target.value.replace(/\D/g, ""))} />
+        </div>
+        <div className="space-y-1.5">
           <Label className="text-xs">Especialidade</Label>
           <Select value={form.especialidade_id ?? ""} onValueChange={(v) => set("especialidade_id", v)}>
             <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
