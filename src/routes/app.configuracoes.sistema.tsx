@@ -1,7 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Building2, ChevronsUpDown } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,7 +28,7 @@ import {
 import { Loader2, Plus, Trash2, ShieldCheck, UserCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  listSystemUsers, createSystemUser, updateUserRole, deleteSystemUser,
+  listSystemUsers, createSystemUser, updateUserRole, deleteSystemUser, setUserUnidades,
 } from "@/lib/admin-users.functions";
 
 export const Route = createFileRoute("/app/configuracoes/sistema")({ component: ConfigSistema });
@@ -34,9 +39,12 @@ type SystemUser = {
   nome: string;
   cargo: string;
   roles: string[];
+  unidade_ids: string[];
   created_at: string;
   last_sign_in_at?: string | null;
 };
+
+type Unidade = { id: string; nome: string };
 
 function ConfigSistema() {
   const { profile, user, isAdmin } = useAuth();
@@ -87,12 +95,23 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
   const list = useServerFn(listSystemUsers);
   const create = useServerFn(createSystemUser);
   const updRole = useServerFn(updateUserRole);
+  const setUnits = useServerFn(setUserUnidades);
   const del = useServerFn(deleteSystemUser);
 
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [newUserUnidades, setNewUserUnidades] = useState<string[]>([]);
+
+  const { data: unidades } = useQuery({
+    queryKey: ["all-unidades-admin"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("unidades").select("id, nome").eq("ativo", true).order("nome");
+      if (error) throw error;
+      return (data ?? []) as Unidade[];
+    },
+  });
 
   const reload = async () => {
     setLoading(true);
@@ -120,16 +139,29 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
           nome: String(fd.get("nome")),
           cargo: String(fd.get("cargo") ?? ""),
           role: String(fd.get("role")) as "admin" | "recepcionista",
+          unidade_ids: newUserUnidades,
         },
       });
       toast.success("Usuário criado!");
       setOpen(false);
+      setNewUserUnidades([]);
       (e.target as HTMLFormElement).reset();
       reload();
     } catch (err: any) {
       toast.error(err.message ?? "Erro ao criar usuário");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleUnitsChange = async (user_id: string, unidade_ids: string[]) => {
+    setUsers((prev) => prev.map((u) => (u.id === user_id ? { ...u, unidade_ids } : u)));
+    try {
+      await setUnits({ data: { user_id, unidade_ids } });
+      toast.success("Unidades atualizadas");
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao atualizar unidades");
+      reload();
     }
   };
 
@@ -200,6 +232,15 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                   </Select>
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label>Unidades / UBS de acesso</Label>
+                <UnidadesPicker
+                  unidades={unidades ?? []}
+                  selected={newUserUnidades}
+                  onChange={setNewUserUnidades}
+                  emptyHint="Admin acessa todas. Para recepcionista, selecione as unidades permitidas."
+                />
+              </div>
               <DialogFooter>
                 <Button type="submit" disabled={submitting}>
                   {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Criar usuário
@@ -221,8 +262,8 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>E-mail</TableHead>
-                  <TableHead>Cargo</TableHead>
                   <TableHead>Perfil</TableHead>
+                  <TableHead>Unidades</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -230,11 +271,11 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                 {users.map((u) => {
                   const isMe = u.id === currentUserId;
                   const role = (u.roles[0] as "admin" | "recepcionista") ?? "recepcionista";
+                  const isAdminUser = role === "admin";
                   return (
                     <TableRow key={u.id}>
                       <TableCell className="font-medium">{u.nome || "—"} {isMe && <Badge variant="outline" className="ml-2">você</Badge>}</TableCell>
                       <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                      <TableCell className="text-muted-foreground">{u.cargo || "—"}</TableCell>
                       <TableCell>
                         <Select
                           value={role}
@@ -247,6 +288,18 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                             <SelectItem value="admin">Administrador</SelectItem>
                           </SelectContent>
                         </Select>
+                      </TableCell>
+                      <TableCell>
+                        {isAdminUser ? (
+                          <span className="text-xs text-muted-foreground italic">Acessa todas</span>
+                        ) : (
+                          <UnidadesPicker
+                            unidades={unidades ?? []}
+                            selected={u.unidade_ids ?? []}
+                            onChange={(ids) => handleUnitsChange(u.id, ids)}
+                            compact
+                          />
+                        )}
                       </TableCell>
                       <TableCell>
                         <AlertDialog>
@@ -283,5 +336,64 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function UnidadesPicker({
+  unidades, selected, onChange, emptyHint, compact,
+}: {
+  unidades: Unidade[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  emptyHint?: string;
+  compact?: boolean;
+}) {
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+  const label = useMemo(() => {
+    if (selected.length === 0) return "Nenhuma unidade";
+    if (selected.length === unidades.length && unidades.length > 0) return "Todas as unidades";
+    if (selected.length <= 2) {
+      return unidades.filter((u) => selectedSet.has(u.id)).map((u) => u.nome).join(", ");
+    }
+    return `${selected.length} unidades`;
+  }, [selected, selectedSet, unidades]);
+
+  const toggle = (id: string) => {
+    const next = selectedSet.has(id) ? selected.filter((x) => x !== id) : [...selected, id];
+    onChange(next);
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size={compact ? "sm" : "default"}
+          className={compact ? "h-8 justify-between font-normal" : "w-full justify-between font-normal"}
+        >
+          <span className="flex items-center gap-2 truncate">
+            <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="truncate">{label}</span>
+          </span>
+          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 opacity-50 shrink-0" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-2" align="start">
+        {unidades.length === 0 ? (
+          <div className="text-xs text-muted-foreground p-2">Nenhuma unidade cadastrada.</div>
+        ) : (
+          <div className="space-y-1 max-h-72 overflow-auto">
+            {unidades.map((u) => (
+              <label key={u.id} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-accent cursor-pointer">
+                <Checkbox checked={selectedSet.has(u.id)} onCheckedChange={() => toggle(u.id)} />
+                <span className="text-sm">{u.nome}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        {emptyHint && <div className="mt-2 border-t pt-2 text-[11px] text-muted-foreground">{emptyHint}</div>}
+      </PopoverContent>
+    </Popover>
   );
 }
