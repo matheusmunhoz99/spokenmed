@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2, Download } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { StatusBadge } from "./app.index";
 import { formatTime } from "@/lib/format";
 import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
+import { useAuth } from "@/hooks/use-auth";
+import { gerarPdfAgenda } from "@/lib/pdf-agenda";
 
 export const Route = createFileRoute("/app/agenda-dia")({
   component: AgendaDiaPage,
@@ -21,6 +23,7 @@ export const Route = createFileRoute("/app/agenda-dia")({
 function AgendaDiaPage() {
   const search = Route.useSearch();
   const qc = useQueryClient();
+  const { profile, user } = useAuth();
   const [data, setData] = useState(search.data || format(new Date(), "yyyy-MM-dd"));
   const [unidadeId, setUnidadeId] = useState<string>("all");
   const [profId, setProfId] = useState<string>("all");
@@ -99,6 +102,26 @@ function AgendaDiaPage() {
                 {profs?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+          <div className="ml-auto self-end">
+            <Button
+              variant="outline"
+              disabled={!ags || ags.length === 0}
+              onClick={() => {
+                if (!ags || ags.length === 0) return;
+                const unidadeNome = unidadeId === "all"
+                  ? "Todas as unidades"
+                  : (unidades?.find((u: any) => u.id === unidadeId)?.nome ?? "Unidade");
+                gerarPdfAgenda({
+                  data,
+                  unidadeNome,
+                  agendamentos: ags as any,
+                  usuarioNome: profile?.nome || user?.email || "Usuário",
+                });
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" /> Exportar PDF
+            </Button>
           </div>
         </CardContent>
       </Card>

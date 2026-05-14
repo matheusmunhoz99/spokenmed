@@ -10,9 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Pencil, Loader2 } from "lucide-react";
+import { Plus, Search, Pencil, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { formatCPF, formatCNS, formatPhone, formatCEP, onlyDigits, formatDate } from "@/lib/format";
+import { downloadCsv } from "@/lib/csv";
+import { format } from "date-fns";
 
 export const Route = createFileRoute("/app/pacientes")({ component: PacientesPage });
 
@@ -53,10 +55,41 @@ function PacientesPage() {
           <Input placeholder="Buscar por nome, CPF, CNS ou telefone..." className="pl-9"
             value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button onClick={openNew}><Plus className="mr-1 h-4 w-4"/>Novo paciente</Button></DialogTrigger>
-          <PacienteDialog editing={editing} onSaved={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["pacientes"] }); }} />
-        </Dialog>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            disabled={!data || data.length === 0}
+            onClick={() => {
+              if (!data || data.length === 0) return toast.info("Sem pacientes para exportar.");
+              downloadCsv(`pacientes_${format(new Date(), "yyyy-MM-dd")}.csv`, data, [
+                { header: "Nome", get: (p: any) => p.nome },
+                { header: "CPF", get: (p: any) => p.cpf ? formatCPF(p.cpf) : "" },
+                { header: "Cartão SUS", get: (p: any) => p.cns ? formatCNS(p.cns) : "" },
+                { header: "RG", get: (p: any) => p.rg ?? "" },
+                { header: "Nascimento", get: (p: any) => formatDate(p.data_nascimento) === "—" ? "" : formatDate(p.data_nascimento) },
+                { header: "Sexo", get: (p: any) => p.sexo ?? "" },
+                { header: "Nome da mãe", get: (p: any) => p.nome_mae ?? "" },
+                { header: "Telefone", get: (p: any) => p.telefone ? formatPhone(p.telefone) : "" },
+                { header: "E-mail", get: (p: any) => p.email ?? "" },
+                { header: "CEP", get: (p: any) => p.cep ? formatCEP(p.cep) : "" },
+                { header: "Logradouro", get: (p: any) => p.logradouro ?? "" },
+                { header: "Número", get: (p: any) => p.numero ?? "" },
+                { header: "Complemento", get: (p: any) => p.complemento ?? "" },
+                { header: "Bairro", get: (p: any) => p.bairro ?? "" },
+                { header: "Cidade", get: (p: any) => p.cidade ?? "" },
+                { header: "UF", get: (p: any) => p.uf ?? "" },
+                { header: "Observações", get: (p: any) => p.observacoes ?? "" },
+              ]);
+              toast.success(`${data.length} pacientes exportados`);
+            }}
+          >
+            <Download className="mr-1 h-4 w-4" /> Exportar CSV
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild><Button onClick={openNew}><Plus className="mr-1 h-4 w-4"/>Novo paciente</Button></DialogTrigger>
+            <PacienteDialog editing={editing} onSaved={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["pacientes"] }); }} />
+          </Dialog>
+        </div>
       </div>
 
       <Card>

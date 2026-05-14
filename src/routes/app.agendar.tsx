@@ -8,17 +8,22 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Search, Check, Calendar as CalIcon } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Loader2, Search, Check, Calendar as CalIcon, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
 import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { formatCPF, formatCNS, formatTime, onlyDigits } from "@/lib/format";
+import { gerarComprovante } from "@/lib/pdf-comprovante";
 
 export const Route = createFileRoute("/app/agendar")({ component: AgendarPage });
 
 function AgendarPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: unidadesAllowed } = useAllowedUnidades();
@@ -32,6 +37,8 @@ function AgendarPage() {
   const [search, setSearch] = useState("");
   const [motivo, setMotivo] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [comprovanteOpen, setComprovanteOpen] = useState(false);
+  const [ultimoAgendamentoId, setUltimoAgendamentoId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!unidadeId && unidadesAllowed && unidadesAllowed.length > 0) setUnidadeId(unidadesAllowed[0].id);
@@ -91,20 +98,59 @@ function AgendarPage() {
     setSubmitting(true);
     const { error: e1 } = await supabase.from("slots").update({ status: "reservado" }).eq("id", slot.id).eq("status", "livre");
     if (e1) { setSubmitting(false); return toast.error("Vaga não está mais livre."); }
-    const { error: e2 } = await supabase.from("agendamentos").insert({
+    const { data: created, error: e2 } = await supabase.from("agendamentos").insert({
       slot_id: slot.id, paciente_id: paciente.id, profissional_id: profId, unidade_id: unidadeId,
       data, hora_inicio: slot.hora_inicio,
       motivo: motivo || null, criado_por: user?.id,
-    });
+    }).select("id").single();
     setSubmitting(false);
-    if (e2) {
+    if (e2 || !created) {
       await supabase.from("slots").update({ status: "livre" }).eq("id", slot.id);
-      return toast.error(e2.message);
+      return toast.error(e2?.message ?? "Erro ao agendar");
     }
     toast.success("Consulta agendada!");
     qc.invalidateQueries();
+    setUltimoAgendamentoId(created.id);
+    setComprovanteOpen(true);
+  };
+
+  const imprimirComprovante = async () => {
+    if (!ultimoAgendamentoId) return;
+    const { data: ag } = await supabase
+      .from("agendamentos")
+      .select("id, data, hora_inicio, motivo, pacientes(nome, cpf, cns, telefone), profissionais(nome, especialidades(nome)), unidades(nome, endereco, telefone)")
+      .eq("id", ultimoAgendamentoId)
+      .single();
+    if (!ag) return toast.error("Não foi possível carregar o comprovante");
+    gerarComprovante({
+      codigo: ag.id,
+      data: ag.data,
+      hora: ag.hora_inicio,
+      paciente: {
+        nome: (ag.pacientes as any)?.nome ?? "—",
+        cpf: (ag.pacientes as any)?.cpf,
+        cns: (ag.pacientes as any)?.cns,
+        telefone: (ag.pacientes as any)?.telefone,
+      },
+      profissional: {
+        nome: (ag.profissionais as any)?.nome ?? "—",
+        especialidade: (ag.profissionais as any)?.especialidades?.nome,
+      },
+      unidade: {
+        nome: (ag.unidades as any)?.nome ?? "—",
+        endereco: (ag.unidades as any)?.endereco,
+        telefone: (ag.unidades as any)?.telefone,
+      },
+      motivo: ag.motivo,
+      emitidoPor: profile?.nome || user?.email || "",
+    });
+  };
+
+  const fecharESair = () => {
+    setComprovanteOpen(false);
     navigate({ to: "/app/agenda-dia", search: { data } as any });
   };
+
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -217,6 +263,25 @@ function AgendarPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <AlertDialog open={comprovanteOpen} onOpenChange={setComprovanteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Check className="h-5 w-5 text-primary" /> Agendamento criado com sucesso
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja imprimir o comprovante do agendamento agora?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={fecharESair}>Não, obrigado</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => { await imprimirComprovante(); fecharESair(); }}>
+              <FileText className="mr-2 h-4 w-4" /> Sim, imprimir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
