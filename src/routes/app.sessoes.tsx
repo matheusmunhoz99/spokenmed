@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, LogOut, Shield, Smartphone } from "lucide-react";
+import { LoadingState } from "@/components/loading-state";
+import { EmptyState } from "@/components/empty-state";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -74,9 +76,9 @@ function SessoesPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando…</div>
+            <LoadingState variant="list" rows={4} />
           ) : (data ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma atividade registrada ainda.</p>
+            <EmptyState icon={Shield} title="Sem atividade" description="Nenhuma atividade de login registrada ainda." compact />
           ) : (
             <ul className="divide-y">
               {data!.map((log: any) => (

@@ -10,7 +10,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Loader2, CalendarCog } from "lucide-react";
+import { Plus, Pencil, Loader2, CalendarCog, Stethoscope } from "lucide-react";
+import { LoadingState } from "@/components/loading-state";
+import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -62,9 +64,9 @@ function ProfissionaisPage() {
 
       {/* Mobile cards */}
       <div className="grid gap-2 md:hidden">
-        {isLoading && <div className="rounded-md border bg-card p-6 text-center text-muted-foreground"><Loader2 className="inline mr-2 h-4 w-4 animate-spin"/>Carregando...</div>}
+        {isLoading && <LoadingState variant="list" rows={4} />}
         {!isLoading && lista?.length === 0 && (
-          <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">Nenhum profissional cadastrado.</div>
+          <EmptyState icon={Stethoscope} title="Nenhum profissional cadastrado" description="Cadastre o primeiro para começar a montar agendas." />
         )}
         {lista?.map((p: any) => {
           const us = (p.profissional_unidades ?? []).map((pu: any) => pu.unidades).filter(Boolean);
@@ -113,8 +115,8 @@ function ProfissionaisPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && (<TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground"><Loader2 className="inline mr-2 h-4 w-4 animate-spin"/>Carregando...</TableCell></TableRow>)}
-              {!isLoading && lista?.length === 0 && (<TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground">Nenhum profissional cadastrado.</TableCell></TableRow>)}
+              {isLoading && (<TableRow><TableCell colSpan={6} className="p-3"><LoadingState variant="table" rows={5} /></TableCell></TableRow>)}
+              {!isLoading && lista?.length === 0 && (<TableRow><TableCell colSpan={6} className="p-3"><EmptyState icon={Stethoscope} title="Nenhum profissional cadastrado" compact /></TableCell></TableRow>)}
               {lista?.map((p: any) => {
                 const us = (p.profissional_unidades ?? []).map((pu: any) => pu.unidades).filter(Boolean);
                 return (

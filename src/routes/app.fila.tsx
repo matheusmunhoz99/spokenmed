@@ -32,6 +32,8 @@ import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { SemAcesso } from "@/components/sem-acesso";
 import { formatCPF, formatTime, onlyDigits } from "@/lib/format";
 import { gerarComprovante } from "@/lib/pdf-comprovante";
+import { LoadingState } from "@/components/loading-state";
+import { EmptyState } from "@/components/empty-state";
 
 function FilaGuard() {
   const { can } = useAuth();
@@ -238,11 +240,9 @@ function FilaPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-10 text-muted-foreground"><Loader2 className="inline h-4 w-4 animate-spin mr-2" />Carregando...</div>
+            <LoadingState variant="list" rows={5} />
           ) : filaFiltrada.length === 0 ? (
-            <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
-              Nenhum paciente encontrado.
-            </div>
+            <EmptyState icon={ListOrdered} title="Nenhum paciente na fila" description="Adicione o primeiro paciente acima para iniciar a fila desta especialidade." />
           ) : (
             <ul className="divide-y">
               {filaFiltrada.map((f: any) => {

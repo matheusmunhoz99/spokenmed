@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Stethoscope, CalendarCheck, AlertCircle, ArrowRight, Building2 } from "lucide-react";
+import { Users, Stethoscope, CalendarCheck, AlertCircle, ArrowRight, Building2, CalendarClock } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { format } from "date-fns";
 import { formatTime } from "@/lib/format";
 
@@ -69,9 +70,7 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             {!proximos || proximos.length === 0 ? (
-              <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
-                Nenhum agendamento para hoje.
-              </div>
+              <EmptyState icon={CalendarClock} title="Nenhum agendamento para hoje" description="Quando houver consultas marcadas, elas aparecerão aqui." compact />
             ) : (
               <ul className="divide-y">
                 {proximos.map((a: any) => (
