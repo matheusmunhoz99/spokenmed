@@ -1,67 +1,52 @@
-## Objetivo
+## O que mudar nos PDFs
 
-1. Melhorar o fluxo de **Agendar consulta**: manter Unidade como primeiro filtro, e fazer Especialidade ↔ Profissional se filtrarem mutuamente (qualquer ordem funciona).
-2. Repaginar os **PDFs** (comprovante de agendamento e agenda do dia) com logo do sistema, tipografia e layout mais refinados.
+### 1. Paleta — alinhar com o site (teal, não azul)
 
----
+O sistema usa `--primary: oklch(0.52 0.09 195)` (família teal/ciano). Os PDFs estão usando azul `#2563eb`, que destoa. Atualizar `PDF_COLORS` em `src/lib/pdf-shared.ts`:
 
-## 1. Tela de Agendar (`src/routes/app.agendar.tsx`)
+- `primary`: teal escuro `#0f766e` (slate-teal do site)
+- `primaryDark`: `#0b5d57` (faixa inferior do header)
+- `primarySoft`: `#ccfbf1` (banda de destaque, faixa do profissional)
+- `ink` `#0f172a`, `muted` `#64748b`, `border` `#e2e8f0`, `surface` `#f8fafc` — manter
+- Status chips: confirmado verde, atendido teal, faltou vermelho, cancelado cinza, agendado teal-soft
 
-**Ordem fixa visual:** Unidade → Especialidade → Profissional → Data.
+### 2. Logo bem visível no cabeçalho
 
-**Comportamento dos filtros (cross-filter):**
+Problema atual: logo teal sobre fundo azul claro fica quase invisível e a arte tem muito espaço em branco em volta.
 
-- **Unidade** (obrigatório, primeiro):
-  - Define o universo de profissionais (via `profissional_unidades`).
-  - Limpa Especialidade e Profissional ao trocar.
+Solução de design (mantém a identidade do logo intacta, sem inverter cores):
+- Fundo do header passa a ser teal escuro do site (`primary`)
+- Dentro do header, desenhar um **painel branco arredondado** (≈ 160 × 60pt) à esquerda, com sombra sutil (linha mais clara abaixo). Embutir o logo dentro do painel branco — assim o teal do logo aparece nítido e cria contraste com o header escuro.
+- Aumentar a altura do header de 84pt → 100pt para acomodar o painel com respiro.
+- Título "Comprovante de Agendamento" / "Agenda do Dia" em branco à direita, mantendo hierarquia atual.
 
-- **Especialidade** (opcional):
-  - Lista apenas as especialidades que existem entre os profissionais ativos da unidade selecionada (não mostra especialidades vazias).
-  - Se um Profissional já estiver selecionado, mostra apenas a especialidade dele (e a auto-seleciona).
-  - Ao trocar, se o Profissional atual não pertence à nova especialidade, limpa o Profissional.
+### 3. Refinamentos visuais
 
-- **Profissional**:
-  - Se Especialidade estiver vazia (Todas) → lista todos os profissionais ativos da unidade.
-  - Se Especialidade estiver definida → lista apenas profissionais daquela especialidade na unidade.
-  - Ao escolher um profissional, auto-preenche a Especialidade dele (caso ainda esteja em "Todas").
+- Banda de Data/Horário: fundo `primarySoft` com borda `primary` 0.5pt + número de hora em `primary` bem grande (28pt) — atualizar tons para o novo teal.
+- Cards (comprovante): aumentar padding interno (16→20pt), título do card em letterspacing maior, sombra sutil (linha cinza 0.4pt 1pt abaixo) para sensação de "papel".
+- Tabela da agenda: cabeçalho em teal escuro, linhas com altura mínima 28pt, chip de especialidade com borda teal sólida em vez do contorno fino atual.
+- Lembretes: trocar o amarelo por um tom âmbar mais sóbrio (`#fef3c7` bg, `#92400e` texto) — já está, só ajustar contraste.
+- Rodapé: linha superior em `border`, ícone do logo em miniatura (≈ 14pt altura) à esquerda + nome "SpokenMED" em teal pequeno.
 
-**Implementação técnica:**
-- Trocar a query atual `profs-ag` por uma única query `profs-da-unidade` (carrega todos os profissionais ativos da unidade com `especialidade_id` + `especialidades(nome)`), e derivar Especialidades e lista filtrada de Profissionais via `useMemo` no cliente. Isso evita ida/volta extra ao banco e elimina estados inconsistentes.
-- Remover a query separada de `especialidades-ag` (passa a ser derivada).
+### 4. Comportamento — preview em vez de download
 
----
+Hoje os dois PDFs chamam `doc.save(...)` que dispara download. Trocar por **abrir em nova aba** usando `doc.output("bloburl")`:
 
-## 2. PDFs (logo + visual refinado)
+```ts
+const url = doc.output("bloburl");
+window.open(url, "_blank");
+```
 
-**Logo:** já existe `src/assets/spokenmed-logo.png`. Carregar como dataURL uma única vez (cache em módulo) via `fetch` + `FileReader`/`canvas` para embutir em jsPDF com `doc.addImage`.
+Assim o navegador abre o visualizador nativo de PDF e o usuário decide imprimir (Ctrl+P) ou baixar. Aplicar em:
+- `gerarPdfAgenda` (botão "Exportar PDF" em `app.agenda-dia.tsx`)
+- `gerarComprovante` (diálogo após criar agendamento em `app.agendar.tsx`) — manter o mesmo fluxo, só mudar o destino.
 
-**`src/lib/pdf-comprovante.ts` — novo layout A4 retrato:**
-- Cabeçalho com faixa azul mais alta (100pt), logo à esquerda (h≈48pt), título "Comprovante de Agendamento" e subtítulo "SpokenMED · Sistema de Agendamento Médico" à direita.
-- Banda destacada de **Data e Horário** com fundo azul claro, ícone de calendário desenhado em vetor (sem dependência), data por extenso em destaque.
-- Bloco de **Código + QR placeholder** (texto monospace estilizado) no canto.
-- Cards arredondados (`roundedRect`) para Paciente / Profissional / Unidade, com label cinza pequeno acima do valor em negrito (estilo "stacked"), em vez do label-coluna atual.
-- Rodapé com linha fina + logo pequeno em escala de cinza + texto de emissão + numeração de página.
+Como pop-ups podem ser bloqueados, fazer fallback: se `window.open` retornar `null`, cair em `doc.save(...)` e mostrar um toast informando ("Permita pop-ups para visualizar antes de imprimir").
 
-**`src/lib/pdf-agenda.ts` — repaginar:**
-- Mesmo cabeçalho com logo (versão landscape).
-- Bloco-resumo: Unidade · Data por extenso · Total de consultas · gerado por (já existe, refinar tipografia e espaçamento, separadores em cinza claro).
-- Para cada profissional: faixa cinza-clara com nome em destaque + "chip" arredondado da especialidade.
-- Tabela com cabeçalho azul mais escuro, linhas zebradas suaves, status como "chip" colorido (cores por status: confirmado=verde, faltou=vermelho, cancelado=cinza, atendido=azul, agendado=azul claro).
-- Rodapé idêntico ao do comprovante, com logo + "Página X de Y".
+### Arquivos afetados
 
-**Helpers compartilhados:** extrair para `src/lib/pdf-shared.ts`:
-- `loadLogoDataUrl()` (cache).
-- `drawHeader(doc, { titulo, subtitulo, orientation })`.
-- `drawFooter(doc, { emitidoPor })` aplicado a todas as páginas.
-- Paleta de cores constantes (primary, muted, surface, status colors).
+- `src/lib/pdf-shared.ts` — nova paleta, header com painel branco do logo, rodapé com mini-logo, helper `openPdf(doc, filename)` com preview + fallback.
+- `src/lib/pdf-comprovante.ts` — usar `openPdf` em vez de `doc.save`, ajustar tons/espaçamentos.
+- `src/lib/pdf-agenda.ts` — usar `openPdf`, aplicar nova paleta e refinamentos da tabela/chip.
 
----
-
-## Arquivos afetados
-
-- `src/routes/app.agendar.tsx` — refatorar filtros (sem mudar layout de cards).
-- `src/lib/pdf-shared.ts` — **novo**, helpers de logo/cabeçalho/rodapé.
-- `src/lib/pdf-comprovante.ts` — reescrever layout usando helpers.
-- `src/lib/pdf-agenda.ts` — reescrever layout usando helpers.
-
-Sem mudanças de banco, RLS, rotas ou autenticação.
+Sem mudanças de banco, RLS, autenticação ou rotas.
