@@ -137,7 +137,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          codigo: string
+          codigo?: string
           created_at?: string
           criado_por?: string | null
           data: string
