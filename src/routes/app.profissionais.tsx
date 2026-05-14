@@ -148,13 +148,13 @@ function ProfissionaisPage() {
 function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any) {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<any>(editing ?? {
-    nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "",
+    nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "", cbo: "",
     especialidade_id: "", email: "", telefone: "", sala: "", ativo: true,
   });
   const [unidadeIds, setUnidadeIds] = useState<string[]>(editing?._unidade_ids ?? []);
 
   useEffect(() => {
-    setForm(editing ?? { nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "", especialidade_id: "", email: "", telefone: "", sala: "", ativo: true });
+    setForm(editing ?? { nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "", cbo: "", especialidade_id: "", email: "", telefone: "", sala: "", ativo: true });
     setUnidadeIds(editing?._unidade_ids ?? []);
   }, [editing]);
 
@@ -168,8 +168,9 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
 
     const payload: any = {
       nome: form.nome, conselho: form.conselho || null, conselho_numero: form.conselho_numero || null,
-      conselho_uf: form.conselho_uf || null, especialidade_id: form.especialidade_id || null,
-      unidade_id: unidadeIds[0], // primeira como "principal" (compat)
+      conselho_uf: form.conselho_uf || null, cbo: form.cbo ? form.cbo.replace(/\D/g, "").slice(0, 6) : null,
+      especialidade_id: form.especialidade_id || null,
+      unidade_id: unidadeIds[0],
       email: form.email || null, telefone: form.telefone || null, sala: form.sala || null, ativo: form.ativo,
     };
 
@@ -221,6 +222,10 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
         <div className="space-y-1.5">
           <Label className="text-xs">UF</Label>
           <Input maxLength={2} value={form.conselho_uf ?? ""} onChange={(e) => set("conselho_uf", e.target.value.toUpperCase())} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">CBO (6 dígitos)</Label>
+          <Input maxLength={6} value={form.cbo ?? ""} placeholder="Ex.: 225125" onChange={(e) => set("cbo", e.target.value.replace(/\D/g, ""))} />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Especialidade</Label>

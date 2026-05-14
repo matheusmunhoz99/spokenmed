@@ -42,9 +42,15 @@ function AgendarPage() {
   const [paciente, setPaciente] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [motivo, setMotivo] = useState("");
+  const [procedimentoId, setProcedimentoId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [comprovanteOpen, setComprovanteOpen] = useState(false);
   const [ultimoAgendamentoId, setUltimoAgendamentoId] = useState<string | null>(null);
+
+  const { data: procedimentos } = useQuery({
+    queryKey: ["procedimentos-ativos"],
+    queryFn: async () => (await supabase.from("procedimentos").select("id, codigo_sigtap, nome").eq("ativo", true).order("codigo_sigtap")).data ?? [],
+  });
 
   useEffect(() => {
     if (!unidadeId && unidadesAllowed && unidadesAllowed.length > 0) setUnidadeId(unidadesAllowed[0].id);
@@ -149,6 +155,7 @@ function AgendarPage() {
       slot_id: slot.id, paciente_id: paciente.id, profissional_id: profId, unidade_id: unidadeId,
       data, hora_inicio: slot.hora_inicio,
       motivo: motivo || null, criado_por: user?.id,
+      procedimento_id: procedimentoId || null,
     }).select("id").single();
     setSubmitting(false);
     if (e2 || !created) {
@@ -165,7 +172,7 @@ function AgendarPage() {
     if (!ultimoAgendamentoId) return;
     const { data: ag } = await supabase
       .from("agendamentos")
-      .select("id, codigo, data, hora_inicio, motivo, pacientes(nome, cpf, cns, telefone), profissionais(nome, especialidades(nome)), unidades(nome, endereco, telefone)")
+      .select("id, codigo, data, hora_inicio, motivo, pacientes(nome, cpf, cns, telefone), profissionais(nome, cbo, especialidades(nome)), unidades(nome, endereco, telefone, cnes), procedimentos(codigo_sigtap, nome)")
       .eq("id", ultimoAgendamentoId)
       .single();
     if (!ag) return toast.error("Não foi possível carregar o comprovante");
@@ -182,12 +189,17 @@ function AgendarPage() {
       profissional: {
         nome: (ag.profissionais as any)?.nome ?? "—",
         especialidade: (ag.profissionais as any)?.especialidades?.nome,
+        cbo: (ag.profissionais as any)?.cbo,
       },
       unidade: {
         nome: (ag.unidades as any)?.nome ?? "—",
         endereco: (ag.unidades as any)?.endereco,
         telefone: (ag.unidades as any)?.telefone,
+        cnes: (ag.unidades as any)?.cnes,
       },
+      procedimento: (ag as any).procedimentos
+        ? { codigo: (ag as any).procedimentos.codigo_sigtap, nome: (ag as any).procedimentos.nome }
+        : null,
       motivo: ag.motivo,
       emitidoPor: profile?.nome || user?.email || "",
     });
@@ -306,6 +318,18 @@ function AgendarPage() {
           ) : search.length >= 2 ? (
             <div className="text-xs text-muted-foreground py-2">Nenhum paciente encontrado. <a href="/app/pacientes" className="text-primary hover:underline">Cadastrar novo</a></div>
           ) : null}
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Procedimento SIGTAP</Label>
+            <Select value={procedimentoId} onValueChange={setProcedimentoId}>
+              <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
+              <SelectContent>
+                {(procedimentos ?? []).map((p: any) => (
+                  <SelectItem key={p.id} value={p.id}>{p.codigo_sigtap} · {p.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs">Motivo / queixa</Label>
