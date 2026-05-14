@@ -290,6 +290,18 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                         </Select>
                       </TableCell>
                       <TableCell>
+                        {isAdminUser ? (
+                          <span className="text-xs text-muted-foreground italic">Acessa todas</span>
+                        ) : (
+                          <UnidadesPicker
+                            unidades={unidades ?? []}
+                            selected={u.unidade_ids ?? []}
+                            onChange={(ids) => handleUnitsChange(u.id, ids)}
+                            compact
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button size="icon" variant="ghost" disabled={isMe} className="text-destructive hover:text-destructive">
