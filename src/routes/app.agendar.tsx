@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import { Loader2, Search, Check, Calendar as CalIcon } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
+import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { formatCPF, formatCNS, formatTime, onlyDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/app/agendar")({ component: AgendarPage });
@@ -20,7 +21,9 @@ function AgendarPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { data: unidadesAllowed } = useAllowedUnidades();
 
+  const [unidadeId, setUnidadeId] = useState("");
   const [especialidadeId, setEspecialidadeId] = useState("");
   const [profId, setProfId] = useState("");
   const [data, setData] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -30,29 +33,39 @@ function AgendarPage() {
   const [motivo, setMotivo] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (!unidadeId && unidadesAllowed && unidadesAllowed.length > 0) setUnidadeId(unidadesAllowed[0].id);
+  }, [unidadesAllowed, unidadeId]);
+
   const { data: especs } = useQuery({
     queryKey: ["especialidades-ag"],
     queryFn: async () => (await supabase.from("especialidades").select("id, nome").eq("ativo", true).order("nome")).data ?? [],
   });
+
   const { data: profs } = useQuery({
-    queryKey: ["profs-ag", especialidadeId],
+    queryKey: ["profs-ag", unidadeId, especialidadeId],
+    enabled: !!unidadeId,
     queryFn: async () => {
-      let q = supabase.from("profissionais").select("id, nome, especialidades(nome)").eq("ativo", true).order("nome");
-      if (especialidadeId && especialidadeId !== "all") q = q.eq("especialidade_id", especialidadeId);
-      return (await q).data ?? [];
+      const { data: rows } = await supabase
+        .from("profissional_unidades")
+        .select("profissionais(id, nome, especialidade_id, ativo, especialidades(nome))")
+        .eq("unidade_id", unidadeId);
+      return (rows ?? [])
+        .map((r: any) => r.profissionais)
+        .filter((p: any) => p && p.ativo && (especialidadeId === "all" || !especialidadeId || p.especialidade_id === especialidadeId));
     },
   });
 
-  useEffect(() => { setProfId(""); setSlot(null); }, [especialidadeId]);
+  useEffect(() => { setProfId(""); setSlot(null); }, [especialidadeId, unidadeId]);
   useEffect(() => { setSlot(null); }, [profId, data]);
 
   const { data: slots } = useQuery({
-    queryKey: ["slots-ag", profId, data],
-    enabled: !!profId && !!data,
+    queryKey: ["slots-ag", profId, data, unidadeId],
+    enabled: !!profId && !!data && !!unidadeId,
     queryFn: async () => {
       const { data: rows } = await supabase.from("slots")
         .select("id, hora_inicio, hora_fim, status")
-        .eq("profissional_id", profId).eq("data", data).eq("status", "livre")
+        .eq("profissional_id", profId).eq("data", data).eq("unidade_id", unidadeId).eq("status", "livre")
         .order("hora_inicio");
       return rows ?? [];
     },
@@ -76,11 +89,10 @@ function AgendarPage() {
   const handleAgendar = async () => {
     if (!canConfirm) return;
     setSubmitting(true);
-    // marca slot como reservado
     const { error: e1 } = await supabase.from("slots").update({ status: "reservado" }).eq("id", slot.id).eq("status", "livre");
     if (e1) { setSubmitting(false); return toast.error("Vaga não está mais livre."); }
     const { error: e2 } = await supabase.from("agendamentos").insert({
-      slot_id: slot.id, paciente_id: paciente.id, profissional_id: profId,
+      slot_id: slot.id, paciente_id: paciente.id, profissional_id: profId, unidade_id: unidadeId,
       data, hora_inicio: slot.hora_inicio,
       motivo: motivo || null, criado_por: user?.id,
     });
@@ -99,10 +111,19 @@ function AgendarPage() {
       <Card className="lg:col-span-2">
         <CardHeader>
           <CardTitle>1. Selecionar horário</CardTitle>
-          <CardDescription>Escolha especialidade, profissional e data para ver as vagas livres.</CardDescription>
+          <CardDescription>Escolha unidade, especialidade, profissional e data.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Unidade</Label>
+              <Select value={unidadeId} onValueChange={setUnidadeId}>
+                <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                <SelectContent>
+                  {(unidadesAllowed ?? []).map((u: any) => <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Especialidade</Label>
               <Select value={especialidadeId} onValueChange={setEspecialidadeId}>
@@ -115,8 +136,8 @@ function AgendarPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Profissional</Label>
-              <Select value={profId} onValueChange={setProfId}>
-                <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+              <Select value={profId} onValueChange={setProfId} disabled={!unidadeId}>
+                <SelectTrigger><SelectValue placeholder={!unidadeId ? "Escolha a unidade" : "Selecionar"} /></SelectTrigger>
                 <SelectContent>
                   {profs?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
                 </SelectContent>
@@ -136,7 +157,7 @@ function AgendarPage() {
               </div>
             ) : !slots || slots.length === 0 ? (
               <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
-                Sem vagas livres nesta data.
+                Sem vagas livres nesta data/unidade.
               </div>
             ) : (
               <div className="grid grid-cols-3 gap-2 md:grid-cols-6">

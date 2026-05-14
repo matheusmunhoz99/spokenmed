@@ -26,9 +26,10 @@ export const listSystemUsers = createServerFn({ method: "GET" })
     if (authErr) throw new Error(authErr.message);
 
     const ids = authList.users.map((u) => u.id);
-    const [{ data: profiles }, { data: roles }] = await Promise.all([
+    const [{ data: profiles }, { data: roles }, { data: uu }] = await Promise.all([
       supabaseAdmin.from("profiles").select("id, nome, cargo").in("id", ids),
       supabaseAdmin.from("user_roles").select("user_id, role").in("user_id", ids),
+      supabaseAdmin.from("user_unidades").select("user_id, unidade_id").in("user_id", ids),
     ]);
 
     const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
@@ -37,6 +38,12 @@ export const listSystemUsers = createServerFn({ method: "GET" })
       const arr = rolesMap.get(r.user_id) ?? [];
       arr.push(r.role);
       rolesMap.set(r.user_id, arr);
+    });
+    const uuMap = new Map<string, string[]>();
+    (uu ?? []).forEach((r: any) => {
+      const arr = uuMap.get(r.user_id) ?? [];
+      arr.push(r.unidade_id);
+      uuMap.set(r.user_id, arr);
     });
 
     return authList.users.map((u) => ({
@@ -47,8 +54,18 @@ export const listSystemUsers = createServerFn({ method: "GET" })
       nome: (profileMap.get(u.id) as any)?.nome ?? "",
       cargo: (profileMap.get(u.id) as any)?.cargo ?? "",
       roles: rolesMap.get(u.id) ?? [],
+      unidade_ids: uuMap.get(u.id) ?? [],
     }));
   });
+
+async function syncUserUnidades(user_id: string, unidade_ids: string[]) {
+  await supabaseAdmin.from("user_unidades").delete().eq("user_id", user_id);
+  if (unidade_ids.length > 0) {
+    const rows = unidade_ids.map((uid) => ({ user_id, unidade_id: uid }));
+    const { error } = await supabaseAdmin.from("user_unidades").insert(rows);
+    if (error) throw new Error(error.message);
+  }
+}
 
 export const createSystemUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -60,6 +77,7 @@ export const createSystemUser = createServerFn({ method: "POST" })
         nome: z.string().min(1).max(120),
         cargo: z.string().max(120).optional().default(""),
         role: z.enum(["admin", "recepcionista"]),
+        unidade_ids: z.array(z.string().uuid()).default([]),
       })
       .parse(input),
   )
@@ -75,12 +93,13 @@ export const createSystemUser = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     const newId = created.user!.id;
 
-    // The handle_new_user trigger inserts a default role; force the requested role.
     await supabaseAdmin.from("user_roles").delete().eq("user_id", newId);
     const { error: rErr } = await supabaseAdmin
       .from("user_roles")
       .insert({ user_id: newId, role: data.role });
     if (rErr) throw new Error(rErr.message);
+
+    await syncUserUnidades(newId, data.unidade_ids);
 
     return { id: newId };
   });
@@ -102,6 +121,22 @@ export const updateUserRole = createServerFn({ method: "POST" })
       .from("user_roles")
       .insert({ user_id: data.user_id, role: data.role });
     if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const setUserUnidades = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        user_id: z.string().uuid(),
+        unidade_ids: z.array(z.string().uuid()),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    await syncUserUnidades(data.user_id, data.unidade_ids);
     return { ok: true };
   });
 
