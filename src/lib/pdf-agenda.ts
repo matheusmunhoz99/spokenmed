@@ -7,6 +7,9 @@ export type AgendaItem = {
   hora_inicio: string;
   status: string;
   motivo?: string | null;
+  is_encaixe?: boolean | null;
+  encaixe_prioridade?: string | null;
+  encaixe_justificativa?: string | null;
   pacientes?: { nome?: string; cpf?: string | null; telefone?: string | null } | null;
   profissionais?: { nome?: string; especialidades?: { nome?: string } | null } | null;
   unidades?: { nome?: string } | null;
@@ -111,11 +114,12 @@ export async function gerarPdfAgenda({ data, unidadeNome, agendamentos, usuarioN
       .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio))
       .map((a) => [
         formatTime(a.hora_inicio),
-        a.pacientes?.nome ?? "—",
+        (a.is_encaixe ? "★ " : "") + (a.pacientes?.nome ?? "—"),
         a.pacientes?.cpf ? formatCPF(a.pacientes.cpf) : "—",
         a.pacientes?.telefone ? formatPhone(a.pacientes.telefone) : "—",
         STATUS_LABEL[a.status] ?? a.status,
-        a.motivo ?? "",
+        (a.is_encaixe ? `[ENCAIXE${a.encaixe_prioridade ? " · " + a.encaixe_prioridade.toUpperCase() : ""}] ` : "") +
+          (a.encaixe_justificativa ?? a.motivo ?? ""),
       ]);
 
     autoTable(doc, {
