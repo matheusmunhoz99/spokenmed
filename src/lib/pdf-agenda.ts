@@ -151,7 +151,7 @@ export async function gerarPdfAgenda({ data, unidadeNome, agendamentos, usuarioN
           }
         }
       },
-      margin: { left: marginX, right: marginX, bottom: 50 },
+      margin: { left: marginX, right: marginX, bottom: PDF_FOOTER_MARGIN },
     });
 
     // @ts-expect-error autotable injeta lastAutoTable
