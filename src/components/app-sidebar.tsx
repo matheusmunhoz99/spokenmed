@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import logo from "@/assets/spokenmed-logo.png";
 
 const main = [
   { title: "Painel", url: "/app", icon: LayoutDashboard },
@@ -32,13 +33,13 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border px-4 py-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-            <HeartPulse className="h-5 w-5" />
+      <SidebarHeader className="border-b border-sidebar-border px-3 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-sidebar-border overflow-hidden">
+            <img src={logo} alt="SpokenMED" className="h-10 w-10 object-contain" />
           </div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold text-sidebar-foreground">SpokenMed</span>
+          <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
+            <span className="text-sm font-semibold text-sidebar-foreground">SpokenMED</span>
             <span className="text-[11px] text-sidebar-foreground/60">Secretaria de Saúde</span>
           </div>
         </div>
