@@ -1,18 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { formatTime } from "@/lib/format";
+import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 
 export const Route = createFileRoute("/app/agendas")({
   component: AgendasPage,
@@ -28,57 +28,94 @@ function AgendasPage() {
   const search = Route.useSearch();
   const qc = useQueryClient();
   const [profId, setProfId] = useState<string>(search.profissional || "");
+  const [unidadeId, setUnidadeId] = useState<string>("");
+  const { data: unidadesAllowed } = useAllowedUnidades();
 
   const { data: profs } = useQuery({
     queryKey: ["profissionais-ativos-select"],
-    queryFn: async () => (await supabase.from("profissionais").select("id, nome, especialidade_id, unidade_id, especialidades(nome), unidades(nome)").eq("ativo", true).order("nome")).data ?? [],
+    queryFn: async () => (await supabase.from("profissionais")
+      .select("id, nome, especialidades(nome), profissional_unidades(unidade_id, unidades(id, nome))")
+      .eq("ativo", true).order("nome")).data ?? [],
   });
 
   const profissional = useMemo(() => profs?.find((p: any) => p.id === profId), [profs, profId]);
 
+  // Unidades do profissional limitadas àquelas que o usuário pode acessar
+  const profUnidades = useMemo(() => {
+    if (!profissional) return [];
+    const allowedIds = new Set((unidadesAllowed ?? []).map((u: any) => u.id));
+    return (profissional.profissional_unidades ?? [])
+      .map((pu: any) => pu.unidades)
+      .filter((u: any) => u && allowedIds.has(u.id));
+  }, [profissional, unidadesAllowed]);
+
+  useEffect(() => {
+    setUnidadeId(profUnidades[0]?.id ?? "");
+  }, [profId, profUnidades.length]);
+
   const { data: configs, refetch } = useQuery({
-    queryKey: ["agenda-configs", profId],
-    enabled: !!profId,
-    queryFn: async () => (await supabase.from("agendas_config").select("*").eq("profissional_id", profId).order("vigencia_inicio", { ascending: false })).data ?? [],
+    queryKey: ["agenda-configs", profId, unidadeId],
+    enabled: !!profId && !!unidadeId,
+    queryFn: async () => (await supabase.from("agendas_config")
+      .select("*, unidades(nome)")
+      .eq("profissional_id", profId)
+      .eq("unidade_id", unidadeId)
+      .order("vigencia_inicio", { ascending: false })).data ?? [],
   });
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Selecionar profissional</CardTitle>
-          <CardDescription>Escolha o profissional para configurar a agenda e gerar as vagas.</CardDescription>
+          <CardTitle>Selecionar profissional e unidade</CardTitle>
+          <CardDescription>Cada profissional tem uma agenda separada por unidade — assim não há conflito de horários entre UBS.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Select value={profId} onValueChange={setProfId}>
-            <SelectTrigger className="max-w-md"><SelectValue placeholder="Selecionar profissional" /></SelectTrigger>
-            <SelectContent>
-              {profs?.map((p: any) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.nome} {p.especialidades?.nome ? `· ${p.especialidades.nome}` : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <CardContent className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Profissional</Label>
+            <Select value={profId} onValueChange={setProfId}>
+              <SelectTrigger><SelectValue placeholder="Selecionar profissional" /></SelectTrigger>
+              <SelectContent>
+                {profs?.map((p: any) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.nome} {p.especialidades?.nome ? `· ${p.especialidades.nome}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Unidade</Label>
+            <Select value={unidadeId} onValueChange={setUnidadeId} disabled={!profId || profUnidades.length === 0}>
+              <SelectTrigger>
+                <SelectValue placeholder={!profId ? "Escolha o profissional" : profUnidades.length === 0 ? "Nenhuma unidade vinculada" : "Selecionar unidade"} />
+              </SelectTrigger>
+              <SelectContent>
+                {profUnidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 
-      {profId && profissional && (
+      {profId && unidadeId && profissional && (
         <>
           <NovaConfigForm
             profissional={profissional}
-            onCreated={() => { qc.invalidateQueries({ queryKey: ["agenda-configs", profId] }); }}
+            unidadeId={unidadeId}
+            unidadeNome={profUnidades.find((u: any) => u.id === unidadeId)?.nome ?? ""}
+            onCreated={() => { qc.invalidateQueries({ queryKey: ["agenda-configs", profId, unidadeId] }); }}
           />
 
           <Card>
             <CardHeader>
-              <CardTitle>Configurações de agenda</CardTitle>
+              <CardTitle>Configurações de agenda nesta unidade</CardTitle>
               <CardDescription>Histórico de configurações e vagas geradas.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {!configs || configs.length === 0 ? (
                 <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
-                  Nenhuma configuração de agenda. Crie a primeira acima para gerar as vagas.
+                  Nenhuma agenda nesta unidade. Crie a primeira acima para gerar as vagas.
                 </div>
               ) : (
                 configs.map((c: any) => <ConfigItem key={c.id} cfg={c} onChanged={refetch} />)
@@ -91,7 +128,7 @@ function AgendasPage() {
   );
 }
 
-function NovaConfigForm({ profissional, onCreated }: { profissional: any; onCreated: () => void }) {
+function NovaConfigForm({ profissional, unidadeId, unidadeNome, onCreated }: any) {
   const [submitting, setSubmitting] = useState(false);
   const [diasSel, setDiasSel] = useState<number[]>([1,2,3,4,5]);
   const [form, setForm] = useState({
@@ -102,10 +139,7 @@ function NovaConfigForm({ profissional, onCreated }: { profissional: any; onCrea
     vigencia_fim: format(new Date(Date.now() + 30 * 86400000), "yyyy-MM-dd"),
   });
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
-
-  const toggleDia = (v: number) => {
-    setDiasSel((s) => s.includes(v) ? s.filter((x) => x !== v) : [...s, v].sort());
-  };
+  const toggleDia = (v: number) => setDiasSel((s) => s.includes(v) ? s.filter((x) => x !== v) : [...s, v].sort());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,7 +148,7 @@ function NovaConfigForm({ profissional, onCreated }: { profissional: any; onCrea
 
     const payload: any = {
       profissional_id: profissional.id,
-      unidade_id: profissional.unidade_id ?? null,
+      unidade_id: unidadeId,
       dias_semana: diasSel,
       manha_inicio: form.manha_inicio || null,
       manha_fim: form.manha_fim || null,
@@ -130,15 +164,15 @@ function NovaConfigForm({ profissional, onCreated }: { profissional: any; onCrea
     const { data: count, error: errGen } = await supabase.rpc("gerar_slots", { _config_id: created.id });
     setSubmitting(false);
     if (errGen) return toast.error("Erro ao gerar vagas: " + errGen.message);
-    toast.success(`Agenda publicada — ${count} vagas geradas`);
+    toast.success(`Agenda publicada — ${count} vagas geradas em ${unidadeNome}`);
     onCreated();
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Configurar nova agenda — {profissional.nome}</CardTitle>
-        <CardDescription>Defina os dias, horários e duração de cada consulta. As vagas são geradas automaticamente.</CardDescription>
+        <CardTitle>Nova agenda — {profissional.nome} · {unidadeNome}</CardTitle>
+        <CardDescription>Defina dias, horários e duração de cada consulta. As vagas são geradas automaticamente nesta unidade.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -229,9 +263,7 @@ function ConfigItem({ cfg, onChanged }: { cfg: any; onChanged: () => void }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border bg-card p-4">
       <div className="space-y-1">
-        <div className="text-sm font-medium">
-          {cfg.vigencia_inicio} → {cfg.vigencia_fim}
-        </div>
+        <div className="text-sm font-medium">{cfg.vigencia_inicio} → {cfg.vigencia_fim}</div>
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
           <span>Dias: {cfg.dias_semana.map((d: number) => dias.find((x) => x.v === d)?.l).join(", ")}</span>
           <span>·</span>
@@ -250,5 +282,3 @@ function ConfigItem({ cfg, onChanged }: { cfg: any; onChanged: () => void }) {
     </div>
   );
 }
-// silence unused import in some builds
-void Checkbox;
