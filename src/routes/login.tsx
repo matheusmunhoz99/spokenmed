@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HeartPulse, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import logo from "@/assets/spokenmed-logo.png";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
