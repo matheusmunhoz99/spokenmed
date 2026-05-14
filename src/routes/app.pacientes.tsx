@@ -138,10 +138,10 @@ function PacientesPage() {
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-semibold">{p.nome}</div>
               <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                {p.cpf ? `CPF ${formatCPF(p.cpf)}` : p.cns ? `CNS ${formatCNS(p.cns)}` : "—"}
+                {p.cpf ? `CPF ${showCPF(p)}` : p.cns ? `CNS ${showCNS(p)}` : "—"}
               </div>
               <div className="truncate text-xs text-muted-foreground">
-                {p.telefone ? formatPhone(p.telefone) : "Sem telefone"}
+                {p.telefone ? showPhone(p) : "Sem telefone"}
                 {p.cidade ? ` · ${p.cidade}/${p.uf ?? ""}` : ""}
               </div>
             </div>
@@ -179,10 +179,10 @@ function PacientesPage() {
               {data?.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.nome}</TableCell>
-                  <TableCell>{p.cpf ? formatCPF(p.cpf) : "—"}</TableCell>
-                  <TableCell>{p.cns ? formatCNS(p.cns) : "—"}</TableCell>
+                  <TableCell>{showCPF(p)}</TableCell>
+                  <TableCell>{showCNS(p)}</TableCell>
                   <TableCell>{formatDate(p.data_nascimento)}</TableCell>
-                  <TableCell>{p.telefone ? formatPhone(p.telefone) : "—"}</TableCell>
+                  <TableCell>{showPhone(p)}</TableCell>
                   <TableCell>{p.cidade ? `${p.cidade}/${p.uf ?? ""}` : "—"}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
