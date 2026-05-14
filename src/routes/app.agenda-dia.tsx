@@ -37,10 +37,12 @@ const _UnusedAgendaDiaRoute = ({
 function AgendaDiaPage() {
   const search = Route.useSearch();
   const qc = useQueryClient();
-  const { profile, user } = useAuth();
+  const { profile, user, isAdmin } = useAuth();
   const [data, setData] = useState(search.data || format(new Date(), "yyyy-MM-dd"));
   const [unidadeId, setUnidadeId] = useState<string>("all");
   const [profId, setProfId] = useState<string>("all");
+  const [chamar, setChamar] = useState<any>(null);
+  const [excluir, setExcluir] = useState<any>(null);
 
   const { data: unidades } = useAllowedUnidades();
   const allowedIds = useMemo(() => (unidades ?? []).map((u: any) => u.id), [unidades]);
