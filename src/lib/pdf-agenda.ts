@@ -1,14 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatCPF, formatPhone, formatTime } from "./format";
-
-const STATUS_LABEL: Record<string, string> = {
-  agendado: "Agendado",
-  confirmado: "Confirmado",
-  atendido: "Atendido",
-  faltou: "Faltou",
-  cancelado: "Cancelado",
-};
+import { PDF_COLORS, drawHeader, drawFooterAllPages, loadLogo, STATUS_LABEL } from "./pdf-shared";
 
 export type AgendaItem = {
   hora_inicio: string;
@@ -20,39 +13,48 @@ export type AgendaItem = {
 };
 
 export type GerarPdfAgendaOpts = {
-  data: string; // yyyy-MM-dd
-  unidadeNome: string; // ou "Todas as unidades"
+  data: string;
+  unidadeNome: string;
   agendamentos: AgendaItem[];
   usuarioNome: string;
 };
 
 const dataExtenso = (iso: string) =>
   new Date(iso + "T00:00:00").toLocaleDateString("pt-BR", {
-    weekday: "long", day: "numeric", month: "long", year: "numeric",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
   });
 
-export function gerarPdfAgenda({ data, unidadeNome, agendamentos, usuarioNome }: GerarPdfAgendaOpts) {
+export async function gerarPdfAgenda({ data, unidadeNome, agendamentos, usuarioNome }: GerarPdfAgendaOpts) {
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const marginX = 36;
 
-  // ===== Cabeçalho =====
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text("AGENDA DO DIA", marginX, 50);
+  const logo = await loadLogo();
+  let y = drawHeader(doc, {
+    titulo: "Agenda do Dia",
+    subtitulo: "SpokenMED · Sistema de Agendamento Médico",
+    logo,
+  });
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
-  doc.text(`Unidade: ${unidadeNome}`, marginX, 70);
-  doc.text(`Data: ${dataExtenso(data)}`, marginX, 86);
-  doc.text(`Total de consultas: ${agendamentos.length}`, marginX, 102);
+  // ===== Resumo =====
+  y += 18;
+  doc.setFillColor(...PDF_COLORS.surface);
+  doc.setDrawColor(...PDF_COLORS.border);
+  doc.setLineWidth(0.6);
+  doc.roundedRect(marginX, y, pageW - marginX * 2, 56, 6, 6, "FD");
 
-  doc.setDrawColor(180);
-  doc.setLineWidth(0.5);
-  doc.line(marginX, 112, pageW - marginX, 112);
+  drawSummaryItem(doc, "UNIDADE", unidadeNome, marginX + 16, y + 14);
+  const dt = dataExtenso(data);
+  drawSummaryItem(doc, "DATA", dt.charAt(0).toUpperCase() + dt.slice(1), marginX + 280, y + 14);
+  drawSummaryItem(doc, "TOTAL DE CONSULTAS", String(agendamentos.length), pageW - marginX - 180, y + 14);
 
-  // ===== Agrupamento por profissional =====
+  y += 76;
+
+  // ===== Agrupar por profissional =====
   const grupos = new Map<string, { nome: string; especialidade: string; itens: AgendaItem[] }>();
   for (const a of agendamentos) {
     const profNome = a.profissionais?.nome ?? "(Sem profissional)";
@@ -63,34 +65,45 @@ export function gerarPdfAgenda({ data, unidadeNome, agendamentos, usuarioNome }:
   }
   const gruposOrdenados = Array.from(grupos.values()).sort((a, b) => a.nome.localeCompare(b.nome));
 
-  let cursorY = 130;
-
   if (gruposOrdenados.length === 0) {
     doc.setFontSize(11);
-    doc.setTextColor(120);
-    doc.text("Nenhum agendamento para os filtros selecionados.", marginX, cursorY);
-    doc.setTextColor(0);
+    doc.setTextColor(...PDF_COLORS.muted);
+    doc.text("Nenhum agendamento para os filtros selecionados.", marginX, y);
+    drawFooterAllPages(doc, { emitidoPor: usuarioNome, logo });
+    saveDoc(doc, unidadeNome, data);
+    return;
   }
 
   for (const g of gruposOrdenados) {
-    // Quebra de página se faltar espaço para cabeçalho do grupo
-    if (cursorY > pageH - 120) {
+    if (y > pageH - 140) {
       doc.addPage();
-      cursorY = 50;
+      y = 60;
     }
 
+    // faixa do profissional
+    doc.setFillColor(...PDF_COLORS.primarySoft);
+    doc.roundedRect(marginX, y, pageW - marginX * 2, 28, 4, 4, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.setTextColor(30);
-    doc.text(g.nome, marginX, cursorY);
+    doc.setTextColor(...PDF_COLORS.primaryDark);
+    doc.text(g.nome, marginX + 12, y + 18);
+
     if (g.especialidade) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(110);
-      doc.text(`· ${g.especialidade}`, marginX + doc.getTextWidth(g.nome) + 6, cursorY);
+      // chip de especialidade à direita
+      const chipText = g.especialidade;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      const chipW = doc.getTextWidth(chipText) + 18;
+      const chipX = pageW - marginX - 12 - chipW;
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(...PDF_COLORS.primary);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(chipX, y + 6, chipW, 16, 8, 8, "FD");
+      doc.setTextColor(...PDF_COLORS.primaryDark);
+      doc.text(chipText, chipX + chipW / 2, y + 17, { align: "center" });
     }
-    doc.setTextColor(0);
-    cursorY += 8;
+
+    y += 32;
 
     const rows = g.itens
       .slice()
@@ -105,48 +118,67 @@ export function gerarPdfAgenda({ data, unidadeNome, agendamentos, usuarioNome }:
       ]);
 
     autoTable(doc, {
-      startY: cursorY + 4,
+      startY: y,
       head: [["Hora", "Paciente", "CPF", "Telefone", "Status", "Motivo / Observações"]],
       body: rows,
       theme: "grid",
-      styles: { fontSize: 9, cellPadding: 4, valign: "middle" },
-      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
+      styles: { fontSize: 9, cellPadding: 6, valign: "middle", lineColor: PDF_COLORS.border, lineWidth: 0.4 },
+      headStyles: {
+        fillColor: PDF_COLORS.primary,
+        textColor: 255,
+        fontStyle: "bold",
+        fontSize: 9,
+        cellPadding: 7,
+      },
+      alternateRowStyles: { fillColor: PDF_COLORS.surface },
       columnStyles: {
-        0: { cellWidth: 50, halign: "center" },
+        0: { cellWidth: 50, halign: "center", fontStyle: "bold" },
         1: { cellWidth: 180 },
         2: { cellWidth: 90 },
         3: { cellWidth: 95 },
-        4: { cellWidth: 75, halign: "center" },
+        4: { cellWidth: 80, halign: "center" },
         5: { cellWidth: "auto" },
       },
-      margin: { left: marginX, right: marginX },
+      didParseCell: (hookData) => {
+        if (hookData.section === "body" && hookData.column.index === 4) {
+          const status = (g.itens.slice().sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio))[hookData.row.index] as AgendaItem).status;
+          const cfg = PDF_COLORS.status[status];
+          if (cfg) {
+            hookData.cell.styles.fillColor = [cfg[0], cfg[1], cfg[2]];
+            hookData.cell.styles.textColor = [cfg[3], cfg[4], cfg[5]];
+            hookData.cell.styles.fontStyle = "bold";
+          }
+        }
+      },
+      margin: { left: marginX, right: marginX, bottom: 50 },
     });
 
     // @ts-expect-error autotable injeta lastAutoTable
-    cursorY = (doc.lastAutoTable?.finalY ?? cursorY) + 18;
+    y = (doc.lastAutoTable?.finalY ?? y) + 18;
   }
 
-  // ===== Rodapé em todas as páginas =====
-  const totalPages = doc.getNumberOfPages();
-  const agora = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    doc.setDrawColor(220);
-    doc.setLineWidth(0.5);
-    doc.line(marginX, pageH - 32, pageW - marginX, pageH - 32);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(120);
-    doc.text(`Impresso por ${usuarioNome} em ${agora}`, marginX, pageH - 18);
-    doc.text(`Página ${i} de ${totalPages}`, pageW - marginX, pageH - 18, { align: "right" });
-    doc.text("SpokenMED · Sistema de Agendamento Médico", pageW / 2, pageH - 18, { align: "center" });
-    doc.setTextColor(0);
-  }
+  drawFooterAllPages(doc, { emitidoPor: usuarioNome, logo });
+  saveDoc(doc, unidadeNome, data);
+}
 
-  // ===== Download =====
-  const slug = unidadeNome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "todas";
-  const filename = `agenda_${slug}_${data}.pdf`;
-  doc.save(filename);
+function drawSummaryItem(doc: jsPDF, label: string, value: string, x: number, y: number) {
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...PDF_COLORS.muted);
+  doc.text(label, x, y);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(...PDF_COLORS.ink);
+  doc.text(value, x, y + 18);
+}
+
+function saveDoc(doc: jsPDF, unidadeNome: string, data: string) {
+  const slug =
+    unidadeNome
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || "todas";
+  doc.save(`agenda_${slug}_${data}.pdf`);
 }
