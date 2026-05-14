@@ -79,6 +79,9 @@ function PacientesPage() {
             value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={toggleReveal}>
+            {reveal ? <><EyeOff className="mr-1 h-4 w-4" /> Ocultar dados</> : <><Eye className="mr-1 h-4 w-4" /> Revelar dados</>}
+          </Button>
           <Button
             variant="outline"
             disabled={!data || data.length === 0}
