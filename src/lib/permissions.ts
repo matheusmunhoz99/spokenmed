@@ -8,6 +8,7 @@ export type ModuleKey =
   | "painel"
   | "unidades_especialidades"
   | "usuarios"
+  | "relatorios"
   | "auditoria";
 
 export type AppRole = "admin" | "recepcionista" | "medico";
@@ -22,6 +23,7 @@ export const MODULES: { key: ModuleKey; label: string; manageable: boolean }[] =
   { key: "painel", label: "Painel de Chamada", manageable: true },
   { key: "unidades_especialidades", label: "Unidades & Especialidades", manageable: true },
   { key: "usuarios", label: "Usuários do sistema", manageable: true },
+  { key: "relatorios", label: "Relatórios & Dashboards", manageable: false },
   { key: "auditoria", label: "Auditoria (LGPD)", manageable: false },
 ];
 
