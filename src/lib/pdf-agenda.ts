@@ -145,9 +145,14 @@ export async function gerarPdfAgenda({ data, unidadeNome, agendamentos, usuarioN
         5: { cellWidth: "auto" },
       },
       didParseCell: (hookData) => {
-        if (hookData.section === "body" && hookData.column.index === 4) {
-          const status = (g.itens.slice().sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio))[hookData.row.index] as AgendaItem).status;
-          const cfg = PDF_COLORS.status[status];
+        const sortedItens = g.itens.slice().sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+        const item = sortedItens[hookData.row.index] as AgendaItem | undefined;
+        if (hookData.section === "body" && item?.is_encaixe) {
+          // linha de encaixe: fundo amarelo claro
+          hookData.cell.styles.fillColor = [255, 247, 224];
+        }
+        if (hookData.section === "body" && hookData.column.index === 4 && item) {
+          const cfg = PDF_COLORS.status[item.status];
           if (cfg) {
             hookData.cell.styles.fillColor = [cfg[0], cfg[1], cfg[2]];
             hookData.cell.styles.textColor = [cfg[3], cfg[4], cfg[5]];
