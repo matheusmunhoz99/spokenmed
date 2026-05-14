@@ -52,6 +52,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:title", content: "SpokenMed — Agendamento Médico Municipal" },
       { property: "og:description", content: "Sistema de agendamento médico para a Secretaria de Saúde." },
       { name: "twitter:description", content: "Sistema de agendamento médico para a Secretaria de Saúde." },
+      { name: "author", content: "Matheus Munhoz" },
       { name: "twitter:card", content: "summary" },
       { property: "og:type", content: "website" },
     ],
