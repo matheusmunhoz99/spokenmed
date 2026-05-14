@@ -7,6 +7,9 @@ export type AgendaItem = {
   hora_inicio: string;
   status: string;
   motivo?: string | null;
+  is_encaixe?: boolean | null;
+  encaixe_prioridade?: string | null;
+  encaixe_justificativa?: string | null;
   pacientes?: { nome?: string; cpf?: string | null; telefone?: string | null } | null;
   profissionais?: { nome?: string; especialidades?: { nome?: string } | null } | null;
   unidades?: { nome?: string } | null;
@@ -111,11 +114,12 @@ export async function gerarPdfAgenda({ data, unidadeNome, agendamentos, usuarioN
       .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio))
       .map((a) => [
         formatTime(a.hora_inicio),
-        a.pacientes?.nome ?? "—",
+        (a.is_encaixe ? "★ " : "") + (a.pacientes?.nome ?? "—"),
         a.pacientes?.cpf ? formatCPF(a.pacientes.cpf) : "—",
         a.pacientes?.telefone ? formatPhone(a.pacientes.telefone) : "—",
         STATUS_LABEL[a.status] ?? a.status,
-        a.motivo ?? "",
+        (a.is_encaixe ? `[ENCAIXE${a.encaixe_prioridade ? " · " + a.encaixe_prioridade.toUpperCase() : ""}] ` : "") +
+          (a.encaixe_justificativa ?? a.motivo ?? ""),
       ]);
 
     autoTable(doc, {
@@ -141,9 +145,14 @@ export async function gerarPdfAgenda({ data, unidadeNome, agendamentos, usuarioN
         5: { cellWidth: "auto" },
       },
       didParseCell: (hookData) => {
-        if (hookData.section === "body" && hookData.column.index === 4) {
-          const status = (g.itens.slice().sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio))[hookData.row.index] as AgendaItem).status;
-          const cfg = PDF_COLORS.status[status];
+        const sortedItens = g.itens.slice().sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+        const item = sortedItens[hookData.row.index] as AgendaItem | undefined;
+        if (hookData.section === "body" && item?.is_encaixe) {
+          // linha de encaixe: fundo amarelo claro
+          hookData.cell.styles.fillColor = [255, 247, 224];
+        }
+        if (hookData.section === "body" && hookData.column.index === 4 && item) {
+          const cfg = PDF_COLORS.status[item.status];
           if (cfg) {
             hookData.cell.styles.fillColor = [cfg[0], cfg[1], cfg[2]];
             hookData.cell.styles.textColor = [cfg[3], cfg[4], cfg[5]];

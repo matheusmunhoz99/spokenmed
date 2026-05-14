@@ -6,15 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2, Download, Trash2, Megaphone } from "lucide-react";
+import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2, Download, Trash2, Megaphone, CalendarClock, History, Zap, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { StatusBadge } from "./app.index";
+import { Badge } from "@/components/ui/badge";
 import { formatTime } from "@/lib/format";
 import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { useAuth } from "@/hooks/use-auth";
 import { gerarPdfAgenda } from "@/lib/pdf-agenda";
 import { ChamarDialog } from "@/components/chamar-dialog";
+import { ReagendarDialog } from "@/components/reagendar-dialog";
+import { HistoricoDialog } from "@/components/historico-dialog";
+import { EncaixeDialog } from "@/components/encaixe-dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -43,6 +47,9 @@ function AgendaDiaPage() {
   const [profId, setProfId] = useState<string>("all");
   const [chamar, setChamar] = useState<any>(null);
   const [excluir, setExcluir] = useState<any>(null);
+  const [reagendar, setReagendar] = useState<any>(null);
+  const [historico, setHistorico] = useState<any>(null);
+  const [encaixeOpen, setEncaixeOpen] = useState(false);
 
   const { data: unidades } = useAllowedUnidades();
   const allowedIds = useMemo(() => (unidades ?? []).map((u: any) => u.id), [unidades]);
@@ -72,7 +79,7 @@ function AgendaDiaPage() {
     enabled: !!unidades,
     queryFn: async () => {
       let q = supabase.from("agendamentos")
-        .select("id, hora_inicio, status, motivo, paciente_id, slot_id, unidade_id, pacientes(nome, cpf, telefone), profissionais(nome, sala, especialidades(nome)), unidades(nome)")
+        .select("id, hora_inicio, status, motivo, paciente_id, slot_id, profissional_id, unidade_id, is_encaixe, encaixe_prioridade, encaixe_justificativa, reagendado_em, pacientes(nome, cpf, telefone), profissionais(id, nome, sala, especialidades(nome)), unidades(nome)")
         .eq("data", data).order("hora_inicio");
       if (profId !== "all") q = q.eq("profissional_id", profId);
       if (unidadeId !== "all") q = q.eq("unidade_id", unidadeId);
@@ -139,10 +146,13 @@ function AgendaDiaPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="self-end">
+          <div className="self-end flex gap-2">
+            <Button variant="default" className="flex-1" onClick={() => setEncaixeOpen(true)}>
+              <Zap className="mr-2 h-4 w-4" /> Encaixe
+            </Button>
             <Button
               variant="outline"
-              className="w-full"
+              className="flex-1"
               disabled={!ags || ags.length === 0}
               onClick={() => {
                 if (!ags || ags.length === 0) return;
@@ -157,7 +167,7 @@ function AgendaDiaPage() {
                 });
               }}
             >
-              <Download className="mr-2 h-4 w-4" /> Exportar PDF
+              <Download className="mr-2 h-4 w-4" /> PDF
             </Button>
           </div>
         </CardContent>
@@ -173,16 +183,31 @@ function AgendaDiaPage() {
           ) : (
             <ul className="divide-y">
               {ags?.map((a: any) => (
-                <li key={a.id} className="flex flex-col gap-3 py-3 md:flex-row md:flex-wrap md:items-center md:gap-4">
+                <li key={a.id} className={`flex flex-col gap-3 py-3 md:flex-row md:flex-wrap md:items-center md:gap-4 ${a.is_encaixe ? "bg-amber-50/40 dark:bg-amber-950/10 border-l-4 border-amber-400 pl-2" : ""}`}>
                   <div className="flex items-start gap-3 md:contents">
                     <div className="w-14 shrink-0 rounded-md bg-muted px-2 py-1 text-center font-mono text-sm md:w-16 md:bg-transparent md:px-0 md:py-0 md:text-left">{formatTime(a.hora_inicio)}</div>
                     <div className="min-w-0 flex-1 md:min-w-[200px]">
-                      <div className="truncate text-sm font-medium">{a.pacientes?.nome}</div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="truncate text-sm font-medium">{a.pacientes?.nome}</span>
+                        {a.is_encaixe && (
+                          <Badge variant="outline" className="border-amber-300 bg-amber-100 text-amber-800 text-[10px]">
+                            <Zap className="mr-0.5 h-3 w-3" /> Encaixe{a.encaixe_prioridade ? ` · ${a.encaixe_prioridade}` : ""}
+                          </Badge>
+                        )}
+                        {a.reagendado_em && (
+                          <Badge variant="outline" className="border-violet-300 bg-violet-100 text-violet-800 text-[10px]">
+                            Reagendado
+                          </Badge>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground">
                         {a.profissionais?.nome}{a.profissionais?.especialidades?.nome ? ` · ${a.profissionais.especialidades.nome}` : ""}
                         {a.unidades?.nome && <> · <span className="text-primary/80">{a.unidades.nome}</span></>}
                       </div>
                       {a.motivo && <div className="mt-1 line-clamp-2 text-xs italic text-muted-foreground">"{a.motivo}"</div>}
+                      {a.is_encaixe && a.encaixe_justificativa && (
+                        <div className="mt-1 line-clamp-2 text-xs text-amber-800/80">Justificativa: {a.encaixe_justificativa}</div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-2 md:contents">
@@ -195,6 +220,10 @@ function AgendaDiaPage() {
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Atendido" onClick={() => updateStatus(a, "atendido")}><UserCheck className="h-4 w-4" /></Button>
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Faltou" onClick={() => updateStatus(a, "faltou")}><AlertTriangle className="h-4 w-4" /></Button>
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Cancelar" onClick={() => updateStatus(a, "cancelado")}><XCircle className="h-4 w-4" /></Button>
+                      {!a.is_encaixe && a.slot_id && (
+                        <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Reagendar" onClick={() => setReagendar(a)}><CalendarClock className="h-4 w-4" /></Button>
+                      )}
+                      <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Histórico" onClick={() => setHistorico(a)}><History className="h-4 w-4" /></Button>
                       {isAdmin && (
                         <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-destructive hover:text-destructive" title="Excluir" onClick={() => setExcluir(a)}><Trash2 className="h-4 w-4" /></Button>
                       )}
@@ -228,6 +257,21 @@ function AgendaDiaPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ReagendarDialog
+        open={!!reagendar}
+        onOpenChange={(v) => !v && setReagendar(null)}
+        agendamento={reagendar}
+      />
+
+      <HistoricoDialog
+        open={!!historico}
+        onOpenChange={(v) => !v && setHistorico(null)}
+        agendamentoId={historico?.id ?? null}
+        pacienteNome={historico?.pacientes?.nome}
+      />
+
+      <EncaixeDialog open={encaixeOpen} onOpenChange={setEncaixeOpen} />
     </div>
   );
 }
