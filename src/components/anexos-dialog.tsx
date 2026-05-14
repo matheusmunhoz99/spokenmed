@@ -187,9 +187,9 @@ export function AnexosDialog({
         <div className="space-y-2">
           <h4 className="text-sm font-medium">Arquivos ({anexos?.length ?? 0})</h4>
           {isLoading ? (
-            <div className="py-6 text-center text-sm text-muted-foreground"><Loader2 className="inline h-4 w-4 animate-spin" /> Carregando...</div>
+            <LoadingState variant="list" rows={3} />
           ) : !anexos?.length ? (
-            <div className="rounded-md border border-dashed py-6 text-center text-sm text-muted-foreground">Nenhum anexo enviado.</div>
+            <EmptyState icon={Paperclip} title="Nenhum anexo enviado" description="Envie pedidos médicos, exames ou documentos relacionados ao agendamento." compact />
           ) : (
             <ul className="divide-y rounded-md border">
               {anexos.map((a: any) => (
