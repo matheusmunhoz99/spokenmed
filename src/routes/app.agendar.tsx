@@ -219,20 +219,28 @@ function AgendarPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Especialidade</Label>
-              <Select value={especialidadeId} onValueChange={setEspecialidadeId}>
-                <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+              <Select value={especialidadeId} onValueChange={setEspecialidadeId} disabled={!unidadeId || especs.length === 0}>
+                <SelectTrigger>
+                  <SelectValue placeholder={!unidadeId ? "Escolha a unidade" : especs.length === 0 ? "Sem especialidades" : "Todas"} />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
-                  {especs?.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}
+                  {especs.map((e) => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Profissional</Label>
-              <Select value={profId} onValueChange={setProfId} disabled={!unidadeId}>
-                <SelectTrigger><SelectValue placeholder={!unidadeId ? "Escolha a unidade" : "Selecionar"} /></SelectTrigger>
+              <Select value={profId} onValueChange={setProfId} disabled={!unidadeId || profs.length === 0}>
+                <SelectTrigger>
+                  <SelectValue placeholder={!unidadeId ? "Escolha a unidade" : profs.length === 0 ? "Nenhum profissional" : "Selecionar"} />
+                </SelectTrigger>
                 <SelectContent>
-                  {profs?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                  {profs.map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nome}{p.especialidades?.nome ? ` · ${p.especialidades.nome}` : ""}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
