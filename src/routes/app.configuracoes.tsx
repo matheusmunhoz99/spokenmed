@@ -63,17 +63,19 @@ function UnidadesCard() {
       <CardContent className="space-y-4">
         <div className="grid gap-2 md:grid-cols-4">
           <div className="md:col-span-2 space-y-1.5"><Label className="text-xs">Nome *</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">CNES (7 dígitos)</Label><Input value={cnes} maxLength={7} onChange={(e) => setCnes(e.target.value.replace(/\D/g, ""))} /></div>
           <div className="space-y-1.5"><Label className="text-xs">Telefone</Label><Input value={telefone} onChange={(e) => setTelefone(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label className="text-xs">Endereço</Label><Input value={endereco} onChange={(e) => setEndereco(e.target.value)} /></div>
+          <div className="md:col-span-3 space-y-1.5"><Label className="text-xs">Endereço</Label><Input value={endereco} onChange={(e) => setEndereco(e.target.value)} /></div>
           <div className="md:col-span-4 flex justify-end"><Button onClick={add}><Plus className="mr-1 h-4 w-4" />Adicionar</Button></div>
         </div>
         <Table>
-          <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Telefone</TableHead><TableHead>Status</TableHead><TableHead></TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>CNES</TableHead><TableHead>Telefone</TableHead><TableHead>Status</TableHead><TableHead></TableHead></TableRow></TableHeader>
           <TableBody>
-            {data?.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground text-sm">Nenhuma unidade cadastrada.</TableCell></TableRow>}
+            {data?.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-sm">Nenhuma unidade cadastrada.</TableCell></TableRow>}
             {data?.map((u) => (
               <TableRow key={u.id}>
                 <TableCell className="font-medium">{u.nome}</TableCell>
+                <TableCell className="font-mono text-xs">{u.cnes ?? "—"}</TableCell>
                 <TableCell>{u.telefone ?? "—"}</TableCell>
                 <TableCell><button onClick={() => toggle(u)}>{u.ativo ? <Badge className="bg-success/15 text-success border-0">Ativa</Badge> : <Badge variant="secondary">Inativa</Badge>}</button></TableCell>
                 <TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => del(u.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
