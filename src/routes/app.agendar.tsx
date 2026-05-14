@@ -12,7 +12,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Search, Check, Calendar as CalIcon, FileText } from "lucide-react";
+import { Loader2, Search, Check, Calendar as CalIcon, FileText, UserSearch, UserPlus } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
+import { LoadingState } from "@/components/loading-state";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
