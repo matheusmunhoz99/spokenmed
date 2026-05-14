@@ -17,6 +17,7 @@ const titles: Record<string, string> = {
   "/app/configuracoes": "Unidades & Especialidades",
   "/app/configuracoes/sistema": "Configurações",
   "/app/auditoria": "Central de Auditoria",
+  "/app/relatorios": "Relatórios & Dashboards",
 };
 
 function AppLayout() {

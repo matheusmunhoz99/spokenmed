@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, Stethoscope, CalendarCog, CalendarPlus,
-  CalendarDays, Building2, Settings, LogOut, MonitorPlay, ListOrdered, ShieldCheck,
+  CalendarDays, Building2, Settings, LogOut, MonitorPlay, ListOrdered, ShieldCheck, BarChart3,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -28,6 +28,7 @@ const cadastros: Item[] = [
   { title: "Agendas", url: "/app/agendas", icon: CalendarCog, module: "agendas" },
 ];
 const admin: Item[] = [
+  { title: "Relatórios", url: "/app/relatorios", icon: BarChart3, module: "relatorios" },
   { title: "Unidades & Especialidades", url: "/app/configuracoes", icon: Building2, module: "unidades_especialidades" },
   { title: "Configurações", url: "/app/configuracoes/sistema", icon: Settings, module: "usuarios" },
   { title: "Auditoria (LGPD)", url: "/app/auditoria", icon: ShieldCheck, module: "auditoria" },
