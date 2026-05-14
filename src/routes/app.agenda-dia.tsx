@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2, Download, Trash2, Megaphone, CalendarClock, History, Zap, Plus, Paperclip } from "lucide-react";
+import { LoadingState } from "@/components/loading-state";
+import { EmptyState } from "@/components/empty-state";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { StatusBadge } from "./app.index";
@@ -179,9 +181,9 @@ function AgendaDiaPage() {
         <CardHeader><CardTitle className="text-base sm:text-lg">{ags?.length ?? 0} consultas em {new Date(data + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}</CardTitle></CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-10 text-muted-foreground"><Loader2 className="inline h-4 w-4 animate-spin mr-2" />Carregando...</div>
+            <LoadingState variant="list" rows={6} />
           ) : ags?.length === 0 ? (
-            <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">Sem agendamentos para o filtro selecionado.</div>
+            <EmptyState icon={CalendarClock} title="Sem agendamentos" description="Não há consultas para o filtro selecionado." />
           ) : (
             <ul className="divide-y">
               {ags?.map((a: any) => (

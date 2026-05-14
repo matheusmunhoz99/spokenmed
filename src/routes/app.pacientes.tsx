@@ -17,6 +17,9 @@ import { maskCPF, maskCNS, maskPhone } from "@/lib/mask";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
 import { logViewOnce } from "@/lib/audit";
+import { LoadingState } from "@/components/loading-state";
+import { EmptyState } from "@/components/empty-state";
+import { Users } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
 import { SemAcesso } from "@/components/sem-acesso";
@@ -122,9 +125,9 @@ function PacientesPage() {
 
       {/* Mobile: cards */}
       <div className="grid gap-2 md:hidden">
-        {isLoading && <div className="rounded-md border bg-card p-6 text-center text-muted-foreground"><Loader2 className="inline mr-2 h-4 w-4 animate-spin"/>Carregando...</div>}
+        {isLoading && <LoadingState variant="list" rows={4} />}
         {!isLoading && data?.length === 0 && (
-          <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">Nenhum paciente encontrado.</div>
+          <EmptyState icon={Users} title="Nenhum paciente encontrado" description={search ? "Tente outros termos de busca." : "Cadastre o primeiro paciente para começar."} action={{ label: "Novo paciente", onClick: () => { setEditing(null); setOpen(true); }, icon: Plus }} />
         )}
         {data?.map((p) => (
           <button
@@ -168,13 +171,13 @@ function PacientesPage() {
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                  <Loader2 className="inline mr-2 h-4 w-4 animate-spin"/> Carregando...
+                <TableRow><TableCell colSpan={7} className="p-3">
+                  <LoadingState variant="table" rows={5} />
                 </TableCell></TableRow>
               )}
               {!isLoading && data?.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                  Nenhum paciente encontrado.
+                <TableRow><TableCell colSpan={7} className="p-3">
+                  <EmptyState icon={Users} title="Nenhum paciente encontrado" description={search ? "Ajuste os filtros e tente novamente." : "Cadastre o primeiro paciente."} compact />
                 </TableCell></TableRow>
               )}
               {data?.map((p) => (
