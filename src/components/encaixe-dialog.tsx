@@ -55,7 +55,7 @@ export function EncaixeDialog({ open, onOpenChange }: Props) {
     },
   });
 
-  const { data: pacResults } = useQuery({
+  const { data: pacResults, isFetching: pacLoading } = useQuery({
     queryKey: ["enc-pac", search],
     enabled: search.length >= 2,
     queryFn: async () => {
