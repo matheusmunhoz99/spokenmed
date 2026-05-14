@@ -14,18 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      agendamento_historico: {
+        Row: {
+          agendamento_id: string
+          created_at: string
+          de: Json | null
+          evento: string
+          id: string
+          motivo: string | null
+          para: Json | null
+          user_email: string | null
+          user_id: string | null
+          user_role: string | null
+        }
+        Insert: {
+          agendamento_id: string
+          created_at?: string
+          de?: Json | null
+          evento: string
+          id?: string
+          motivo?: string | null
+          para?: Json | null
+          user_email?: string | null
+          user_id?: string | null
+          user_role?: string | null
+        }
+        Update: {
+          agendamento_id?: string
+          created_at?: string
+          de?: Json | null
+          evento?: string
+          id?: string
+          motivo?: string | null
+          para?: Json | null
+          user_email?: string | null
+          user_id?: string | null
+          user_role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agendamento_historico_agendamento_id_fkey"
+            columns: ["agendamento_id"]
+            isOneToOne: false
+            referencedRelation: "agendamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agendamentos: {
         Row: {
           created_at: string
           criado_por: string | null
           data: string
+          encaixe_justificativa: string | null
+          encaixe_prioridade:
+            | Database["public"]["Enums"]["fila_urgencia"]
+            | null
           hora_inicio: string
           id: string
+          is_encaixe: boolean
           motivo: string | null
           observacoes: string | null
           paciente_id: string
           profissional_id: string
-          slot_id: string
+          reagendado_de: string | null
+          reagendado_em: string | null
+          slot_id: string | null
           status: Database["public"]["Enums"]["agendamento_status"]
           unidade_id: string | null
           updated_at: string
@@ -34,13 +88,20 @@ export type Database = {
           created_at?: string
           criado_por?: string | null
           data: string
+          encaixe_justificativa?: string | null
+          encaixe_prioridade?:
+            | Database["public"]["Enums"]["fila_urgencia"]
+            | null
           hora_inicio: string
           id?: string
+          is_encaixe?: boolean
           motivo?: string | null
           observacoes?: string | null
           paciente_id: string
           profissional_id: string
-          slot_id: string
+          reagendado_de?: string | null
+          reagendado_em?: string | null
+          slot_id?: string | null
           status?: Database["public"]["Enums"]["agendamento_status"]
           unidade_id?: string | null
           updated_at?: string
@@ -49,13 +110,20 @@ export type Database = {
           created_at?: string
           criado_por?: string | null
           data?: string
+          encaixe_justificativa?: string | null
+          encaixe_prioridade?:
+            | Database["public"]["Enums"]["fila_urgencia"]
+            | null
           hora_inicio?: string
           id?: string
+          is_encaixe?: boolean
           motivo?: string | null
           observacoes?: string | null
           paciente_id?: string
           profissional_id?: string
-          slot_id?: string
+          reagendado_de?: string | null
+          reagendado_em?: string | null
+          slot_id?: string | null
           status?: Database["public"]["Enums"]["agendamento_status"]
           unidade_id?: string | null
           updated_at?: string
@@ -78,7 +146,7 @@ export type Database = {
           {
             foreignKeyName: "agendamentos_slot_id_fkey"
             columns: ["slot_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "slots"
             referencedColumns: ["id"]
           },
