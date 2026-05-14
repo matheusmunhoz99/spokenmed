@@ -123,10 +123,13 @@ export function drawHeader(
   }
   doc.setTextColor(0, 0, 0);
 
-  return headerH + 4;
+  return headerH + 12;
 }
 
-// ===== Rodapé em todas as páginas =====
+// Espaço reservado ao rodapé (use no margin.bottom do autoTable e nos checks de quebra)
+export const PDF_FOOTER_MARGIN = 70;
+
+// ===== Rodapé em todas as páginas (duas linhas, sem sobreposição) =====
 export function drawFooterAllPages(
   doc: jsPDF,
   opts: { emitidoPor?: string; logo: Awaited<ReturnType<typeof loadLogo>> },
@@ -138,36 +141,44 @@ export function drawFooterAllPages(
 
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
+
+    // régua superior do rodapé
     doc.setDrawColor(...PDF_COLORS.border);
     doc.setLineWidth(0.5);
-    doc.line(36, pageH - 40, pageW - 36, pageH - 40);
+    doc.line(36, pageH - 50, pageW - 36, pageH - 50);
 
-    // mini-logo + nome
-    const baseY = pageH - 24;
+    // === Linha 1 — branding (acima) ===
+    const brandY = pageH - 32;
     if (opts.logo) {
       const h = 14;
       const w = h * (opts.logo.w / opts.logo.h);
       try {
-        doc.addImage(opts.logo.dataUrl, "PNG", 36, baseY - 11, w, h);
+        doc.addImage(opts.logo.dataUrl, "PNG", 36, brandY - 11, w, h);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8);
         doc.setTextColor(...PDF_COLORS.primary);
-        doc.text("SpokenMED", 36 + w + 4, baseY - 1);
+        doc.text("SpokenMED", 36 + w + 5, brandY - 1);
       } catch {
         /* ignore */
       }
     }
-
+    // subtítulo do sistema, à direita da linha 1
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(...PDF_COLORS.muted);
+    doc.text("Sistema de Agendamento Médico", pageW - 36, brandY - 1, { align: "right" });
 
+    // === Linha 2 — emissão + paginação (abaixo) ===
+    const metaY = pageH - 16;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...PDF_COLORS.muted);
     const left = opts.emitidoPor
       ? `Emitido por ${opts.emitidoPor} · ${agora}`
       : `Emitido em ${agora}`;
-    doc.text(left, pageW / 2, baseY - 1, { align: "center" });
+    doc.text(left, 36, metaY);
+    doc.text(`Página ${i} de ${totalPages}`, pageW - 36, metaY, { align: "right" });
 
-    doc.text(`Página ${i} de ${totalPages}`, pageW - 36, baseY - 1, { align: "right" });
     doc.setTextColor(0, 0, 0);
   }
 }
