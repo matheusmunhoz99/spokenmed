@@ -9,6 +9,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenuLabel, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -18,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ListOrdered, Plus, Search, CalendarPlus, Trash2, Loader2, Check, FileText, Clock,
+  AlertTriangle, MoreVertical,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
@@ -36,12 +42,29 @@ export const Route = createFileRoute("/app/fila")({ component: FilaGuard });
 
 const FILA_TABLE = "fila_espera" as const;
 
+type Urgencia = "normal" | "prioritaria" | "urgente";
+type StatusFila = "aguardando" | "agendado" | "cancelado";
+
+const URGENCIA_LABEL: Record<Urgencia, string> = {
+  normal: "Normal",
+  prioritaria: "Prioritária",
+  urgente: "Urgente",
+};
+const URGENCIA_RANK: Record<Urgencia, number> = { urgente: 0, prioritaria: 1, normal: 2 };
+
+function urgenciaBadgeClass(u: Urgencia) {
+  if (u === "urgente") return "bg-destructive text-destructive-foreground hover:bg-destructive";
+  if (u === "prioritaria") return "bg-amber-500 text-white hover:bg-amber-500 dark:bg-amber-600";
+  return "bg-muted text-muted-foreground hover:bg-muted";
+}
+
 function FilaPage() {
   const { user, profile, isAdmin } = useAuth();
   const qc = useQueryClient();
   const { data: unidadesAllowed } = useAllowedUnidades();
   const [unidadeId, setUnidadeId] = useState("");
   const [especialidadeId, setEspecialidadeId] = useState("all");
+  const [statusFiltro, setStatusFiltro] = useState<"aguardando" | "agendado" | "todos">("aguardando");
   const [busca, setBusca] = useState("");
 
   const [addOpen, setAddOpen] = useState(false);
@@ -52,7 +75,6 @@ function FilaPage() {
     if (!unidadeId && unidadesAllowed?.length) setUnidadeId(unidadesAllowed[0].id);
   }, [unidadesAllowed, unidadeId]);
 
-  // Especialidades disponíveis na unidade
   const { data: especs } = useQuery({
     queryKey: ["fila-especs", unidadeId],
     enabled: !!unidadeId,
@@ -70,54 +92,68 @@ function FilaPage() {
     },
   });
 
-  // Lista da fila
-  const queryKey = ["fila", unidadeId, especialidadeId];
+  const queryKey = ["fila", unidadeId, especialidadeId, statusFiltro];
   const { data: fila, isLoading } = useQuery({
     queryKey,
     enabled: !!unidadeId,
     queryFn: async () => {
       let q = (supabase.from(FILA_TABLE as any) as any)
-        .select("id, created_at, observacoes, paciente_id, especialidade_id, unidade_id, pacientes(id, nome, cpf, telefone), especialidades(id, nome)")
+        .select("id, created_at, observacoes, paciente_id, especialidade_id, unidade_id, status, urgencia, agendamento_id, pacientes(id, nome, cpf, telefone), especialidades(id, nome)")
         .eq("unidade_id", unidadeId)
-        .eq("status", "aguardando")
+        .in("status", statusFiltro === "todos" ? ["aguardando", "agendado"] : [statusFiltro])
         .order("created_at", { ascending: true });
       if (especialidadeId !== "all") q = q.eq("especialidade_id", especialidadeId);
       const { data, error } = await q;
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as any[];
     },
   });
 
-  // Realtime → invalida a query
+  // Realtime → invalida toda vez que a tabela muda nessa unidade
   useEffect(() => {
     if (!unidadeId) return;
     const ch = supabase
       .channel(`fila-${unidadeId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: FILA_TABLE, filter: `unidade_id=eq.${unidadeId}` },
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: FILA_TABLE, filter: `unidade_id=eq.${unidadeId}` },
         () => qc.invalidateQueries({ queryKey: ["fila", unidadeId] }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [unidadeId, qc]);
 
-  // Calcula posição por especialidade
-  const filaComPosicao = useMemo(() => {
+  // Ordena por (status aguardando primeiro, urgência, created_at) e calcula posição
+  // entre os "aguardando", particionada por especialidade.
+  const filaOrdenada = useMemo(() => {
     if (!fila) return [];
+    const arr = [...fila].sort((a, b) => {
+      const sa = a.status === "aguardando" ? 0 : 1;
+      const sb = b.status === "aguardando" ? 0 : 1;
+      if (sa !== sb) return sa - sb;
+      const ua = URGENCIA_RANK[a.urgencia as Urgencia] ?? 2;
+      const ub = URGENCIA_RANK[b.urgencia as Urgencia] ?? 2;
+      if (ua !== ub) return ua - ub;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
     const counters: Record<string, number> = {};
-    return fila.map((f: any) => {
-      counters[f.especialidade_id] = (counters[f.especialidade_id] ?? 0) + 1;
-      return { ...f, posicao: counters[f.especialidade_id] };
+    return arr.map((f) => {
+      let posicao: number | null = null;
+      if (f.status === "aguardando") {
+        counters[f.especialidade_id] = (counters[f.especialidade_id] ?? 0) + 1;
+        posicao = counters[f.especialidade_id];
+      }
+      return { ...f, posicao };
     });
   }, [fila]);
 
   const filaFiltrada = useMemo(() => {
     const term = busca.trim().toLowerCase();
-    if (!term) return filaComPosicao;
+    if (!term) return filaOrdenada;
     const digits = onlyDigits(term);
-    return filaComPosicao.filter((f: any) =>
+    return filaOrdenada.filter((f: any) =>
       f.pacientes?.nome?.toLowerCase().includes(term) ||
       (digits.length >= 3 && f.pacientes?.cpf?.includes(digits))
     );
-  }, [filaComPosicao, busca]);
+  }, [filaOrdenada, busca]);
 
   const handleRemover = async (item: any) => {
     const { error } = await (supabase.from(FILA_TABLE as any) as any)
@@ -125,6 +161,15 @@ function FilaPage() {
     if (error) return toast.error(error.message);
     toast.success("Removido da fila");
     setRemoverItem(null);
+    qc.invalidateQueries({ queryKey: ["fila", unidadeId] });
+  };
+
+  const handleAlterarUrgencia = async (item: any, urgencia: Urgencia) => {
+    if (item.urgencia === urgencia) return;
+    const { error } = await (supabase.from(FILA_TABLE as any) as any)
+      .update({ urgencia }).eq("id", item.id);
+    if (error) return toast.error(error.message);
+    toast.success(`Urgência atualizada para ${URGENCIA_LABEL[urgencia]}`);
     qc.invalidateQueries({ queryKey: ["fila", unidadeId] });
   };
 
@@ -138,13 +183,13 @@ function FilaPage() {
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <ListOrdered className="h-5 w-5 text-primary" /> Fila de Espera
             </CardTitle>
-            <CardDescription>Pacientes aguardando agendamento por especialidade.</CardDescription>
+            <CardDescription>Pacientes aguardando agendamento por especialidade · atualiza em tempo real.</CardDescription>
           </div>
           <Button onClick={() => setAddOpen(true)} disabled={!unidadeId}>
             <Plus className="mr-2 h-4 w-4" /> Adicionar à fila
           </Button>
         </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-3">
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1.5">
             <Label className="text-xs">Unidade</Label>
             <Select value={unidadeId} onValueChange={setUnidadeId}>
@@ -165,6 +210,17 @@ function FilaPage() {
             </Select>
           </div>
           <div className="space-y-1.5">
+            <Label className="text-xs">Status</Label>
+            <Select value={statusFiltro} onValueChange={(v: any) => setStatusFiltro(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="aguardando">Aguardando</SelectItem>
+                <SelectItem value="agendado">Agendados</SelectItem>
+                <SelectItem value="todos">Todos (em aberto)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
             <Label className="text-xs">Buscar paciente</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -177,7 +233,7 @@ function FilaPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">
-            {filaFiltrada.length} {filaFiltrada.length === 1 ? "paciente" : "pacientes"} na fila
+            {filaFiltrada.length} {filaFiltrada.length === 1 ? "paciente" : "pacientes"}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -185,20 +241,34 @@ function FilaPage() {
             <div className="text-center py-10 text-muted-foreground"><Loader2 className="inline h-4 w-4 animate-spin mr-2" />Carregando...</div>
           ) : filaFiltrada.length === 0 ? (
             <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
-              Nenhum paciente aguardando.
+              Nenhum paciente encontrado.
             </div>
           ) : (
             <ul className="divide-y">
               {filaFiltrada.map((f: any) => {
                 const dias = differenceInDays(new Date(), new Date(f.created_at));
+                const urg = (f.urgencia ?? "normal") as Urgencia;
+                const isAgendado = f.status === "agendado";
                 return (
                   <li key={f.id} className="flex flex-col gap-3 py-3 md:flex-row md:items-center md:gap-4">
                     <div className="flex shrink-0 items-center gap-3 md:contents">
-                      <Badge variant="default" className="h-9 min-w-12 justify-center rounded-md px-2 text-base font-bold tabular-nums">
-                        #{f.posicao}
-                      </Badge>
+                      {isAgendado ? (
+                        <Badge variant="secondary" className="h-9 min-w-12 justify-center rounded-md px-2 text-xs font-semibold">
+                          Agendado
+                        </Badge>
+                      ) : (
+                        <Badge variant="default" className="h-9 min-w-12 justify-center rounded-md px-2 text-base font-bold tabular-nums">
+                          #{f.posicao}
+                        </Badge>
+                      )}
                       <div className="min-w-0 flex-1 md:min-w-[220px]">
-                        <div className="truncate text-sm font-medium">{f.pacientes?.nome}</div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="truncate text-sm font-medium">{f.pacientes?.nome}</div>
+                          <Badge className={`text-[10px] uppercase ${urgenciaBadgeClass(urg)}`}>
+                            {urg === "urgente" && <AlertTriangle className="mr-1 h-3 w-3" />}
+                            {URGENCIA_LABEL[urg]}
+                          </Badge>
+                        </div>
                         <div className="text-xs text-muted-foreground">
                           {f.especialidades?.nome}
                           {f.pacientes?.cpf && <> · CPF {formatCPF(f.pacientes.cpf)}</>}
@@ -214,15 +284,35 @@ function FilaPage() {
                         {dias === 0 ? "hoje" : `${dias} dia${dias > 1 ? "s" : ""}`}
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        <Button size="sm" onClick={() => setAgendarItem(f)}>
-                          <CalendarPlus className="mr-1 h-4 w-4" /> Agendar
-                        </Button>
-                        {isAdmin && (
-                          <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-destructive hover:text-destructive"
-                            title="Remover da fila" onClick={() => setRemoverItem(f)}>
-                            <Trash2 className="h-4 w-4" />
+                        {!isAgendado && (
+                          <Button size="sm" onClick={() => setAgendarItem(f)}>
+                            <CalendarPlus className="mr-1 h-4 w-4" /> Agendar
                           </Button>
                         )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Mais ações">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel className="text-xs">Urgência</DropdownMenuLabel>
+                            {(["normal", "prioritaria", "urgente"] as Urgencia[]).map((u) => (
+                              <DropdownMenuItem key={u} onClick={() => handleAlterarUrgencia(f, u)}>
+                                {urg === u && <Check className="mr-2 h-4 w-4" />}
+                                <span className={urg === u ? "" : "ml-6"}>{URGENCIA_LABEL[u]}</span>
+                              </DropdownMenuItem>
+                            ))}
+                            {isAdmin && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive" onClick={() => setRemoverItem(f)}>
+                                  <Trash2 className="mr-2 h-4 w-4" /> Remover da fila
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </li>
@@ -281,12 +371,13 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
   const [search, setSearch] = useState("");
   const [paciente, setPaciente] = useState<any>(null);
   const [especialidadeId, setEspecialidadeId] = useState("");
+  const [urgencia, setUrgencia] = useState<Urgencia>("normal");
   const [obs, setObs] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) {
-      setSearch(""); setPaciente(null); setEspecialidadeId(""); setObs("");
+      setSearch(""); setPaciente(null); setEspecialidadeId(""); setUrgencia("normal"); setObs("");
     }
   }, [open]);
 
@@ -306,15 +397,34 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
   const handleSalvar = async () => {
     if (!paciente || !especialidadeId || !unidadeId) return;
     setSubmitting(true);
+
+    // Checa duplicidade em aberto
+    const { data: dup } = await (supabase.from(FILA_TABLE as any) as any)
+      .select("id")
+      .eq("paciente_id", paciente.id)
+      .eq("unidade_id", unidadeId)
+      .eq("especialidade_id", especialidadeId)
+      .in("status", ["aguardando", "agendado"])
+      .limit(1)
+      .maybeSingle();
+    if (dup) {
+      setSubmitting(false);
+      return toast.error("Paciente já está na fila desta especialidade.");
+    }
+
     const { error } = await (supabase.from(FILA_TABLE as any) as any).insert({
       paciente_id: paciente.id,
       unidade_id: unidadeId,
       especialidade_id: especialidadeId,
+      urgencia,
       observacoes: obs || null,
       criado_por: userId ?? null,
     });
     setSubmitting(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      if ((error as any).code === "23505") return toast.error("Paciente já está na fila desta especialidade.");
+      return toast.error(error.message);
+    }
     toast.success("Paciente adicionado à fila");
     onOpenChange(false);
     onCreated();
@@ -322,7 +432,7 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-primary" /> Adicionar à fila</DialogTitle>
           <DialogDescription>Unidade: <strong>{unidadeNome}</strong></DialogDescription>
@@ -369,6 +479,18 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
           </div>
 
           <div className="space-y-1.5">
+            <Label className="text-xs">Urgência</Label>
+            <RadioGroup value={urgencia} onValueChange={(v) => setUrgencia(v as Urgencia)} className="grid grid-cols-3 gap-2">
+              {(["normal", "prioritaria", "urgente"] as Urgencia[]).map((u) => (
+                <label key={u} className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition ${urgencia === u ? "border-primary bg-accent" : "border-input hover:bg-accent/50"}`}>
+                  <RadioGroupItem value={u} />
+                  <span>{URGENCIA_LABEL[u]}</span>
+                </label>
+              ))}
+            </RadioGroup>
+          </div>
+
+          <div className="space-y-1.5">
             <Label className="text-xs">Observações / encaminhamento</Label>
             <Textarea rows={3} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Opcional" />
           </div>
@@ -395,12 +517,13 @@ function AgendarFilaDialog({ item, onClose, userId, userNome, onDone }: {
   const [data, setData] = useState(format(new Date(), "yyyy-MM-dd"));
   const [slot, setSlot] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [comprovanteOpen, setComprovanteOpen] = useState(false);
+  const [ultimoAgId, setUltimoAgId] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) { setProfId(""); setData(format(new Date(), "yyyy-MM-dd")); setSlot(null); }
   }, [open]);
 
-  // Profissionais da unidade que atendem essa especialidade
   const { data: profs } = useQuery({
     queryKey: ["fila-profs", item?.unidade_id, item?.especialidade_id],
     enabled: open,
@@ -449,95 +572,123 @@ function AgendarFilaDialog({ item, onClose, userId, userNome, onDone }: {
       .update({ status: "agendado", agendamento_id: created.id }).eq("id", item.id);
     setSubmitting(false);
     if (e3) toast.error("Agendado, mas não foi possível atualizar a fila: " + e3.message);
-    else toast.success("Paciente agendado e removido da fila");
+    else toast.success("Paciente agendado");
 
-    // Oferecer comprovante
-    const agId = created.id;
     onDone();
+    setUltimoAgId(created.id);
+    setComprovanteOpen(true);
+  };
+
+  const imprimirComprovante = async () => {
+    if (!ultimoAgId) return;
+    const { data: ag } = await supabase
+      .from("agendamentos")
+      .select("id, data, hora_inicio, motivo, pacientes(nome, cpf, cns, telefone), profissionais(nome, especialidades(nome)), unidades(nome, endereco, telefone)")
+      .eq("id", ultimoAgId).single();
+    if (!ag) return toast.error("Não foi possível carregar o comprovante");
+    await gerarComprovante({
+      codigo: ag.id, data: ag.data, hora: ag.hora_inicio,
+      paciente: {
+        nome: (ag.pacientes as any)?.nome ?? "—",
+        cpf: (ag.pacientes as any)?.cpf, cns: (ag.pacientes as any)?.cns,
+        telefone: (ag.pacientes as any)?.telefone,
+      },
+      profissional: {
+        nome: (ag.profissionais as any)?.nome ?? "—",
+        especialidade: (ag.profissionais as any)?.especialidades?.nome,
+      },
+      unidade: {
+        nome: (ag.unidades as any)?.nome ?? "—",
+        endereco: (ag.unidades as any)?.endereco,
+        telefone: (ag.unidades as any)?.telefone,
+      },
+      motivo: ag.motivo, emitidoPor: userNome,
+    });
+  };
+
+  const fecharTudo = () => {
+    setComprovanteOpen(false);
+    setUltimoAgId(null);
     onClose();
-    setTimeout(async () => {
-      const { data: ag } = await supabase
-        .from("agendamentos")
-        .select("id, data, hora_inicio, motivo, pacientes(nome, cpf, cns, telefone), profissionais(nome, especialidades(nome)), unidades(nome, endereco, telefone)")
-        .eq("id", agId).single();
-      if (!ag) return;
-      await gerarComprovante({
-        codigo: ag.id, data: ag.data, hora: ag.hora_inicio,
-        paciente: {
-          nome: (ag.pacientes as any)?.nome ?? "—",
-          cpf: (ag.pacientes as any)?.cpf, cns: (ag.pacientes as any)?.cns,
-          telefone: (ag.pacientes as any)?.telefone,
-        },
-        profissional: {
-          nome: (ag.profissionais as any)?.nome ?? "—",
-          especialidade: (ag.profissionais as any)?.especialidades?.nome,
-        },
-        unidade: {
-          nome: (ag.unidades as any)?.nome ?? "—",
-          endereco: (ag.unidades as any)?.endereco,
-          telefone: (ag.unidades as any)?.telefone,
-        },
-        motivo: ag.motivo, emitidoPor: userNome,
-      });
-    }, 200);
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><CalendarPlus className="h-5 w-5 text-primary" /> Agendar da fila</DialogTitle>
-          <DialogDescription>
-            <strong>{item?.pacientes?.nome}</strong> · {item?.especialidades?.nome}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Profissional</Label>
-              <Select value={profId} onValueChange={setProfId} disabled={!profs || profs.length === 0}>
-                <SelectTrigger><SelectValue placeholder={!profs || profs.length === 0 ? "Nenhum profissional" : "Selecionar"} /></SelectTrigger>
-                <SelectContent>
-                  {(profs ?? []).map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
+    <>
+      <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><CalendarPlus className="h-5 w-5 text-primary" /> Agendar da fila</DialogTitle>
+            <DialogDescription>
+              <strong>{item?.pacientes?.nome}</strong> · {item?.especialidades?.nome}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Profissional</Label>
+                <Select value={profId} onValueChange={setProfId} disabled={!profs || profs.length === 0}>
+                  <SelectTrigger><SelectValue placeholder={!profs || profs.length === 0 ? "Nenhum profissional" : "Selecionar"} /></SelectTrigger>
+                  <SelectContent>
+                    {(profs ?? []).map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Data</Label>
+                <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Data</Label>
-              <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
-            </div>
-          </div>
 
-          <div className="space-y-2">
-            <div className="text-xs font-medium uppercase text-muted-foreground">Vagas livres</div>
-            {!profId ? (
-              <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
-                Selecione um profissional.
-              </div>
-            ) : !slots || slots.length === 0 ? (
-              <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
-                Sem vagas livres nesta data.
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 max-h-56 overflow-y-auto">
-                {slots.map((s: any) => (
-                  <button key={s.id} type="button" onClick={() => setSlot(s)}
-                    className={`min-h-11 rounded-md border px-3 py-2 text-sm transition ${
-                      slot?.id === s.id ? "border-primary bg-primary text-primary-foreground" : "border-input hover:bg-accent"
-                    }`}>{formatTime(s.hora_inicio)}</button>
-                ))}
-              </div>
-            )}
+            <div className="space-y-2">
+              <div className="text-xs font-medium uppercase text-muted-foreground">Vagas livres</div>
+              {!profId ? (
+                <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+                  Selecione um profissional.
+                </div>
+              ) : !slots || slots.length === 0 ? (
+                <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+                  Sem vagas livres nesta data.
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 max-h-56 overflow-y-auto">
+                  {slots.map((s: any) => (
+                    <button key={s.id} type="button" onClick={() => setSlot(s)}
+                      className={`min-h-11 rounded-md border px-3 py-2 text-sm transition ${
+                        slot?.id === s.id ? "border-primary bg-primary text-primary-foreground" : "border-input hover:bg-accent"
+                      }`}>{formatTime(s.hora_inicio)}</button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleConfirmar} disabled={!slot || submitting}>
-            {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-            Confirmar agendamento
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button onClick={handleConfirmar} disabled={!slot || submitting}>
+              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              Confirmar agendamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={comprovanteOpen} onOpenChange={(v) => !v && fecharTudo()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Check className="h-5 w-5 text-primary" /> Agendamento criado com sucesso
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja imprimir o comprovante do agendamento agora?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={fecharTudo}>Não, obrigado</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => { await imprimirComprovante(); fecharTudo(); }}>
+              <FileText className="mr-2 h-4 w-4" /> Sim, imprimir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
