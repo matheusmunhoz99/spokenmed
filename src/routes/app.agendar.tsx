@@ -50,26 +50,67 @@ function AgendarPage() {
     if (!unidadeId && unidadesAllowed && unidadesAllowed.length > 0) setUnidadeId(unidadesAllowed[0].id);
   }, [unidadesAllowed, unidadeId]);
 
-  const { data: especs } = useQuery({
-    queryKey: ["especialidades-ag"],
-    queryFn: async () => (await supabase.from("especialidades").select("id, nome").eq("ativo", true).order("nome")).data ?? [],
-  });
-
-  const { data: profs } = useQuery({
-    queryKey: ["profs-ag", unidadeId, especialidadeId],
+  // Carrega TODOS os profissionais ativos da unidade (com especialidade).
+  const { data: profsUnidade } = useQuery({
+    queryKey: ["profs-da-unidade", unidadeId],
     enabled: !!unidadeId,
     queryFn: async () => {
       const { data: rows } = await supabase
         .from("profissional_unidades")
-        .select("profissionais(id, nome, especialidade_id, ativo, especialidades(nome))")
+        .select("profissionais(id, nome, especialidade_id, ativo, especialidades(id, nome))")
         .eq("unidade_id", unidadeId);
       return (rows ?? [])
         .map((r: any) => r.profissionais)
-        .filter((p: any) => p && p.ativo && (especialidadeId === "all" || !especialidadeId || p.especialidade_id === especialidadeId));
+        .filter((p: any) => p && p.ativo)
+        .sort((a: any, b: any) => a.nome.localeCompare(b.nome));
     },
   });
 
-  useEffect(() => { setProfId(""); setSlot(null); }, [especialidadeId, unidadeId]);
+  // Especialidades disponíveis = distintas dos profissionais da unidade.
+  const especs = useMemo(() => {
+    const map = new Map<string, { id: string; nome: string }>();
+    for (const p of profsUnidade ?? []) {
+      if (p.especialidade_id && p.especialidades?.nome) {
+        map.set(p.especialidade_id, { id: p.especialidade_id, nome: p.especialidades.nome });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [profsUnidade]);
+
+  // Profissionais filtrados pela especialidade (quando definida).
+  const profs = useMemo(() => {
+    if (!profsUnidade) return [];
+    if (!especialidadeId || especialidadeId === "all") return profsUnidade;
+    return profsUnidade.filter((p: any) => p.especialidade_id === especialidadeId);
+  }, [profsUnidade, especialidadeId]);
+
+  // Ao trocar unidade: limpa especialidade e profissional.
+  useEffect(() => {
+    setEspecialidadeId("");
+    setProfId("");
+    setSlot(null);
+  }, [unidadeId]);
+
+  // Ao trocar especialidade: se o profissional atual não pertence, limpa.
+  useEffect(() => {
+    if (!profId) return;
+    if (!especialidadeId || especialidadeId === "all") return;
+    const atual = profsUnidade?.find((p: any) => p.id === profId);
+    if (atual && atual.especialidade_id !== especialidadeId) {
+      setProfId("");
+      setSlot(null);
+    }
+  }, [especialidadeId, profId, profsUnidade]);
+
+  // Ao escolher profissional: auto-preenche a especialidade dele.
+  useEffect(() => {
+    if (!profId) return;
+    const atual = profsUnidade?.find((p: any) => p.id === profId);
+    if (atual?.especialidade_id && (!especialidadeId || especialidadeId === "all")) {
+      setEspecialidadeId(atual.especialidade_id);
+    }
+  }, [profId, profsUnidade, especialidadeId]);
+
   useEffect(() => { setSlot(null); }, [profId, data]);
 
   const { data: slots } = useQuery({
