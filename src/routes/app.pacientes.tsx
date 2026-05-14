@@ -10,11 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Pencil, Loader2, Download } from "lucide-react";
+import { Plus, Search, Pencil, Loader2, Download, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { formatCPF, formatCNS, formatPhone, formatCEP, onlyDigits, formatDate } from "@/lib/format";
+import { maskCPF, maskCNS, maskPhone } from "@/lib/mask";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
+import { logViewOnce } from "@/lib/audit";
 
 import { useAuth } from "@/hooks/use-auth";
 import { SemAcesso } from "@/components/sem-acesso";
@@ -32,6 +34,16 @@ function PacientesPage() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Paciente | null>(null);
+  const [reveal, setReveal] = useState(false);
+  const toggleReveal = () => {
+    setReveal((r) => {
+      if (!r) toast.info("Dados sensíveis revelados — esta ação ficará registrada na auditoria ao abrir cada paciente.");
+      return !r;
+    });
+  };
+  const showCPF = (p: any) => reveal ? (p.cpf ? formatCPF(p.cpf) : "—") : maskCPF(p.cpf);
+  const showCNS = (p: any) => reveal ? (p.cns ? formatCNS(p.cns) : "—") : maskCNS(p.cns);
+  const showPhone = (p: any) => reveal ? (p.telefone ? formatPhone(p.telefone) : "—") : maskPhone(p.telefone);
 
   const { data, isLoading } = useQuery({
     queryKey: ["pacientes", search],
@@ -52,7 +64,11 @@ function PacientesPage() {
   });
 
   const openNew = () => { setEditing(null); setOpen(true); };
-  const openEdit = (p: Paciente) => { setEditing(p); setOpen(true); };
+  const openEdit = (p: Paciente) => {
+    logViewOnce("pacientes", p.id, "pacientes");
+    setEditing(p);
+    setOpen(true);
+  };
 
   return (
     <div className="space-y-4">
