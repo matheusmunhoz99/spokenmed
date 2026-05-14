@@ -23,7 +23,7 @@ import { gerarComprovante } from "@/lib/pdf-comprovante";
 export const Route = createFileRoute("/app/agendar")({ component: AgendarPage });
 
 function AgendarPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: unidadesAllowed } = useAllowedUnidades();
@@ -37,6 +37,8 @@ function AgendarPage() {
   const [search, setSearch] = useState("");
   const [motivo, setMotivo] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [comprovanteOpen, setComprovanteOpen] = useState(false);
+  const [ultimoAgendamentoId, setUltimoAgendamentoId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!unidadeId && unidadesAllowed && unidadesAllowed.length > 0) setUnidadeId(unidadesAllowed[0].id);
