@@ -232,6 +232,15 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                   </Select>
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label>Unidades / UBS de acesso</Label>
+                <UnidadesPicker
+                  unidades={unidades ?? []}
+                  selected={newUserUnidades}
+                  onChange={setNewUserUnidades}
+                  emptyHint="Admin acessa todas. Para recepcionista, selecione as unidades permitidas."
+                />
+              </div>
               <DialogFooter>
                 <Button type="submit" disabled={submitting}>
                   {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Criar usuário
