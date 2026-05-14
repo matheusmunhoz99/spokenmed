@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const ua = () => (typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 500) : null);
+const ua = () => (typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 500) : undefined);
 
 export async function logView(tabela: string, registro_id: string, modulo: string) {
   try {
@@ -8,7 +8,7 @@ export async function logView(tabela: string, registro_id: string, modulo: strin
       p_tabela: tabela,
       p_registro_id: registro_id,
       p_modulo: modulo,
-      p_ip: null,
+      p_ip: undefined,
       p_ua: ua(),
     });
   } catch {
@@ -18,7 +18,7 @@ export async function logView(tabela: string, registro_id: string, modulo: strin
 
 export async function logAuth(acao: "LOGIN" | "LOGOUT") {
   try {
-    await supabase.rpc("log_auth", { p_acao: acao, p_ip: null, p_ua: ua() });
+    await supabase.rpc("log_auth", { p_acao: acao, p_ip: undefined, p_ua: ua() });
   } catch {
     /* noop */
   }
@@ -30,7 +30,7 @@ export async function logExport(tabela: string, modulo: string, filtros: unknown
       p_tabela: tabela,
       p_modulo: modulo,
       p_filtros: filtros as never,
-      p_ip: null,
+      p_ip: undefined,
       p_ua: ua(),
     });
   } catch {
