@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2, Download } from "lucide-react";
+import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2, Download, Trash2, Megaphone } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { StatusBadge } from "./app.index";
@@ -14,6 +14,11 @@ import { formatTime } from "@/lib/format";
 import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { useAuth } from "@/hooks/use-auth";
 import { gerarPdfAgenda } from "@/lib/pdf-agenda";
+import { ChamarDialog } from "@/components/chamar-dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import { SemAcesso } from "@/components/sem-acesso";
 function AgendaDiaGuard() {
@@ -32,10 +37,12 @@ const _UnusedAgendaDiaRoute = ({
 function AgendaDiaPage() {
   const search = Route.useSearch();
   const qc = useQueryClient();
-  const { profile, user } = useAuth();
+  const { profile, user, isAdmin } = useAuth();
   const [data, setData] = useState(search.data || format(new Date(), "yyyy-MM-dd"));
   const [unidadeId, setUnidadeId] = useState<string>("all");
   const [profId, setProfId] = useState<string>("all");
+  const [chamar, setChamar] = useState<any>(null);
+  const [excluir, setExcluir] = useState<any>(null);
 
   const { data: unidades } = useAllowedUnidades();
   const allowedIds = useMemo(() => (unidades ?? []).map((u: any) => u.id), [unidades]);
@@ -65,7 +72,7 @@ function AgendaDiaPage() {
     enabled: !!unidades,
     queryFn: async () => {
       let q = supabase.from("agendamentos")
-        .select("id, hora_inicio, status, motivo, paciente_id, slot_id, unidade_id, pacientes(nome, cpf, telefone), profissionais(nome, especialidades(nome)), unidades(nome)")
+        .select("id, hora_inicio, status, motivo, paciente_id, slot_id, unidade_id, pacientes(nome, cpf, telefone), profissionais(nome, sala, especialidades(nome)), unidades(nome)")
         .eq("data", data).order("hora_inicio");
       if (profId !== "all") q = q.eq("profissional_id", profId);
       if (unidadeId !== "all") q = q.eq("unidade_id", unidadeId);
@@ -81,6 +88,17 @@ function AgendaDiaPage() {
       await supabase.from("slots").update({ status: "livre" }).eq("id", a.slot_id);
     }
     toast.success("Status atualizado");
+    qc.invalidateQueries({ queryKey: ["agenda-dia"] });
+  };
+
+  const handleDelete = async (a: any) => {
+    const { error } = await supabase.from("agendamentos").delete().eq("id", a.id);
+    if (error) return toast.error(error.message);
+    if (a.slot_id) {
+      await supabase.from("slots").update({ status: "livre" }).eq("id", a.slot_id);
+    }
+    toast.success("Agendamento excluído");
+    setExcluir(null);
     qc.invalidateQueries({ queryKey: ["agenda-dia"] });
   };
 
@@ -161,10 +179,16 @@ function AgendaDiaPage() {
                   <div className="flex items-center justify-between gap-2 md:contents">
                     <StatusBadge status={a.status} />
                     <div className="flex flex-wrap gap-1">
+                      {a.unidade_id && (
+                        <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-primary" title="Chamar paciente" onClick={() => setChamar(a)}><Megaphone className="h-4 w-4" /></Button>
+                      )}
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Confirmar" onClick={() => updateStatus(a, "confirmado")}><CheckCircle2 className="h-4 w-4" /></Button>
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Atendido" onClick={() => updateStatus(a, "atendido")}><UserCheck className="h-4 w-4" /></Button>
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Faltou" onClick={() => updateStatus(a, "faltou")}><AlertTriangle className="h-4 w-4" /></Button>
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Cancelar" onClick={() => updateStatus(a, "cancelado")}><XCircle className="h-4 w-4" /></Button>
+                      {isAdmin && (
+                        <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-destructive hover:text-destructive" title="Excluir" onClick={() => setExcluir(a)}><Trash2 className="h-4 w-4" /></Button>
+                      )}
                     </div>
                   </div>
                 </li>
@@ -173,6 +197,28 @@ function AgendaDiaPage() {
           )}
         </CardContent>
       </Card>
+
+      <ChamarDialog
+        open={!!chamar}
+        onOpenChange={(v) => !v && setChamar(null)}
+        agendamento={chamar}
+        userId={user?.id}
+      />
+
+      <AlertDialog open={!!excluir} onOpenChange={(v) => !v && setExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir agendamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação removerá permanentemente o agendamento de <strong>{excluir?.pacientes?.nome}</strong> às {excluir && formatTime(excluir.hora_inicio)}. O horário voltará a ficar livre.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => excluir && handleDelete(excluir)}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
