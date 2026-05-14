@@ -75,14 +75,24 @@ export async function gerarComprovante(c: ComprovanteData) {
   y = drawCard(doc, "PROFISSIONAL", buildLines([
     ["Nome", c.profissional.nome],
     c.profissional.especialidade ? ["Especialidade", c.profissional.especialidade] : null,
+    c.profissional.cbo ? ["CBO", c.profissional.cbo] : null,
   ]), marginX, y, pageW - marginX * 2);
 
   y += 14;
   y = drawCard(doc, "UNIDADE DE ATENDIMENTO", buildLines([
     ["Local", c.unidade.nome],
+    c.unidade.cnes ? ["CNES", c.unidade.cnes] : null,
     c.unidade.endereco ? ["Endereço", c.unidade.endereco] : null,
     c.unidade.telefone ? ["Telefone", formatPhone(c.unidade.telefone)] : null,
   ]), marginX, y, pageW - marginX * 2);
+
+  if (c.procedimento) {
+    y += 14;
+    y = drawCard(doc, "PROCEDIMENTO (SIGTAP)", buildLines([
+      ["Código", c.procedimento.codigo],
+      ["Descrição", c.procedimento.nome],
+    ]), marginX, y, pageW - marginX * 2);
+  }
 
   if (c.motivo) {
     y += 14;
