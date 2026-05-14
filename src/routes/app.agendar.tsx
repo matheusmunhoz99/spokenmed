@@ -98,20 +98,59 @@ function AgendarPage() {
     setSubmitting(true);
     const { error: e1 } = await supabase.from("slots").update({ status: "reservado" }).eq("id", slot.id).eq("status", "livre");
     if (e1) { setSubmitting(false); return toast.error("Vaga não está mais livre."); }
-    const { error: e2 } = await supabase.from("agendamentos").insert({
+    const { data: created, error: e2 } = await supabase.from("agendamentos").insert({
       slot_id: slot.id, paciente_id: paciente.id, profissional_id: profId, unidade_id: unidadeId,
       data, hora_inicio: slot.hora_inicio,
       motivo: motivo || null, criado_por: user?.id,
-    });
+    }).select("id").single();
     setSubmitting(false);
-    if (e2) {
+    if (e2 || !created) {
       await supabase.from("slots").update({ status: "livre" }).eq("id", slot.id);
-      return toast.error(e2.message);
+      return toast.error(e2?.message ?? "Erro ao agendar");
     }
     toast.success("Consulta agendada!");
     qc.invalidateQueries();
+    setUltimoAgendamentoId(created.id);
+    setComprovanteOpen(true);
+  };
+
+  const imprimirComprovante = async () => {
+    if (!ultimoAgendamentoId) return;
+    const { data: ag } = await supabase
+      .from("agendamentos")
+      .select("id, data, hora_inicio, motivo, pacientes(nome, cpf, cns, telefone), profissionais(nome, especialidades(nome)), unidades(nome, endereco, telefone)")
+      .eq("id", ultimoAgendamentoId)
+      .single();
+    if (!ag) return toast.error("Não foi possível carregar o comprovante");
+    gerarComprovante({
+      codigo: ag.id,
+      data: ag.data,
+      hora: ag.hora_inicio,
+      paciente: {
+        nome: (ag.pacientes as any)?.nome ?? "—",
+        cpf: (ag.pacientes as any)?.cpf,
+        cns: (ag.pacientes as any)?.cns,
+        telefone: (ag.pacientes as any)?.telefone,
+      },
+      profissional: {
+        nome: (ag.profissionais as any)?.nome ?? "—",
+        especialidade: (ag.profissionais as any)?.especialidades?.nome,
+      },
+      unidade: {
+        nome: (ag.unidades as any)?.nome ?? "—",
+        endereco: (ag.unidades as any)?.endereco,
+        telefone: (ag.unidades as any)?.telefone,
+      },
+      motivo: ag.motivo,
+      emitidoPor: profile?.nome || user?.email || "",
+    });
+  };
+
+  const fecharESair = () => {
+    setComprovanteOpen(false);
     navigate({ to: "/app/agenda-dia", search: { data } as any });
   };
+
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
