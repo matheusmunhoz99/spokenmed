@@ -149,12 +149,12 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<any>(editing ?? {
     nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "",
-    especialidade_id: "", email: "", telefone: "", ativo: true,
+    especialidade_id: "", email: "", telefone: "", sala: "", ativo: true,
   });
   const [unidadeIds, setUnidadeIds] = useState<string[]>(editing?._unidade_ids ?? []);
 
   useEffect(() => {
-    setForm(editing ?? { nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "", especialidade_id: "", email: "", telefone: "", ativo: true });
+    setForm(editing ?? { nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "", especialidade_id: "", email: "", telefone: "", sala: "", ativo: true });
     setUnidadeIds(editing?._unidade_ids ?? []);
   }, [editing]);
 
@@ -170,7 +170,7 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
       nome: form.nome, conselho: form.conselho || null, conselho_numero: form.conselho_numero || null,
       conselho_uf: form.conselho_uf || null, especialidade_id: form.especialidade_id || null,
       unidade_id: unidadeIds[0], // primeira como "principal" (compat)
-      email: form.email || null, telefone: form.telefone || null, ativo: form.ativo,
+      email: form.email || null, telefone: form.telefone || null, sala: form.sala || null, ativo: form.ativo,
     };
 
     let profId = editing?.id;
@@ -251,6 +251,15 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
         <div className="space-y-1.5">
           <Label className="text-xs">E-mail</Label>
           <Input type="email" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} />
+        </div>
+        <div className="space-y-1.5 md:col-span-2">
+          <Label className="text-xs">Sala padrão</Label>
+          <Input
+            value={form.sala ?? ""}
+            placeholder="Ex.: Consultório 3, Sala 12, Triagem A"
+            onChange={(e) => set("sala", e.target.value)}
+          />
+          <p className="text-[11px] text-muted-foreground">Usada como sugestão ao chamar o paciente no painel.</p>
         </div>
         <DialogFooter className="md:col-span-2">
           <Button type="submit" disabled={submitting}>

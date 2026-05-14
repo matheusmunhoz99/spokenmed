@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatCPF, formatPhone, formatTime } from "./format";
-import { PDF_COLORS, drawHeader, drawFooterAllPages, loadLogo, openPdf, STATUS_LABEL } from "./pdf-shared";
+import { PDF_COLORS, drawHeader, drawFooterAllPages, loadLogo, openPdf, STATUS_LABEL, PDF_FOOTER_MARGIN } from "./pdf-shared";
 
 export type AgendaItem = {
   hora_inicio: string;
@@ -75,7 +75,8 @@ export async function gerarPdfAgenda({ data, unidadeNome, agendamentos, usuarioN
   }
 
   for (const g of gruposOrdenados) {
-    if (y > pageH - 140) {
+    // garante espaço para faixa do prof + cabeçalho da tabela + 1 linha (~140pt) antes de iniciar bloco
+    if (y > pageH - PDF_FOOTER_MARGIN - 140) {
       doc.addPage();
       y = 60;
     }
@@ -150,7 +151,7 @@ export async function gerarPdfAgenda({ data, unidadeNome, agendamentos, usuarioN
           }
         }
       },
-      margin: { left: marginX, right: marginX, bottom: 50 },
+      margin: { left: marginX, right: marginX, bottom: PDF_FOOTER_MARGIN },
     });
 
     // @ts-expect-error autotable injeta lastAutoTable

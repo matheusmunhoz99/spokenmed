@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, Stethoscope, CalendarCog, CalendarPlus,
-  CalendarDays, Building2, Settings, LogOut,
+  CalendarDays, Building2, Settings, LogOut, MonitorPlay,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -19,6 +19,7 @@ const main: Item[] = [
   { title: "Painel", url: "/app", icon: LayoutDashboard },
   { title: "Agenda do Dia", url: "/app/agenda-dia", icon: CalendarDays, module: "agenda_dia" },
   { title: "Agendar Consulta", url: "/app/agendar", icon: CalendarPlus, module: "agendar" },
+  { title: "Painel de Chamada", url: "/app/painel", icon: MonitorPlay, module: "painel" },
 ];
 const cadastros: Item[] = [
   { title: "Pacientes", url: "/app/pacientes", icon: Users, module: "pacientes" },

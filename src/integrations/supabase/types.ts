@@ -154,6 +154,39 @@ export type Database = {
           },
         ]
       }
+      chamadas: {
+        Row: {
+          agendamento_id: string | null
+          chamado_em: string
+          chamado_por: string | null
+          id: string
+          paciente_nome: string
+          profissional_nome: string | null
+          sala: string | null
+          unidade_id: string
+        }
+        Insert: {
+          agendamento_id?: string | null
+          chamado_em?: string
+          chamado_por?: string | null
+          id?: string
+          paciente_nome: string
+          profissional_nome?: string | null
+          sala?: string | null
+          unidade_id: string
+        }
+        Update: {
+          agendamento_id?: string | null
+          chamado_em?: string
+          chamado_por?: string | null
+          id?: string
+          paciente_nome?: string
+          profissional_nome?: string | null
+          sala?: string | null
+          unidade_id?: string
+        }
+        Relationships: []
+      }
       especialidades: {
         Row: {
           ativo: boolean
@@ -288,6 +321,7 @@ export type Database = {
           especialidade_id: string | null
           id: string
           nome: string
+          sala: string | null
           telefone: string | null
           unidade_id: string | null
           updated_at: string
@@ -303,6 +337,7 @@ export type Database = {
           especialidade_id?: string | null
           id?: string
           nome: string
+          sala?: string | null
           telefone?: string | null
           unidade_id?: string | null
           updated_at?: string
@@ -318,6 +353,7 @@ export type Database = {
           especialidade_id?: string | null
           id?: string
           nome?: string
+          sala?: string | null
           telefone?: string | null
           unidade_id?: string | null
           updated_at?: string

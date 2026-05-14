@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppProfissionaisRouteImport } from './routes/app.profissionais'
+import { Route as AppPainelRouteImport } from './routes/app.painel'
 import { Route as AppPacientesRouteImport } from './routes/app.pacientes'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
 import { Route as AppAgendasRouteImport } from './routes/app.agendas'
@@ -44,6 +45,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppProfissionaisRoute = AppProfissionaisRouteImport.update({
   id: '/profissionais',
   path: '/profissionais',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPainelRoute = AppPainelRouteImport.update({
+  id: '/painel',
+  path: '/painel',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPacientesRoute = AppPacientesRouteImport.update({
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/app/agendas': typeof AppAgendasRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/pacientes': typeof AppPacientesRoute
+  '/app/painel': typeof AppPainelRoute
   '/app/profissionais': typeof AppProfissionaisRoute
   '/app/': typeof AppIndexRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/app/agendas': typeof AppAgendasRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/pacientes': typeof AppPacientesRoute
+  '/app/painel': typeof AppPainelRoute
   '/app/profissionais': typeof AppProfissionaisRoute
   '/app': typeof AppIndexRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/app/agendas': typeof AppAgendasRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/pacientes': typeof AppPacientesRoute
+  '/app/painel': typeof AppPainelRoute
   '/app/profissionais': typeof AppProfissionaisRoute
   '/app/': typeof AppIndexRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/app/agendas'
     | '/app/configuracoes'
     | '/app/pacientes'
+    | '/app/painel'
     | '/app/profissionais'
     | '/app/'
     | '/app/configuracoes/sistema'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/app/agendas'
     | '/app/configuracoes'
     | '/app/pacientes'
+    | '/app/painel'
     | '/app/profissionais'
     | '/app'
     | '/app/configuracoes/sistema'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/app/agendas'
     | '/app/configuracoes'
     | '/app/pacientes'
+    | '/app/painel'
     | '/app/profissionais'
     | '/app/'
     | '/app/configuracoes/sistema'
@@ -198,6 +210,13 @@ declare module '@tanstack/react-router' {
       path: '/profissionais'
       fullPath: '/app/profissionais'
       preLoaderRoute: typeof AppProfissionaisRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/painel': {
+      id: '/app/painel'
+      path: '/painel'
+      fullPath: '/app/painel'
+      preLoaderRoute: typeof AppPainelRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/pacientes': {
@@ -262,6 +281,7 @@ interface AppRouteChildren {
   AppAgendasRoute: typeof AppAgendasRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRouteWithChildren
   AppPacientesRoute: typeof AppPacientesRoute
+  AppPainelRoute: typeof AppPainelRoute
   AppProfissionaisRoute: typeof AppProfissionaisRoute
   AppIndexRoute: typeof AppIndexRoute
 }
@@ -272,6 +292,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAgendasRoute: AppAgendasRoute,
   AppConfiguracoesRoute: AppConfiguracoesRouteWithChildren,
   AppPacientesRoute: AppPacientesRoute,
+  AppPainelRoute: AppPainelRoute,
   AppProfissionaisRoute: AppProfissionaisRoute,
   AppIndexRoute: AppIndexRoute,
 }

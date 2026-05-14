@@ -4,6 +4,7 @@ export type ModuleKey =
   | "pacientes"
   | "profissionais"
   | "agendas"
+  | "painel"
   | "unidades_especialidades"
   | "usuarios";
 
@@ -15,6 +16,7 @@ export const MODULES: { key: ModuleKey; label: string; manageable: boolean }[] =
   { key: "pacientes", label: "Pacientes", manageable: true },
   { key: "profissionais", label: "Profissionais", manageable: true },
   { key: "agendas", label: "Agendas (configuração)", manageable: true },
+  { key: "painel", label: "Painel de Chamada", manageable: true },
   { key: "unidades_especialidades", label: "Unidades & Especialidades", manageable: true },
   { key: "usuarios", label: "Usuários do sistema", manageable: true },
 ];
@@ -41,7 +43,7 @@ export function defaultPermsFor(role: AppRole): PermRow[] {
   }
   // administrativo (recepcionista)
   return MODULES.map((m) => {
-    if (m.key === "agenda_dia" || m.key === "agendar" || m.key === "pacientes") {
+    if (m.key === "agenda_dia" || m.key === "agendar" || m.key === "pacientes" || m.key === "painel") {
       return { module: m.key, can_view: true, can_manage: true };
     }
     if (m.key === "profissionais" || m.key === "agendas") {
