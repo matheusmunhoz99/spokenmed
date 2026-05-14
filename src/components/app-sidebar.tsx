@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import logo from "@/assets/spokenmed-logo.png";
 
 const main = [
   { title: "Painel", url: "/app", icon: LayoutDashboard },
