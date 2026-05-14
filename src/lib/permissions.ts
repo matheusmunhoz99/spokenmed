@@ -7,7 +7,8 @@ export type ModuleKey =
   | "agendas"
   | "painel"
   | "unidades_especialidades"
-  | "usuarios";
+  | "usuarios"
+  | "auditoria";
 
 export type AppRole = "admin" | "recepcionista" | "medico";
 
