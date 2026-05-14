@@ -15,7 +15,6 @@ import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { useAuth } from "@/hooks/use-auth";
 import { gerarPdfAgenda } from "@/lib/pdf-agenda";
 
-import { useAuth } from "@/hooks/use-auth";
 import { SemAcesso } from "@/components/sem-acesso";
 function AgendaDiaGuard() {
   const { can } = useAuth();
