@@ -74,6 +74,7 @@ function RelatoriosPage() {
   const [unidadeId, setUnidadeId] = useState<string>("all");
   const [profId, setProfId] = useState<string>("all");
   const [espId, setEspId] = useState<string>("all");
+  const [procId, setProcId] = useState<string>("all");
 
   const { data: unidades } = useAllowedUnidades();
   const allowedIds = useMemo(() => (unidades ?? []).map((u: any) => u.id), [unidades]);
@@ -82,6 +83,15 @@ function RelatoriosPage() {
     queryKey: ["esp-rel"],
     queryFn: async () => {
       const { data, error } = await supabase.from("especialidades").select("id,nome").eq("ativo", true).order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: procedimentos } = useQuery({
+    queryKey: ["proc-rel"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("procedimentos").select("id,codigo_sigtap,nome").eq("ativo", true).order("codigo_sigtap");
       if (error) throw error;
       return data;
     },
@@ -101,12 +111,12 @@ function RelatoriosPage() {
 
   // Agendamentos no período
   const { data: ags, isLoading: loadingAgs } = useQuery({
-    queryKey: ["rel-ags", from, to, unidadeId, profId, espId, allowedIds.join(",")],
+    queryKey: ["rel-ags", from, to, unidadeId, profId, espId, procId, allowedIds.join(",")],
     enabled: !!unidades,
     queryFn: async () => {
       let q = supabase
         .from("agendamentos")
-        .select("id,data,status,is_encaixe,unidade_id,profissional_id,profissionais(nome,especialidade_id,especialidades(nome)),unidades(nome)")
+        .select("id,data,status,is_encaixe,unidade_id,profissional_id,procedimento_id,profissionais(nome,especialidade_id,especialidades(nome)),unidades(nome),procedimentos(codigo_sigtap,nome)")
         .gte("data", from)
         .lte("data", to)
         .order("data", { ascending: true })
@@ -114,6 +124,7 @@ function RelatoriosPage() {
       if (unidadeId !== "all") q = q.eq("unidade_id", unidadeId);
       else if (allowedIds.length) q = q.in("unidade_id", allowedIds);
       if (profId !== "all") q = q.eq("profissional_id", profId);
+      if (procId !== "all") q = q.eq("procedimento_id", procId);
       const { data, error } = await q;
       if (error) throw error;
       let rows = data ?? [];
@@ -237,10 +248,12 @@ function RelatoriosPage() {
       profissional: r.profissionais?.nome ?? "",
       especialidade: r.profissionais?.especialidades?.nome ?? "",
       unidade: r.unidades?.nome ?? "",
+      procedimento_sigtap: r.procedimentos?.codigo_sigtap ?? "",
+      procedimento_nome: r.procedimentos?.nome ?? "",
       encaixe: r.is_encaixe ? "sim" : "nao",
     }));
     downloadCsv(`producao_${from}_a_${to}.csv`, rows);
-    logExport("agendamentos", "relatorios", { from, to, unidadeId, profId, espId });
+    logExport("agendamentos", "relatorios", { from, to, unidadeId, profId, espId, procId });
   }
   function exportFila() {
     const rows = (fila ?? []).map((r: any) => ({
@@ -270,7 +283,7 @@ function RelatoriosPage() {
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
           <CardTitle className="text-base flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Filtros</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-5">
+        <CardContent className="grid gap-3 md:grid-cols-6">
           <div>
             <Label>De</Label>
             <Input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} />
@@ -306,6 +319,18 @@ function RelatoriosPage() {
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 {(profs ?? []).map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Procedimento (SIGTAP)</Label>
+            <Select value={procId} onValueChange={setProcId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {(procedimentos ?? []).map((p: any) => (
+                  <SelectItem key={p.id} value={p.id}>{p.codigo_sigtap} — {p.nome}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

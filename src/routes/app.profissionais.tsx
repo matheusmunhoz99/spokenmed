@@ -164,11 +164,13 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (unidadeIds.length === 0) return toast.error("Vincule o profissional a pelo menos uma unidade.");
+    const cboClean = (form.cbo ?? "").replace(/\D/g, "");
+    if (cboClean.length !== 6) return toast.error("CBO é obrigatório e deve ter 6 dígitos.");
     setSubmitting(true);
 
     const payload: any = {
       nome: form.nome, conselho: form.conselho || null, conselho_numero: form.conselho_numero || null,
-      conselho_uf: form.conselho_uf || null, cbo: form.cbo ? form.cbo.replace(/\D/g, "").slice(0, 6) : null,
+      conselho_uf: form.conselho_uf || null, cbo: cboClean,
       especialidade_id: form.especialidade_id || null,
       unidade_id: unidadeIds[0],
       email: form.email || null, telefone: form.telefone || null, sala: form.sala || null, ativo: form.ativo,
@@ -224,8 +226,8 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
           <Input maxLength={2} value={form.conselho_uf ?? ""} onChange={(e) => set("conselho_uf", e.target.value.toUpperCase())} />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">CBO (6 dígitos)</Label>
-          <Input maxLength={6} value={form.cbo ?? ""} placeholder="Ex.: 225125" onChange={(e) => set("cbo", e.target.value.replace(/\D/g, ""))} />
+          <Label className="text-xs">CBO * (6 dígitos)</Label>
+          <Input required maxLength={6} value={form.cbo ?? ""} placeholder="Ex.: 225125" onChange={(e) => set("cbo", e.target.value.replace(/\D/g, ""))} />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Especialidade</Label>
