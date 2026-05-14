@@ -168,8 +168,9 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
 
     const payload: any = {
       nome: form.nome, conselho: form.conselho || null, conselho_numero: form.conselho_numero || null,
-      conselho_uf: form.conselho_uf || null, especialidade_id: form.especialidade_id || null,
-      unidade_id: unidadeIds[0], // primeira como "principal" (compat)
+      conselho_uf: form.conselho_uf || null, cbo: form.cbo ? form.cbo.replace(/\D/g, "").slice(0, 6) : null,
+      especialidade_id: form.especialidade_id || null,
+      unidade_id: unidadeIds[0],
       email: form.email || null, telefone: form.telefone || null, sala: form.sala || null, ativo: form.ativo,
     };
 
