@@ -39,9 +39,12 @@ type SystemUser = {
   nome: string;
   cargo: string;
   roles: string[];
+  unidade_ids: string[];
   created_at: string;
   last_sign_in_at?: string | null;
 };
+
+type Unidade = { id: string; nome: string };
 
 function ConfigSistema() {
   const { profile, user, isAdmin } = useAuth();
