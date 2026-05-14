@@ -16,6 +16,7 @@ const titles: Record<string, string> = {
   "/app/agendas": "Agendas dos Profissionais",
   "/app/configuracoes": "Unidades & Especialidades",
   "/app/configuracoes/sistema": "Configurações",
+  "/app/auditoria": "Central de Auditoria",
 };
 
 function AppLayout() {

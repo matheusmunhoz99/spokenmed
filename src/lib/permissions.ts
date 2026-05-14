@@ -7,7 +7,8 @@ export type ModuleKey =
   | "agendas"
   | "painel"
   | "unidades_especialidades"
-  | "usuarios";
+  | "usuarios"
+  | "auditoria";
 
 export type AppRole = "admin" | "recepcionista" | "medico";
 
@@ -21,6 +22,7 @@ export const MODULES: { key: ModuleKey; label: string; manageable: boolean }[] =
   { key: "painel", label: "Painel de Chamada", manageable: true },
   { key: "unidades_especialidades", label: "Unidades & Especialidades", manageable: true },
   { key: "usuarios", label: "Usuários do sistema", manageable: true },
+  { key: "auditoria", label: "Auditoria (LGPD)", manageable: false },
 ];
 
 export type PermRow = { module: ModuleKey; can_view: boolean; can_manage: boolean };
