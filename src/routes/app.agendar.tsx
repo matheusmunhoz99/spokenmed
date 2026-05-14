@@ -263,6 +263,25 @@ function AgendarPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <AlertDialog open={comprovanteOpen} onOpenChange={setComprovanteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Check className="h-5 w-5 text-primary" /> Agendamento criado com sucesso
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja imprimir o comprovante do agendamento agora?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={fecharESair}>Não, obrigado</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => { await imprimirComprovante(); fecharESair(); }}>
+              <FileText className="mr-2 h-4 w-4" /> Sim, imprimir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
