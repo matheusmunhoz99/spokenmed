@@ -63,7 +63,7 @@ function UnidadesCard() {
       <CardContent className="space-y-4">
         <div className="grid gap-2 md:grid-cols-4">
           <div className="md:col-span-2 space-y-1.5"><Label className="text-xs">Nome *</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label className="text-xs">CNES (7 dígitos)</Label><Input value={cnes} maxLength={7} onChange={(e) => setCnes(e.target.value.replace(/\D/g, ""))} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">CNES * (7 dígitos)</Label><Input required value={cnes} maxLength={7} placeholder="0000000" onChange={(e) => setCnes(e.target.value.replace(/\D/g, ""))} /></div>
           <div className="space-y-1.5"><Label className="text-xs">Telefone</Label><Input value={telefone} onChange={(e) => setTelefone(e.target.value)} /></div>
           <div className="md:col-span-3 space-y-1.5"><Label className="text-xs">Endereço</Label><Input value={endereco} onChange={(e) => setEndereco(e.target.value)} /></div>
           <div className="md:col-span-4 flex justify-end"><Button onClick={add}><Plus className="mr-1 h-4 w-4" />Adicionar</Button></div>
