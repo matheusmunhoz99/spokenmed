@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PainelRouteImport } from './routes/painel'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as CidadaoRouteImport } from './routes/cidadao'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
@@ -34,6 +35,11 @@ const PainelRoute = PainelRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CidadaoRoute = CidadaoRouteImport.update({
+  id: '/cidadao',
+  path: '/cidadao',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -110,6 +116,7 @@ const AppConfiguracoesSistemaRoute = AppConfiguracoesSistemaRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/cidadao': typeof CidadaoRoute
   '/login': typeof LoginRoute
   '/painel': typeof PainelRoute
   '/app/agenda-dia': typeof AppAgendaDiaRoute
@@ -127,6 +134,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cidadao': typeof CidadaoRoute
   '/login': typeof LoginRoute
   '/painel': typeof PainelRoute
   '/app/agenda-dia': typeof AppAgendaDiaRoute
@@ -146,6 +154,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/cidadao': typeof CidadaoRoute
   '/login': typeof LoginRoute
   '/painel': typeof PainelRoute
   '/app/agenda-dia': typeof AppAgendaDiaRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/cidadao'
     | '/login'
     | '/painel'
     | '/app/agenda-dia'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/cidadao'
     | '/login'
     | '/painel'
     | '/app/agenda-dia'
@@ -201,6 +212,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/app'
+    | '/cidadao'
     | '/login'
     | '/painel'
     | '/app/agenda-dia'
@@ -220,6 +232,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  CidadaoRoute: typeof CidadaoRoute
   LoginRoute: typeof LoginRoute
   PainelRoute: typeof PainelRoute
 }
@@ -238,6 +251,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cidadao': {
+      id: '/cidadao'
+      path: '/cidadao'
+      fullPath: '/cidadao'
+      preLoaderRoute: typeof CidadaoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app': {
@@ -385,6 +405,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  CidadaoRoute: CidadaoRoute,
   LoginRoute: LoginRoute,
   PainelRoute: PainelRoute,
 }

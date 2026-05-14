@@ -58,7 +58,7 @@ export async function gerarComprovante(c: ComprovanteData) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...PDF_COLORS.muted);
-  doc.text(`Código: ${c.codigo.slice(0, 8).toUpperCase()}`, marginX + 18, y + 72);
+  doc.text(`Código: ${c.codigo.toUpperCase()}  ·  Consulte em /cidadao com este código + CPF`, marginX + 18, y + 72);
 
   y += 110;
 

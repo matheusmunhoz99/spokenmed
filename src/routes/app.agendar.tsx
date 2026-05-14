@@ -165,12 +165,12 @@ function AgendarPage() {
     if (!ultimoAgendamentoId) return;
     const { data: ag } = await supabase
       .from("agendamentos")
-      .select("id, data, hora_inicio, motivo, pacientes(nome, cpf, cns, telefone), profissionais(nome, especialidades(nome)), unidades(nome, endereco, telefone)")
+      .select("id, codigo, data, hora_inicio, motivo, pacientes(nome, cpf, cns, telefone), profissionais(nome, especialidades(nome)), unidades(nome, endereco, telefone)")
       .eq("id", ultimoAgendamentoId)
       .single();
     if (!ag) return toast.error("Não foi possível carregar o comprovante");
     await gerarComprovante({
-      codigo: ag.id,
+      codigo: (ag as any).codigo ?? ag.id,
       data: ag.data,
       hora: ag.hora_inicio,
       paciente: {

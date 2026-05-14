@@ -75,8 +75,9 @@ function LoginPage() {
                 Não tem acesso? Solicite ao administrador da Secretaria.
               </p>
             </form>
-            <div className="mt-6 text-center text-xs text-muted-foreground">
+            <div className="mt-6 flex items-center justify-between text-center text-xs text-muted-foreground">
               <Link to="/" className="hover:underline">Voltar</Link>
+              <Link to="/cidadao" className="hover:underline">Painel do Cidadão →</Link>
             </div>
           </CardContent>
         </Card>

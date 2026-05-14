@@ -114,6 +114,7 @@ export type Database = {
       }
       agendamentos: {
         Row: {
+          codigo: string
           created_at: string
           criado_por: string | null
           data: string
@@ -136,6 +137,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          codigo?: string
           created_at?: string
           criado_por?: string | null
           data: string
@@ -158,6 +160,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          codigo?: string
           created_at?: string
           criado_por?: string | null
           data?: string
@@ -820,6 +823,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cidadao_consultar: {
+        Args: { p_codigo: string; p_cpf: string }
+        Returns: {
+          codigo: string
+          data: string
+          especialidade_nome: string
+          hora_inicio: string
+          is_encaixe: boolean
+          observacoes: string
+          paciente_nome: string
+          profissional_conselho: string
+          profissional_nome: string
+          status: Database["public"]["Enums"]["agendamento_status"]
+          unidade_endereco: string
+          unidade_nome: string
+          unidade_telefone: string
+        }[]
+      }
+      gen_agendamento_codigo: { Args: never; Returns: string }
       gerar_slots: { Args: { _config_id: string }; Returns: number }
       has_permission: {
         Args: { _action: string; _module: string; _user: string }
