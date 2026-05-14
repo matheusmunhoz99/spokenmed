@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { History, Loader2 } from "lucide-react";
+import { History } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
+import { LoadingState } from "@/components/loading-state";
 
 const EVENTO_LABEL: Record<string, { label: string; color: string }> = {
   criado: { label: "Criado", color: "bg-blue-100 text-blue-800 border-blue-200" },
