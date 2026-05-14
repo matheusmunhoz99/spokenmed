@@ -19,7 +19,7 @@ const main: Item[] = [
   { title: "Painel", url: "/app", icon: LayoutDashboard },
   { title: "Agenda do Dia", url: "/app/agenda-dia", icon: CalendarDays, module: "agenda_dia" },
   { title: "Agendar Consulta", url: "/app/agendar", icon: CalendarPlus, module: "agendar" },
-  { title: "Painel de Chamada", url: "/app/painel", icon: MonitorPlay, module: "painel" },
+  { title: "Painel de Chamada", url: "/painel", icon: MonitorPlay, module: "painel" },
 ];
 const cadastros: Item[] = [
   { title: "Pacientes", url: "/app/pacientes", icon: Users, module: "pacientes" },
