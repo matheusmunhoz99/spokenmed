@@ -38,10 +38,10 @@ function UnidadesCard() {
   const { data } = useQuery({ queryKey: ["unidades"], queryFn: async () => (await supabase.from("unidades").select("*").order("nome")).data ?? [] });
 
   const add = async () => {
-    if (!nome) return;
+    if (!nome) return toast.error("Informe o nome da unidade.");
     const cnesClean = cnes.replace(/\D/g, "");
-    if (cnesClean && cnesClean.length !== 7) return toast.error("CNES deve ter 7 dígitos.");
-    const { error } = await supabase.from("unidades").insert({ nome, endereco: endereco || null, telefone: telefone || null, cnes: cnesClean || null });
+    if (cnesClean.length !== 7) return toast.error("CNES é obrigatório e deve ter 7 dígitos.");
+    const { error } = await supabase.from("unidades").insert({ nome, endereco: endereco || null, telefone: telefone || null, cnes: cnesClean });
     if (error) return toast.error(error.message);
     setNome(""); setEndereco(""); setTelefone(""); setCnes(""); toast.success("Unidade cadastrada");
     qc.invalidateQueries({ queryKey: ["unidades"] });
