@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, CalendarClock } from "lucide-react";
+import { Loader2, CalendarClock, CalendarX } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { formatTime } from "@/lib/format";
 
 type Props = {
