@@ -156,11 +156,11 @@ function AgendarPage() {
     <div className="grid gap-4 lg:grid-cols-3">
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle>1. Selecionar horário</CardTitle>
+          <CardTitle className="text-base sm:text-lg">1. Selecionar horário</CardTitle>
           <CardDescription>Escolha unidade, especialidade, profissional e data.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1.5">
               <Label className="text-xs">Unidade</Label>
               <Select value={unidadeId} onValueChange={setUnidadeId}>
@@ -206,10 +206,10 @@ function AgendarPage() {
                 Sem vagas livres nesta data/unidade.
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-2 md:grid-cols-6">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
                 {slots.map((s: any) => (
                   <button key={s.id} type="button" onClick={() => setSlot(s)}
-                    className={`rounded-md border px-3 py-2 text-sm transition ${
+                    className={`min-h-11 rounded-md border px-3 py-2 text-sm transition ${
                       slot?.id === s.id ? "border-primary bg-primary text-primary-foreground" : "border-input hover:bg-accent"
                     }`}>{formatTime(s.hora_inicio)}</button>
                 ))}
