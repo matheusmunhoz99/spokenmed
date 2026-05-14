@@ -1,0 +1,201 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Search, Check, Calendar as CalIcon } from "lucide-react";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { useAuth } from "@/hooks/use-auth";
+import { formatCPF, formatCNS, formatTime, onlyDigits } from "@/lib/format";
+
+export const Route = createFileRoute("/app/agendar")({ component: AgendarPage });
+
+function AgendarPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+
+  const [especialidadeId, setEspecialidadeId] = useState("");
+  const [profId, setProfId] = useState("");
+  const [data, setData] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [slot, setSlot] = useState<any>(null);
+  const [paciente, setPaciente] = useState<any>(null);
+  const [search, setSearch] = useState("");
+  const [motivo, setMotivo] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const { data: especs } = useQuery({
+    queryKey: ["especialidades-ag"],
+    queryFn: async () => (await supabase.from("especialidades").select("id, nome").eq("ativo", true).order("nome")).data ?? [],
+  });
+  const { data: profs } = useQuery({
+    queryKey: ["profs-ag", especialidadeId],
+    queryFn: async () => {
+      let q = supabase.from("profissionais").select("id, nome, especialidades(nome)").eq("ativo", true).order("nome");
+      if (especialidadeId) q = q.eq("especialidade_id", especialidadeId);
+      return (await q).data ?? [];
+    },
+  });
+
+  useEffect(() => { setProfId(""); setSlot(null); }, [especialidadeId]);
+  useEffect(() => { setSlot(null); }, [profId, data]);
+
+  const { data: slots } = useQuery({
+    queryKey: ["slots-ag", profId, data],
+    enabled: !!profId && !!data,
+    queryFn: async () => {
+      const { data: rows } = await supabase.from("slots")
+        .select("id, hora_inicio, hora_fim, status")
+        .eq("profissional_id", profId).eq("data", data).eq("status", "livre")
+        .order("hora_inicio");
+      return rows ?? [];
+    },
+  });
+
+  const { data: pacResults } = useQuery({
+    queryKey: ["pac-search-ag", search],
+    enabled: search.length >= 2,
+    queryFn: async () => {
+      const term = search.trim();
+      const digits = onlyDigits(term);
+      let q = supabase.from("pacientes").select("id, nome, cpf, cns, telefone").limit(10);
+      if (digits.length >= 3) q = q.or(`cpf.ilike.%${digits}%,cns.ilike.%${digits}%`);
+      else q = q.ilike("nome", `%${term}%`);
+      return (await q).data ?? [];
+    },
+  });
+
+  const canConfirm = slot && paciente;
+
+  const handleAgendar = async () => {
+    if (!canConfirm) return;
+    setSubmitting(true);
+    // marca slot como reservado
+    const { error: e1 } = await supabase.from("slots").update({ status: "reservado" }).eq("id", slot.id).eq("status", "livre");
+    if (e1) { setSubmitting(false); return toast.error("Vaga não está mais livre."); }
+    const { error: e2 } = await supabase.from("agendamentos").insert({
+      slot_id: slot.id, paciente_id: paciente.id, profissional_id: profId,
+      data, hora_inicio: slot.hora_inicio,
+      motivo: motivo || null, criado_por: user?.id,
+    });
+    setSubmitting(false);
+    if (e2) {
+      await supabase.from("slots").update({ status: "livre" }).eq("id", slot.id);
+      return toast.error(e2.message);
+    }
+    toast.success("Consulta agendada!");
+    qc.invalidateQueries();
+    navigate({ to: "/app/agenda-dia", search: { data } as any });
+  };
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle>1. Selecionar horário</CardTitle>
+          <CardDescription>Escolha especialidade, profissional e data para ver as vagas livres.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Especialidade</Label>
+              <Select value={especialidadeId} onValueChange={setEspecialidadeId}>
+                <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {especs?.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Profissional</Label>
+              <Select value={profId} onValueChange={setProfId}>
+                <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                <SelectContent>
+                  {profs?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Data</Label>
+              <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-xs font-medium uppercase text-muted-foreground">Vagas livres</div>
+            {!profId ? (
+              <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
+                <CalIcon className="mx-auto mb-2 h-6 w-6" /> Selecione um profissional para ver as vagas
+              </div>
+            ) : !slots || slots.length === 0 ? (
+              <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
+                Sem vagas livres nesta data.
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2 md:grid-cols-6">
+                {slots.map((s: any) => (
+                  <button key={s.id} type="button" onClick={() => setSlot(s)}
+                    className={`rounded-md border px-3 py-2 text-sm transition ${
+                      slot?.id === s.id ? "border-primary bg-primary text-primary-foreground" : "border-input hover:bg-accent"
+                    }`}>{formatTime(s.hora_inicio)}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>2. Paciente</CardTitle>
+          <CardDescription>Busque por nome, CPF ou CNS.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Buscar paciente..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          {paciente ? (
+            <div className="rounded-md border bg-accent/40 p-3">
+              <div className="text-sm font-medium">{paciente.nome}</div>
+              <div className="text-xs text-muted-foreground">
+                {paciente.cpf ? `CPF ${formatCPF(paciente.cpf)}` : ""} {paciente.cns ? ` · CNS ${formatCNS(paciente.cns)}` : ""}
+              </div>
+              <Button variant="link" size="sm" className="px-0 h-auto" onClick={() => setPaciente(null)}>Trocar paciente</Button>
+            </div>
+          ) : pacResults && pacResults.length > 0 ? (
+            <ul className="rounded-md border divide-y max-h-60 overflow-y-auto">
+              {pacResults.map((p: any) => (
+                <li key={p.id}>
+                  <button type="button" onClick={() => setPaciente(p)} className="w-full text-left px-3 py-2 hover:bg-accent">
+                    <div className="text-sm font-medium">{p.nome}</div>
+                    <div className="text-xs text-muted-foreground">{p.cpf ? formatCPF(p.cpf) : ""}</div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : search.length >= 2 ? (
+            <div className="text-xs text-muted-foreground py-2">Nenhum paciente encontrado. <a href="/app/pacientes" className="text-primary hover:underline">Cadastrar novo</a></div>
+          ) : null}
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Motivo / queixa</Label>
+            <Textarea rows={2} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Opcional" />
+          </div>
+
+          <Button className="w-full" disabled={!canConfirm || submitting} onClick={handleAgendar}>
+            {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+            Confirmar agendamento
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
