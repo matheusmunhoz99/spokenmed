@@ -28,7 +28,7 @@ import {
 import { Loader2, Plus, Trash2, ShieldCheck, UserCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  listSystemUsers, createSystemUser, updateUserRole, deleteSystemUser,
+  listSystemUsers, createSystemUser, updateUserRole, deleteSystemUser, setUserUnidades,
 } from "@/lib/admin-users.functions";
 
 export const Route = createFileRoute("/app/configuracoes/sistema")({ component: ConfigSistema });
