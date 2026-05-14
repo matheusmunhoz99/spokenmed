@@ -23,10 +23,11 @@ export const PDF_COLORS = {
 };
 
 // ===== Logo (cache) =====
-let logoCache: { dataUrl: string; w: number; h: number } | null = null;
-let logoPromise: Promise<typeof logoCache> | null = null;
+type LogoData = { dataUrl: string; w: number; h: number } | null;
+let logoCache: LogoData = null;
+let logoPromise: Promise<LogoData> | null = null;
 
-export async function loadLogo() {
+export async function loadLogo(): Promise<LogoData> {
   if (logoCache) return logoCache;
   if (logoPromise) return logoPromise;
   logoPromise = (async () => {
