@@ -38,7 +38,7 @@ function AgendarPage() {
     queryKey: ["profs-ag", especialidadeId],
     queryFn: async () => {
       let q = supabase.from("profissionais").select("id, nome, especialidades(nome)").eq("ativo", true).order("nome");
-      if (especialidadeId) q = q.eq("especialidade_id", especialidadeId);
+      if (especialidadeId && especialidadeId !== "all") q = q.eq("especialidade_id", especialidadeId);
       return (await q).data ?? [];
     },
   });
