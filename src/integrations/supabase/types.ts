@@ -211,6 +211,45 @@ export type Database = {
         }
         Relationships: []
       }
+      fila_espera: {
+        Row: {
+          agendamento_id: string | null
+          created_at: string
+          criado_por: string | null
+          especialidade_id: string
+          id: string
+          observacoes: string | null
+          paciente_id: string
+          status: Database["public"]["Enums"]["fila_status"]
+          unidade_id: string
+          updated_at: string
+        }
+        Insert: {
+          agendamento_id?: string | null
+          created_at?: string
+          criado_por?: string | null
+          especialidade_id: string
+          id?: string
+          observacoes?: string | null
+          paciente_id: string
+          status?: Database["public"]["Enums"]["fila_status"]
+          unidade_id: string
+          updated_at?: string
+        }
+        Update: {
+          agendamento_id?: string | null
+          created_at?: string
+          criado_por?: string | null
+          especialidade_id?: string
+          id?: string
+          observacoes?: string | null
+          paciente_id?: string
+          status?: Database["public"]["Enums"]["fila_status"]
+          unidade_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pacientes: {
         Row: {
           ativo: boolean
@@ -606,6 +645,7 @@ export type Database = {
         | "faltou"
         | "cancelado"
       app_role: "admin" | "recepcionista" | "medico"
+      fila_status: "aguardando" | "agendado" | "concluido" | "cancelado"
       sexo_tipo: "M" | "F" | "O"
       slot_status: "livre" | "reservado" | "bloqueado"
     }
@@ -743,6 +783,7 @@ export const Constants = {
         "cancelado",
       ],
       app_role: ["admin", "recepcionista", "medico"],
+      fila_status: ["aguardando", "agendado", "concluido", "cancelado"],
       sexo_tipo: ["M", "F", "O"],
       slot_status: ["livre", "reservado", "bloqueado"],
     },

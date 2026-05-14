@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, CalendarDays, CalendarPlus, Users, Menu } from "lucide-react";
+import { LayoutDashboard, CalendarDays, CalendarPlus, Users, Menu, ListOrdered } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import type { ModuleKey } from "@/lib/permissions";
@@ -10,6 +10,7 @@ const allItems: Item[] = [
   { title: "Início", url: "/app", icon: LayoutDashboard, exact: true },
   { title: "Agenda", url: "/app/agenda-dia", icon: CalendarDays, module: "agenda_dia" },
   { title: "Agendar", url: "/app/agendar", icon: CalendarPlus, module: "agendar" },
+  { title: "Fila", url: "/app/fila", icon: ListOrdered, module: "fila" },
   { title: "Pacientes", url: "/app/pacientes", icon: Users, module: "pacientes" },
 ];
 

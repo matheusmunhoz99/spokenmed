@@ -97,7 +97,16 @@ function AgendaDiaPage() {
     if (a.slot_id) {
       await supabase.from("slots").update({ status: "livre" }).eq("id", a.slot_id);
     }
-    toast.success("Agendamento excluído");
+    // Se veio da fila, devolve para fila preservando posição original
+    const { data: filaItem } = await (supabase.from("fila_espera" as any) as any)
+      .select("id").eq("agendamento_id", a.id).maybeSingle();
+    if (filaItem?.id) {
+      await (supabase.from("fila_espera" as any) as any)
+        .update({ status: "aguardando", agendamento_id: null }).eq("id", filaItem.id);
+      toast.success("Agendamento excluído. Paciente devolvido à fila.");
+    } else {
+      toast.success("Agendamento excluído");
+    }
     setExcluir(null);
     qc.invalidateQueries({ queryKey: ["agenda-dia"] });
   };

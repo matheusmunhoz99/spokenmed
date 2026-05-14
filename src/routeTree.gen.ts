@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppProfissionaisRouteImport } from './routes/app.profissionais'
 import { Route as AppPacientesRouteImport } from './routes/app.pacientes'
+import { Route as AppFilaRouteImport } from './routes/app.fila'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
 import { Route as AppAgendasRouteImport } from './routes/app.agendas'
 import { Route as AppAgendarRouteImport } from './routes/app.agendar'
@@ -57,6 +58,11 @@ const AppPacientesRoute = AppPacientesRouteImport.update({
   path: '/pacientes',
   getParentRoute: () => AppRoute,
 } as any)
+const AppFilaRoute = AppFilaRouteImport.update({
+  id: '/fila',
+  path: '/fila',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppConfiguracoesRoute = AppConfiguracoesRouteImport.update({
   id: '/configuracoes',
   path: '/configuracoes',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/app/agendar': typeof AppAgendarRoute
   '/app/agendas': typeof AppAgendasRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
+  '/app/fila': typeof AppFilaRoute
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
   '/app/': typeof AppIndexRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/app/agendar': typeof AppAgendarRoute
   '/app/agendas': typeof AppAgendasRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
+  '/app/fila': typeof AppFilaRoute
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
   '/app': typeof AppIndexRoute
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/app/agendar': typeof AppAgendarRoute
   '/app/agendas': typeof AppAgendasRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
+  '/app/fila': typeof AppFilaRoute
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
   '/app/': typeof AppIndexRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/app/agendar'
     | '/app/agendas'
     | '/app/configuracoes'
+    | '/app/fila'
     | '/app/pacientes'
     | '/app/profissionais'
     | '/app/'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/app/agendar'
     | '/app/agendas'
     | '/app/configuracoes'
+    | '/app/fila'
     | '/app/pacientes'
     | '/app/profissionais'
     | '/app'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/app/agendar'
     | '/app/agendas'
     | '/app/configuracoes'
+    | '/app/fila'
     | '/app/pacientes'
     | '/app/profissionais'
     | '/app/'
@@ -227,6 +239,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPacientesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/fila': {
+      id: '/app/fila'
+      path: '/fila'
+      fullPath: '/app/fila'
+      preLoaderRoute: typeof AppFilaRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/configuracoes': {
       id: '/app/configuracoes'
       path: '/configuracoes'
@@ -281,6 +300,7 @@ interface AppRouteChildren {
   AppAgendarRoute: typeof AppAgendarRoute
   AppAgendasRoute: typeof AppAgendasRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRouteWithChildren
+  AppFilaRoute: typeof AppFilaRoute
   AppPacientesRoute: typeof AppPacientesRoute
   AppProfissionaisRoute: typeof AppProfissionaisRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -291,6 +311,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAgendarRoute: AppAgendarRoute,
   AppAgendasRoute: AppAgendasRoute,
   AppConfiguracoesRoute: AppConfiguracoesRouteWithChildren,
+  AppFilaRoute: AppFilaRoute,
   AppPacientesRoute: AppPacientesRoute,
   AppProfissionaisRoute: AppProfissionaisRoute,
   AppIndexRoute: AppIndexRoute,

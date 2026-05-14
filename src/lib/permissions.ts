@@ -1,6 +1,7 @@
 export type ModuleKey =
   | "agenda_dia"
   | "agendar"
+  | "fila"
   | "pacientes"
   | "profissionais"
   | "agendas"
@@ -13,6 +14,7 @@ export type AppRole = "admin" | "recepcionista" | "medico";
 export const MODULES: { key: ModuleKey; label: string; manageable: boolean }[] = [
   { key: "agenda_dia", label: "Agenda do dia", manageable: true },
   { key: "agendar", label: "Agendar consulta", manageable: true },
+  { key: "fila", label: "Fila de Espera", manageable: true },
   { key: "pacientes", label: "Pacientes", manageable: true },
   { key: "profissionais", label: "Profissionais", manageable: true },
   { key: "agendas", label: "Agendas (configuração)", manageable: true },
@@ -43,7 +45,7 @@ export function defaultPermsFor(role: AppRole): PermRow[] {
   }
   // administrativo (recepcionista)
   return MODULES.map((m) => {
-    if (m.key === "agenda_dia" || m.key === "agendar" || m.key === "pacientes" || m.key === "painel") {
+    if (m.key === "agenda_dia" || m.key === "agendar" || m.key === "fila" || m.key === "pacientes" || m.key === "painel") {
       return { module: m.key, can_view: true, can_manage: true };
     }
     if (m.key === "profissionais" || m.key === "agendas") {
