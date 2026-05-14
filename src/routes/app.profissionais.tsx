@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,8 @@ function ProfissionaisPage() {
     queryKey: ["profissionais"],
     queryFn: async () => {
       const { data } = await supabase.from("profissionais")
-        .select("*, especialidades(nome), unidades(nome)").order("nome");
+        .select("*, especialidades(nome), profissional_unidades(unidade_id, unidades(id, nome))")
+        .order("nome");
       return data ?? [];
     },
   });
@@ -60,7 +61,7 @@ function ProfissionaisPage() {
                 <TableHead>Nome</TableHead>
                 <TableHead>Conselho</TableHead>
                 <TableHead>Especialidade</TableHead>
-                <TableHead>Unidade</TableHead>
+                <TableHead>Unidades</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -68,19 +69,28 @@ function ProfissionaisPage() {
             <TableBody>
               {isLoading && (<TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground"><Loader2 className="inline mr-2 h-4 w-4 animate-spin"/>Carregando...</TableCell></TableRow>)}
               {!isLoading && lista?.length === 0 && (<TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground">Nenhum profissional cadastrado.</TableCell></TableRow>)}
-              {lista?.map((p: any) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.nome}</TableCell>
-                  <TableCell>{p.conselho ? `${p.conselho} ${p.conselho_numero ?? ""}/${p.conselho_uf ?? ""}` : "—"}</TableCell>
-                  <TableCell>{p.especialidades?.nome ?? "—"}</TableCell>
-                  <TableCell>{p.unidades?.nome ?? "—"}</TableCell>
-                  <TableCell>{p.ativo ? <Badge className="bg-success/15 text-success border-0">Ativo</Badge> : <Badge variant="secondary">Inativo</Badge>}</TableCell>
-                  <TableCell className="text-right space-x-1">
-                    <Button asChild variant="ghost" size="sm"><Link to="/app/agendas" search={{ profissional: p.id } as any}><CalendarCog className="h-4 w-4 mr-1" />Agenda</Link></Button>
-                    <Button variant="ghost" size="sm" onClick={() => { setEditing(p); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {lista?.map((p: any) => {
+                const us = (p.profissional_unidades ?? []).map((pu: any) => pu.unidades).filter(Boolean);
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">{p.nome}</TableCell>
+                    <TableCell>{p.conselho ? `${p.conselho} ${p.conselho_numero ?? ""}/${p.conselho_uf ?? ""}` : "—"}</TableCell>
+                    <TableCell>{p.especialidades?.nome ?? "—"}</TableCell>
+                    <TableCell>
+                      {us.length === 0 ? <span className="text-muted-foreground text-xs">Nenhuma</span> : (
+                        <div className="flex flex-wrap gap-1">
+                          {us.map((u: any) => <Badge key={u.id} variant="outline" className="font-normal">{u.nome}</Badge>)}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>{p.ativo ? <Badge className="bg-success/15 text-success border-0">Ativo</Badge> : <Badge variant="secondary">Inativo</Badge>}</TableCell>
+                    <TableCell className="text-right space-x-1">
+                      <Button asChild variant="ghost" size="sm"><Link to="/app/agendas" search={{ profissional: p.id } as any}><CalendarCog className="h-4 w-4 mr-1" />Agenda</Link></Button>
+                      <Button variant="ghost" size="sm" onClick={() => { setEditing({ ...p, _unidade_ids: us.map((u: any) => u.id) }); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
@@ -93,20 +103,47 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<any>(editing ?? {
     nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "",
-    especialidade_id: "", unidade_id: "", email: "", telefone: "", ativo: true,
+    especialidade_id: "", email: "", telefone: "", ativo: true,
   });
+  const [unidadeIds, setUnidadeIds] = useState<string[]>(editing?._unidade_ids ?? []);
+
+  useEffect(() => {
+    setForm(editing ?? { nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "", especialidade_id: "", email: "", telefone: "", ativo: true });
+    setUnidadeIds(editing?._unidade_ids ?? []);
+  }, [editing]);
+
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+  const toggleUnidade = (id: string) => setUnidadeIds((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (unidadeIds.length === 0) return toast.error("Vincule o profissional a pelo menos uma unidade.");
     setSubmitting(true);
-    const payload = { ...form };
-    Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
-    const { error } = editing
-      ? await supabase.from("profissionais").update(payload).eq("id", editing.id)
-      : await supabase.from("profissionais").insert(payload);
+
+    const payload: any = {
+      nome: form.nome, conselho: form.conselho || null, conselho_numero: form.conselho_numero || null,
+      conselho_uf: form.conselho_uf || null, especialidade_id: form.especialidade_id || null,
+      unidade_id: unidadeIds[0], // primeira como "principal" (compat)
+      email: form.email || null, telefone: form.telefone || null, ativo: form.ativo,
+    };
+
+    let profId = editing?.id;
+    if (editing) {
+      const { error } = await supabase.from("profissionais").update(payload).eq("id", editing.id);
+      if (error) { setSubmitting(false); return toast.error(error.message); }
+    } else {
+      const { data, error } = await supabase.from("profissionais").insert(payload).select("id").single();
+      if (error) { setSubmitting(false); return toast.error(error.message); }
+      profId = data.id;
+    }
+
+    // Sincroniza vínculos com unidades
+    await supabase.from("profissional_unidades").delete().eq("profissional_id", profId);
+    const rows = unidadeIds.map((uid) => ({ profissional_id: profId, unidade_id: uid }));
+    const { error: linkErr } = await supabase.from("profissional_unidades").insert(rows);
     setSubmitting(false);
-    if (error) return toast.error(error.message);
+    if (linkErr) return toast.error(linkErr.message);
+
     toast.success(editing ? "Profissional atualizado" : "Profissional cadastrado");
     onSaved();
   };
@@ -115,7 +152,7 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
     <DialogContent className="max-w-2xl">
       <DialogHeader>
         <DialogTitle>{editing ? "Editar profissional" : "Novo profissional"}</DialogTitle>
-        <DialogDescription>Após cadastrar, abra a Agenda do profissional para gerar as vagas.</DialogDescription>
+        <DialogDescription>O profissional pode atender em mais de uma unidade. Cada agenda é por unidade.</DialogDescription>
       </DialogHeader>
       <form onSubmit={handleSubmit} className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1.5 md:col-span-2">
@@ -146,18 +183,26 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
             <SelectContent>{especialidades.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Unidade</Label>
-          <Select value={form.unidade_id ?? ""} onValueChange={(v) => set("unidade_id", v)}>
-            <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-            <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>)}</SelectContent>
-          </Select>
+        <div className="space-y-1.5 md:col-span-2">
+          <Label className="text-xs">Unidades onde atende *</Label>
+          {unidades.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Cadastre unidades em Configurações antes de continuar.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {unidades.map((u: any) => (
+                <button type="button" key={u.id} onClick={() => toggleUnidade(u.id)}
+                  className={`rounded-md border px-3 py-1.5 text-xs transition ${
+                    unidadeIds.includes(u.id) ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background hover:bg-accent"
+                  }`}>{u.nome}</button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Telefone</Label>
           <Input value={form.telefone ?? ""} onChange={(e) => set("telefone", e.target.value)} />
         </div>
-        <div className="space-y-1.5 md:col-span-2">
+        <div className="space-y-1.5">
           <Label className="text-xs">E-mail</Label>
           <Input type="email" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} />
         </div>
