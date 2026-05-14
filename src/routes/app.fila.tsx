@@ -583,11 +583,11 @@ function AgendarFilaDialog({ item, onClose, userId, userNome, onDone }: {
     if (!ultimoAgId) return;
     const { data: ag } = await supabase
       .from("agendamentos")
-      .select("id, data, hora_inicio, motivo, pacientes(nome, cpf, cns, telefone), profissionais(nome, especialidades(nome)), unidades(nome, endereco, telefone)")
+      .select("id, codigo, data, hora_inicio, motivo, pacientes(nome, cpf, cns, telefone), profissionais(nome, especialidades(nome)), unidades(nome, endereco, telefone)")
       .eq("id", ultimoAgId).single();
     if (!ag) return toast.error("Não foi possível carregar o comprovante");
     await gerarComprovante({
-      codigo: ag.id, data: ag.data, hora: ag.hora_inicio,
+      codigo: (ag as any).codigo ?? ag.id, data: ag.data, hora: ag.hora_inicio,
       paciente: {
         nome: (ag.pacientes as any)?.nome ?? "—",
         cpf: (ag.pacientes as any)?.cpf, cns: (ag.pacientes as any)?.cns,
