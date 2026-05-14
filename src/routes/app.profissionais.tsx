@@ -13,7 +13,14 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Loader2, CalendarCog } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/app/profissionais")({ component: ProfissionaisPage });
+import { useAuth } from "@/hooks/use-auth";
+import { SemAcesso } from "@/components/sem-acesso";
+function ProfissionaisGuard() {
+  const { can } = useAuth();
+  if (!can("profissionais")) return <SemAcesso />;
+  return <ProfissionaisPage />;
+}
+export const Route = createFileRoute("/app/profissionais")({ component: ProfissionaisGuard });
 
 function ProfissionaisPage() {
   const qc = useQueryClient();

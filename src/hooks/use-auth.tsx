@@ -1,16 +1,21 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
+import type { AppRole, ModuleKey } from "@/lib/permissions";
 
-type Role = "admin" | "recepcionista";
+type PermMap = Record<string, { view: boolean; manage: boolean }>;
 
 type AuthContextType = {
   session: Session | null;
   user: User | null;
   profile: { nome: string; cargo: string | null } | null;
-  roles: Role[];
+  roles: AppRole[];
+  permissions: PermMap;
   loading: boolean;
   isAdmin: boolean;
+  isMedico: boolean;
+  isAdministrativo: boolean;
+  can: (module: ModuleKey, action?: "view" | "manage") => boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, nome: string, cargo?: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -22,16 +27,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AuthContextType["profile"]>(null);
-  const [roles, setRoles] = useState<Role[]>([]);
+  const [roles, setRoles] = useState<AppRole[]>([]);
+  const [permissions, setPermissions] = useState<PermMap>({});
   const [loading, setLoading] = useState(true);
 
   const loadUserData = async (userId: string) => {
-    const [{ data: prof }, { data: r }] = await Promise.all([
+    const [{ data: prof }, { data: r }, { data: perms }] = await Promise.all([
       supabase.from("profiles").select("nome, cargo").eq("id", userId).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", userId),
+      supabase.from("user_permissions").select("module, can_view, can_manage").eq("user_id", userId),
     ]);
     setProfile(prof ?? null);
-    setRoles((r ?? []).map((x: any) => x.role as Role));
+    setRoles((r ?? []).map((x: any) => x.role as AppRole));
+    const map: PermMap = {};
+    (perms ?? []).forEach((p: any) => {
+      map[p.module] = { view: !!p.can_view, manage: !!p.can_manage };
+    });
+    setPermissions(map);
   };
 
   useEffect(() => {
@@ -43,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setProfile(null);
         setRoles([]);
+        setPermissions({});
       }
     });
 
@@ -55,6 +68,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const isAdmin = roles.includes("admin");
+  const isMedico = roles.includes("medico");
+  const isAdministrativo = roles.includes("recepcionista");
+
+  const can = (module: ModuleKey, action: "view" | "manage" = "view") => {
+    if (isAdmin) return true;
+    const p = permissions[module];
+    if (!p) return false;
+    return action === "manage" ? p.manage : p.view;
+  };
 
   const signIn: AuthContextType["signIn"] = async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -80,8 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        session, user, profile, roles, loading,
-        isAdmin: roles.includes("admin"),
+        session, user, profile, roles, permissions, loading,
+        isAdmin, isMedico, isAdministrativo, can,
         signIn, signUp, signOut,
       }}
     >

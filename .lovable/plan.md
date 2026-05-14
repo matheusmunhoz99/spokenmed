@@ -1,116 +1,139 @@
 
 ## Objetivo
 
-Deixar o SpokenMed com aparência e comportamento de aplicativo nativo no celular (Android e iPhone), sem cortes, sem sobreposição de menus/botões, e oferecer instalação como app no Android.
-
-## 1. Aviso importante sobre PWA
-
-Você pediu para perguntar se quer instalar como PWA no Android. Existem dois caminhos:
-
-- **Manifest-only (recomendado)** — o app fica instalável (Android mostra "Adicionar à tela inicial" / banner; iOS via Compartilhar → Adicionar à tela), abre em tela cheia sem barra do navegador, com ícone próprio. **Não funciona offline.** É simples, seguro e não causa problemas no preview do editor.
-- **PWA completo com Service Worker** — adiciona cache offline, mas é bem mais frágil: pode servir versão desatualizada, quebrar o preview do editor, e exigir manutenção contínua. Não recomendado para um sistema de agendamento que precisa sempre exibir dados atualizados do servidor.
-
-**Vou seguir com manifest-only**, que entrega exatamente o que você pediu (instalação como app no Android, comportamento de app no iPhone) sem os efeitos colaterais.
-
-## 2. Layout mobile (cara de app nativo)
-
-**Header/Sidebar (`src/routes/app.tsx` + `src/components/app-sidebar.tsx`)**
-- No mobile, a sidebar já vira "offcanvas" (abre por cima ao tocar no menu). Vou garantir que:
-  - O `SidebarTrigger` (botão hamburguer) fique sempre visível no header.
-  - O header mobile fique mais compacto (h-12), com o título centralizado e tipografia menor.
-  - O conteúdo principal use `p-4` no mobile e `p-6` no desktop (hoje está fixo em `p-6`, encosta nas bordas).
-  - Adicionar `safe-area-inset` (padding-top/bottom) para iPhone com notch e barra inferior.
-
-**Bottom Navigation (mobile)**
-- Adicionar uma barra inferior fixa no mobile com 4 atalhos: Painel, Agenda do Dia, Agendar, Pacientes. Aparece só em telas `<md` e respeita safe-area do iPhone. Remove a necessidade de abrir o menu o tempo todo — comportamento de app nativo.
-
-**Tabelas viram cards no mobile**
-As telas com tabela larga hoje cortam no celular ou geram scroll horizontal feio. Para cada uma, no breakpoint `<md` vou renderizar uma lista de cards empilhados em vez da `<Table>`:
-- `app.agenda-dia.tsx` — card por consulta (paciente, hora, profissional, status, ações)
-- `app.pacientes.tsx` — card por paciente (nome, CPF, telefone, ações)
-- `app.profissionais.tsx` — card por profissional
-- `app.agendas.tsx` — card por configuração de agenda
-- `app.configuracoes.tsx` — cards para unidades e especialidades
-
-A tabela continua no desktop (`md:` para cima).
-
-**Formulários e diálogos**
-- `Dialog`/`AlertDialog` com `max-h-[90vh] overflow-y-auto` e `w-[calc(100%-1rem)]` no mobile pra não estourar a tela.
-- Grids de formulário (`grid-cols-2`, `grid-cols-4`) viram `grid-cols-1` no mobile.
-- Botões de ação ficam full-width no mobile, lado-a-lado no desktop.
-- Inputs com `text-base` no mobile (evita o zoom automático do iOS quando fonte < 16px).
-- Toolbars de filtros (data, unidade, profissional) viram coluna única no mobile com largura total.
-
-**Tela de login (`src/routes/login.tsx`)**
-- Garantir que o card cabe na tela com padding lateral, sem scroll horizontal, e que o teclado mobile não tampa o botão.
-
-**Toaster**
-- Mover `position` para `top-center` no mobile (hoje está `top-right`, fica apertado e cobre o botão de menu).
-
-## 3. PWA básico (instalável)
-
-**Manifest (`public/manifest.webmanifest`)**
-```json
-{
-  "name": "SpokenMed",
-  "short_name": "SpokenMed",
-  "description": "Agendamento Médico Municipal",
-  "start_url": "/app",
-  "scope": "/",
-  "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#0b0f17",
-  "theme_color": "#0b0f17",
-  "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ]
-}
-```
-
-**Ícones** — gerar 3 PNGs (192, 512, 512 maskable) a partir do logo do SpokenMed, salvos em `public/icons/`.
-
-**Meta tags no `__root.tsx`**
-- `link rel="manifest"` apontando para `/manifest.webmanifest`
-- `theme-color` (Android colore a status bar)
-- `apple-mobile-web-app-capable=yes`, `apple-mobile-web-app-status-bar-style=black-translucent`, `apple-mobile-web-app-title=SpokenMed` (iPhone abre em tela cheia ao adicionar à tela inicial)
-- `link rel="apple-touch-icon"` para o ícone no iPhone
-- viewport com `viewport-fit=cover` (libera safe-area do notch)
-
-**Banner "Instalar como app" (Android)**
-- Componente `<InstallPwaPrompt />` montado no `__root.tsx`.
-- Escuta o evento `beforeinstallprompt` (só dispara no Chrome/Edge Android).
-- Mostra um banner discreto na parte de baixo: "Instalar SpokenMed como app?" com botões **Instalar** e **Agora não**.
-- Se aceitar → chama `prompt()` nativo do Chrome.
-- Se recusar → guarda flag em `localStorage` e não pergunta de novo por 30 dias.
-- No iPhone (Safari não suporta `beforeinstallprompt`): se detectar iOS + Safari + não-standalone, mostrar banner com instrução curta: "Toque em Compartilhar → Adicionar à Tela de Início".
-
-## 4. CSS global (`src/styles.css`)
-
-- `html, body { overscroll-behavior-y: none; }` — remove o efeito "puxar para recarregar" que parece web e não app.
-- `body { -webkit-tap-highlight-color: transparent; }` — remove o flash azul ao tocar.
-- Variáveis `--safe-top`, `--safe-bottom` usando `env(safe-area-inset-*)` para usar nos componentes.
-
-## 5. Testes (eu testo antes de entregar)
-
-Vou abrir o preview em viewports reais e validar cada tela:
-- **iPhone SE (375×667)** — pior caso de largura
-- **iPhone 14 (390×844)** — referência iOS
-- **Pixel/Galaxy (360×800)** — referência Android
-
-Em cada viewport, vou navegar por: Login → Painel → Agenda do Dia → Agendar → Pacientes → Profissionais → Agendas → Configurações, abrir um diálogo de cadastro e fechar, abrir e fechar o menu lateral. Confirmo que nada estoura, nenhum botão fica coberto, a bottom-nav não tampa conteúdo e o header não sobrepõe o título da página.
+Centralizar a criação de usuários **apenas no admin**. Remover o auto-cadastro do login. Permitir 3 perfis (Administrador, Administrativo/Recepção, Médico) e, dentro de cada usuário, o admin escolhe **quais módulos ele enxerga e o que pode fazer** (ver / gerenciar).
 
 ---
 
-### Resumo dos arquivos que serão tocados
+## 1. Login — remover auto-cadastro
 
-- `src/routes/__root.tsx` — meta PWA, viewport-fit, montar `<InstallPwaPrompt />`, toaster mobile
-- `src/routes/app.tsx` — header/main responsivos + safe-area + bottom-nav mobile
-- `src/components/app-sidebar.tsx` — ajustes mobile
-- `src/components/install-pwa-prompt.tsx` — **novo**, banner Android + dica iOS
-- `src/components/mobile-bottom-nav.tsx` — **novo**
-- `src/routes/app.agenda-dia.tsx`, `app.pacientes.tsx`, `app.profissionais.tsx`, `app.agendas.tsx`, `app.configuracoes.tsx`, `app.configuracoes.sistema.tsx`, `app.agendar.tsx`, `app.index.tsx`, `login.tsx` — versão mobile (cards no lugar de tabela, grids 1-coluna, botões full-width, dialogs adaptados)
-- `src/styles.css` — overscroll, tap-highlight, vars safe-area
-- `public/manifest.webmanifest` — **novo**
-- `public/icons/icon-192.png`, `icon-512.png`, `icon-maskable-512.png` — **novos** (gerados do logo)
+`src/routes/login.tsx`:
+- Remover as `Tabs` e a aba "Criar conta" inteira (form, handler `handleSignUp`, import).
+- Trocar o `CardDescription` para "Acesso restrito. Sua conta é criada pelo administrador."
+- Manter apenas o formulário de login.
+- Esconder também o botão de signUp do `useAuth` (manter no contexto, só não usar).
+
+> Observação: o trigger `handle_new_user` continua criando o **primeiro** usuário como admin automaticamente (bootstrap inicial). Isso fica intacto, mas como não há mais tela de signup, o primeiro admin será criado pelo Lovable Cloud → Users na primeira vez. Vou manter um comentário no código explicando isso.
+
+---
+
+## 2. Banco — adicionar perfil "Médico" + permissões granulares
+
+Migration:
+
+```text
+- ALTER TYPE app_role ADD VALUE 'medico'
+- CREATE TABLE public.user_permissions (
+    user_id uuid,
+    module  text,        -- 'agenda_dia' | 'agendar' | 'pacientes' |
+                         -- 'profissionais' | 'agendas' |
+                         -- 'unidades_especialidades' | 'usuarios'
+    can_view    boolean default false,
+    can_manage  boolean default false,
+    PRIMARY KEY (user_id, module)
+  )
+- RLS: só admin lê/escreve; cada user lê o próprio (SELECT self).
+- Função SECURITY DEFINER  has_permission(_user, _module, _action)
+  -> admin sempre true; senão consulta user_permissions.
+- Defaults aplicados na criação do usuário (server fn), conforme o papel:
+    admin            -> todos os módulos, view+manage
+    administrativo   -> agenda_dia, agendar, pacientes (view+manage);
+                        profissionais, agendas (view)
+    medico           -> agenda_dia (view), pacientes (view)
+- Vincular médico a um profissional: adicionar coluna
+    profissionais.user_id uuid NULL  (1:1 opcional)
+  para que o médico veja só a própria agenda.
+```
+
+(Sem mexer em RLS já existente das outras tabelas — o controle vai ser feito no front por enquanto, conforme o usuário pediu "o que a pessoa pode ver ou não". RLS continua garantindo o limite por unidade.)
+
+---
+
+## 3. Server functions — `src/lib/admin-users.functions.ts`
+
+Atualizar:
+- `createSystemUser`: aceitar `role: 'admin' | 'administrativo' | 'medico'` (renomear `recepcionista`→`administrativo` no enum lógico, mas mantendo compatibilidade — usar 'recepcionista' como valor do app_role para não quebrar dados; rótulo na UI = "Administrativo"). Também aceitar `profissional_id?: string` opcional para vincular médico.
+- Após criar: inserir defaults em `user_permissions` conforme tabela acima.
+- `updateUserRole`: ao mudar papel, **resetar** `user_permissions` para o default do novo papel.
+- Novas fns:
+  - `getUserPermissions({ user_id })` → lista de módulos e flags.
+  - `setUserPermissions({ user_id, perms: [{module, can_view, can_manage}] })`.
+  - `linkMedicoProfissional({ user_id, profissional_id | null })`.
+
+---
+
+## 4. Hook `useAuth`
+
+`src/hooks/use-auth.tsx`:
+- Carregar também `permissions: Record<string, {view:boolean; manage:boolean}>` do usuário logado.
+- Expor helpers:
+  - `can(module, action='view'|'manage')` — admin sempre true.
+  - `isMedico`, `isAdministrativo` (derivados).
+
+---
+
+## 5. Sidebar e rotas — esconder o que não pode ver
+
+`src/components/app-sidebar.tsx`:
+- Filtrar cada item por `can(module, 'view')`.
+- "Unidades & Especialidades" e "Configurações" continuam só pra admin.
+
+`src/components/mobile-bottom-nav.tsx`: mesmo filtro.
+
+Cada rota protegida (`app.agenda-dia.tsx`, `app.agendar.tsx`, `app.pacientes.tsx`, `app.profissionais.tsx`, `app.agendas.tsx`) recebe um pequeno guard no topo:
+```text
+if (!can('modulo', 'view')) return <SemAcesso />
+```
+Botões de criar/editar/excluir são escondidos quando `!can(modulo, 'manage')`.
+
+Para o **médico**, a rota `agenda-dia` filtra por `profissional_id = profissional vinculado ao user`.
+
+---
+
+## 6. Painel de Usuários (`app.configuracoes.sistema.tsx`)
+
+- Select de perfil: **Administrador / Administrativo / Médico**.
+- Quando "Médico": mostrar select de "Vincular a profissional cadastrado" (lista de `profissionais` ativos sem user_id).
+- Cada linha da tabela ganha um botão **"Permissões"** que abre um Dialog com uma matriz:
+
+```text
+Módulo                     | Ver | Gerenciar
+---------------------------|-----|----------
+Painel                     |  ☑  |    —
+Agenda do dia              |  ☑  |    ☑
+Agendar consulta           |  ☑  |    ☑
+Pacientes                  |  ☑  |    ☑
+Profissionais              |  ☑  |    ☐
+Agendas (config)           |  ☐  |    ☐
+Unidades & Especialidades  |  ☐  |    ☐
+Usuários do sistema        |  ☐  |    ☐
+```
+
+- Admin: matriz desabilitada (tudo marcado).
+- Botão "Restaurar padrão do perfil".
+- Salva via `setUserPermissions`.
+
+---
+
+## 7. Página inicial (Painel) — sem botão de cadastro
+
+Confirmar `src/routes/app.index.tsx` e `src/routes/index.tsx`: já não há botão de "Cadastrar". O botão "Criar conta" do login é o que será removido (item 1). Nada mais a fazer aqui.
+
+---
+
+## Arquivos afetados
+
+**Editar:**
+- `src/routes/login.tsx`
+- `src/hooks/use-auth.tsx`
+- `src/components/app-sidebar.tsx`
+- `src/components/mobile-bottom-nav.tsx`
+- `src/lib/admin-users.functions.ts`
+- `src/routes/app.configuracoes.sistema.tsx`
+- `src/routes/app.agenda-dia.tsx`, `app.agendar.tsx`, `app.pacientes.tsx`, `app.profissionais.tsx`, `app.agendas.tsx`, `app.configuracoes.tsx` (guards + esconder botões de manage)
+
+**Criar:**
+- `src/components/sem-acesso.tsx` (tela amigável de "sem permissão")
+- `src/components/permissions-dialog.tsx`
+
+**Migration:** novo enum value, tabela `user_permissions`, função `has_permission`, coluna `profissionais.user_id`.

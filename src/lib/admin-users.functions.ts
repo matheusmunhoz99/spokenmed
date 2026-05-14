@@ -3,6 +3,47 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+const MODULE_KEYS = [
+  "agenda_dia",
+  "agendar",
+  "pacientes",
+  "profissionais",
+  "agendas",
+  "unidades_especialidades",
+  "usuarios",
+] as const;
+
+type ModuleKey = (typeof MODULE_KEYS)[number];
+type AppRole = "admin" | "recepcionista" | "medico";
+
+function defaultPermsFor(role: AppRole) {
+  return MODULE_KEYS.map((m) => {
+    if (role === "admin") return { module: m, can_view: true, can_manage: true };
+    if (role === "medico") {
+      return {
+        module: m,
+        can_view: m === "agenda_dia" || m === "pacientes",
+        can_manage: false,
+      };
+    }
+    // recepcionista (administrativo)
+    if (m === "agenda_dia" || m === "agendar" || m === "pacientes") {
+      return { module: m, can_view: true, can_manage: true };
+    }
+    if (m === "profissionais" || m === "agendas") {
+      return { module: m, can_view: true, can_manage: false };
+    }
+    return { module: m, can_view: false, can_manage: false };
+  });
+}
+
+async function applyDefaultPerms(user_id: string, role: AppRole) {
+  await supabaseAdmin.from("user_permissions").delete().eq("user_id", user_id);
+  const rows = defaultPermsFor(role).map((r) => ({ user_id, ...r }));
+  const { error } = await supabaseAdmin.from("user_permissions").insert(rows);
+  if (error) throw new Error(error.message);
+}
+
 async function assertAdmin(userId: string) {
   const { data, error } = await supabaseAdmin
     .from("user_roles")
@@ -26,10 +67,11 @@ export const listSystemUsers = createServerFn({ method: "GET" })
     if (authErr) throw new Error(authErr.message);
 
     const ids = authList.users.map((u) => u.id);
-    const [{ data: profiles }, { data: roles }, { data: uu }] = await Promise.all([
+    const [{ data: profiles }, { data: roles }, { data: uu }, { data: profs }] = await Promise.all([
       supabaseAdmin.from("profiles").select("id, nome, cargo").in("id", ids),
       supabaseAdmin.from("user_roles").select("user_id, role").in("user_id", ids),
       supabaseAdmin.from("user_unidades").select("user_id, unidade_id").in("user_id", ids),
+      supabaseAdmin.from("profissionais").select("id, nome, user_id").in("user_id", ids),
     ]);
 
     const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
@@ -45,6 +87,10 @@ export const listSystemUsers = createServerFn({ method: "GET" })
       arr.push(r.unidade_id);
       uuMap.set(r.user_id, arr);
     });
+    const profMap = new Map<string, { id: string; nome: string }>();
+    (profs ?? []).forEach((p: any) => {
+      if (p.user_id) profMap.set(p.user_id, { id: p.id, nome: p.nome });
+    });
 
     return authList.users.map((u) => ({
       id: u.id,
@@ -55,6 +101,7 @@ export const listSystemUsers = createServerFn({ method: "GET" })
       cargo: (profileMap.get(u.id) as any)?.cargo ?? "",
       roles: rolesMap.get(u.id) ?? [],
       unidade_ids: uuMap.get(u.id) ?? [],
+      profissional: profMap.get(u.id) ?? null,
     }));
   });
 
@@ -76,8 +123,9 @@ export const createSystemUser = createServerFn({ method: "POST" })
         password: z.string().min(6).max(100),
         nome: z.string().min(1).max(120),
         cargo: z.string().max(120).optional().default(""),
-        role: z.enum(["admin", "recepcionista"]),
+        role: z.enum(["admin", "recepcionista", "medico"]),
         unidade_ids: z.array(z.string().uuid()).default([]),
+        profissional_id: z.string().uuid().nullable().optional(),
       })
       .parse(input),
   )
@@ -100,6 +148,17 @@ export const createSystemUser = createServerFn({ method: "POST" })
     if (rErr) throw new Error(rErr.message);
 
     await syncUserUnidades(newId, data.unidade_ids);
+    await applyDefaultPerms(newId, data.role);
+
+    if (data.role === "medico" && data.profissional_id) {
+      // limpa qualquer vínculo prévio do profissional e do user
+      await supabaseAdmin.from("profissionais").update({ user_id: null }).eq("user_id", newId);
+      const { error: linkErr } = await supabaseAdmin
+        .from("profissionais")
+        .update({ user_id: newId })
+        .eq("id", data.profissional_id);
+      if (linkErr) throw new Error(linkErr.message);
+    }
 
     return { id: newId };
   });
@@ -110,7 +169,7 @@ export const updateUserRole = createServerFn({ method: "POST" })
     z
       .object({
         user_id: z.string().uuid(),
-        role: z.enum(["admin", "recepcionista"]),
+        role: z.enum(["admin", "recepcionista", "medico"]),
       })
       .parse(input),
   )
@@ -121,6 +180,14 @@ export const updateUserRole = createServerFn({ method: "POST" })
       .from("user_roles")
       .insert({ user_id: data.user_id, role: data.role });
     if (error) throw new Error(error.message);
+
+    // reset permissions to defaults of the new role
+    await applyDefaultPerms(data.user_id, data.role);
+
+    // se trocou DE medico para outro, desfaz vínculo
+    if (data.role !== "medico") {
+      await supabaseAdmin.from("profissionais").update({ user_id: null }).eq("user_id", data.user_id);
+    }
     return { ok: true };
   });
 
@@ -151,4 +218,81 @@ export const deleteSystemUser = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+export const getUserPermissions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ user_id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { data: rows, error } = await supabaseAdmin
+      .from("user_permissions")
+      .select("module, can_view, can_manage")
+      .eq("user_id", data.user_id);
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+export const setUserPermissions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        user_id: z.string().uuid(),
+        perms: z.array(
+          z.object({
+            module: z.enum(MODULE_KEYS),
+            can_view: z.boolean(),
+            can_manage: z.boolean(),
+          }),
+        ),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    await supabaseAdmin.from("user_permissions").delete().eq("user_id", data.user_id);
+    const rows = data.perms.map((p) => ({ user_id: data.user_id, ...p }));
+    if (rows.length > 0) {
+      const { error } = await supabaseAdmin.from("user_permissions").insert(rows);
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
+export const linkMedicoProfissional = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        user_id: z.string().uuid(),
+        profissional_id: z.string().uuid().nullable(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    // limpa vínculo anterior do user
+    await supabaseAdmin.from("profissionais").update({ user_id: null }).eq("user_id", data.user_id);
+    if (data.profissional_id) {
+      const { error } = await supabaseAdmin
+        .from("profissionais")
+        .update({ user_id: data.user_id })
+        .eq("id", data.profissional_id);
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
+export const listProfissionaisForLink = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { data, error } = await supabaseAdmin
+      .from("profissionais")
+      .select("id, nome, user_id")
+      .eq("ativo", true)
+      .order("nome");
+    if (error) throw new Error(error.message);
+    return data ?? [];
   });
