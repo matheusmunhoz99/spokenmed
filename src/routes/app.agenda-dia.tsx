@@ -78,34 +78,35 @@ function AgendaDiaPage() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardContent className="flex flex-wrap gap-3 p-4">
+        <CardContent className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
           <div className="space-y-1.5">
             <div className="text-xs text-muted-foreground">Data</div>
-            <Input type="date" value={data} onChange={(e) => setData(e.target.value)} className="w-auto" />
+            <Input type="date" value={data} onChange={(e) => setData(e.target.value)} className="w-full" />
           </div>
-          <div className="space-y-1.5 min-w-[200px]">
+          <div className="space-y-1.5">
             <div className="text-xs text-muted-foreground">Unidade</div>
             <Select value={unidadeId} onValueChange={(v) => { setUnidadeId(v); setProfId("all"); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
                 {unidades?.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5 min-w-[220px]">
+          <div className="space-y-1.5">
             <div className="text-xs text-muted-foreground">Profissional</div>
             <Select value={profId} onValueChange={setProfId}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 {profs?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-          <div className="ml-auto self-end">
+          <div className="self-end">
             <Button
               variant="outline"
+              className="w-full"
               disabled={!ags || ags.length === 0}
               onClick={() => {
                 if (!ags || ags.length === 0) return;
@@ -127,7 +128,7 @@ function AgendaDiaPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>{ags?.length ?? 0} consultas em {new Date(data + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base sm:text-lg">{ags?.length ?? 0} consultas em {new Date(data + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}</CardTitle></CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="text-center py-10 text-muted-foreground"><Loader2 className="inline h-4 w-4 animate-spin mr-2" />Carregando...</div>
@@ -136,22 +137,26 @@ function AgendaDiaPage() {
           ) : (
             <ul className="divide-y">
               {ags?.map((a: any) => (
-                <li key={a.id} className="flex flex-wrap items-center gap-4 py-3">
-                  <div className="w-16 font-mono text-sm">{formatTime(a.hora_inicio)}</div>
-                  <div className="flex-1 min-w-[200px]">
-                    <div className="text-sm font-medium">{a.pacientes?.nome}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {a.profissionais?.nome} · {a.profissionais?.especialidades?.nome ?? ""}
-                      {a.unidades?.nome && <> · <span className="text-primary/80">{a.unidades.nome}</span></>}
+                <li key={a.id} className="flex flex-col gap-3 py-3 md:flex-row md:flex-wrap md:items-center md:gap-4">
+                  <div className="flex items-start gap-3 md:contents">
+                    <div className="w-14 shrink-0 rounded-md bg-muted px-2 py-1 text-center font-mono text-sm md:w-16 md:bg-transparent md:px-0 md:py-0 md:text-left">{formatTime(a.hora_inicio)}</div>
+                    <div className="min-w-0 flex-1 md:min-w-[200px]">
+                      <div className="truncate text-sm font-medium">{a.pacientes?.nome}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {a.profissionais?.nome}{a.profissionais?.especialidades?.nome ? ` · ${a.profissionais.especialidades.nome}` : ""}
+                        {a.unidades?.nome && <> · <span className="text-primary/80">{a.unidades.nome}</span></>}
+                      </div>
+                      {a.motivo && <div className="mt-1 line-clamp-2 text-xs italic text-muted-foreground">"{a.motivo}"</div>}
                     </div>
-                    {a.motivo && <div className="mt-1 text-xs italic text-muted-foreground">"{a.motivo}"</div>}
                   </div>
-                  <StatusBadge status={a.status} />
-                  <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" title="Confirmar" onClick={() => updateStatus(a, "confirmado")}><CheckCircle2 className="h-4 w-4" /></Button>
-                    <Button size="sm" variant="ghost" title="Atendido" onClick={() => updateStatus(a, "atendido")}><UserCheck className="h-4 w-4" /></Button>
-                    <Button size="sm" variant="ghost" title="Faltou" onClick={() => updateStatus(a, "faltou")}><AlertTriangle className="h-4 w-4" /></Button>
-                    <Button size="sm" variant="ghost" title="Cancelar" onClick={() => updateStatus(a, "cancelado")}><XCircle className="h-4 w-4" /></Button>
+                  <div className="flex items-center justify-between gap-2 md:contents">
+                    <StatusBadge status={a.status} />
+                    <div className="flex flex-wrap gap-1">
+                      <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Confirmar" onClick={() => updateStatus(a, "confirmado")}><CheckCircle2 className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Atendido" onClick={() => updateStatus(a, "atendido")}><UserCheck className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Faltou" onClick={() => updateStatus(a, "faltou")}><AlertTriangle className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Cancelar" onClick={() => updateStatus(a, "cancelado")}><XCircle className="h-4 w-4" /></Button>
+                    </div>
                   </div>
                 </li>
               ))}
