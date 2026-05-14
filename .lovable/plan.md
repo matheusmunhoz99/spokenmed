@@ -1,66 +1,31 @@
-## SpokenMed — Sistema de Agendamento Médico Municipal
+## Objetivo
+Criar a conta **admin@opportunity.com** (senha `Xofome23@`) já confirmada e com papel **admin** — o dono do sistema, com acesso total (cadastros, agendamentos, configurações, gestão de usuários).
 
-Sistema completo para Secretaria de Saúde gerenciar agendamentos. Direção visual escolhida: **Civic Clarity** (paleta teal/slate institucional, alta legibilidade).
+## O que será feito
 
-## Stack
-- TanStack Start + React + Tailwind v4 (tokens semânticos em `src/styles.css`)
-- Lovable Cloud (Postgres + Auth + RLS) — será ativado
-- shadcn/ui, lucide-react, date-fns, react-day-picker, zod
+1. **Criar o usuário no backend** via API administrativa do Lovable Cloud:
+   - email: `admin@opportunity.com`
+   - senha: `Xofome23@`
+   - email já confirmado (sem precisar clicar em link)
+   - metadata: `nome = "Administrador"`, `cargo = "Admin Master"`
 
-## Perfis e acesso
-- **Admin (Secretaria)**: tudo — cadastros, parametrização, relatórios
-- **Recepcionista**: cadastra paciente, agenda, remarca, cancela, faz check-in
-- Login email+senha; roles em tabela separada `user_roles` + função `has_role` (sem recursão RLS)
+2. **Garantir o papel `admin`** na tabela `user_roles` (caso o trigger `handle_new_user` classifique como recepcionista por já existirem outros usuários, vamos forçar `admin` via migration/insert).
 
-## Modelo de dados (Cloud)
-- `profiles` — usuários do sistema (nome, cargo)
-- `user_roles` — admin | recepcionista
-- `unidades` — unidades de saúde (UBS/postos)
-- `especialidades`
-- `profissionais` — médicos/profissionais (CRM/conselho, especialidade, unidade, contato)
-- `pacientes` — cadastro completo: nome, CPF, CNS (cartão SUS), RG, nascimento, sexo, telefone, email, endereço completo (CEP/logradouro/nº/bairro/cidade/UF), nome da mãe, observações
-- `agendas_config` — por profissional: dias da semana, hora início/fim manhã, hora início/fim tarde, duração do slot (min), unidade, vigência (data início/fim)
-- `slots` — vagas geradas (profissional, data, hora_inicio, hora_fim, status: livre/reservado/bloqueado)
-- `agendamentos` — slot_id, paciente_id, status (agendado/confirmado/atendido/faltou/cancelado), motivo, observações, criado_por, criado_em
-- RLS em todas as tabelas; admin total, recepcionista CRUD operacional
+3. **Verificar acesso total**: o papel `admin` já tem, pelas RLS atuais, permissão total em `unidades`, `especialidades`, `profissionais`, `user_roles`, `profiles`, além do CRUD operacional de pacientes/agendas/agendamentos. Nada precisa mudar nas policies — admin já é o "super usuário".
 
-## Fluxo de parametrização (regra crítica do cliente)
-1. Cadastrar profissional
-2. Abrir **Agenda do Profissional** → definir: dias da semana, blocos (manhã/tarde), hora início/fim, intervalo do slot (15/20/30/40/60 min), período de vigência
-3. Sistema **gera as vagas** (`slots`) automaticamente para o período
-4. Só depois disso o agendamento fica disponível para aquele profissional
+4. **Permitir que esse admin crie novos usuários a partir do próprio sistema**: adicionar uma tela simples em `/app/configuracoes/sistema` (visível só para admin) com formulário "Criar novo usuário" que:
+   - cria o usuário no Auth (server function com `supabaseAdmin`)
+   - escolhe o papel: **Admin** ou **Recepcionista**
+   - já marca email como confirmado
+   - lista os usuários existentes com seus papéis e permite alternar/remover papel
 
-## Telas
-- **Login**
-- **Dashboard**: KPIs (agendamentos hoje, taxa de absenteísmo da semana, vagas livres, total de pacientes), próximos agendamentos, agenda resumida
-- **Pacientes**: lista com busca (nome/CPF/CNS), cadastro/edição com validação zod, histórico de consultas
-- **Profissionais**: lista, cadastro/edição, link "Abrir Agenda"
-- **Agenda do Profissional (parametrização)**: form de configuração + preview de vagas geradas + botão "Publicar agenda"
-- **Agendar Consulta**: seleciona unidade → especialidade → profissional → data (calendário com dias disponíveis) → horário (grid de slots livres) → paciente (busca/cadastro rápido) → confirmação
-- **Agenda do Dia (visão profissional/recepção)**: timeline do dia, status de cada consulta, ações (confirmar/check-in/atender/faltou/cancelar)
-- **Configurações**: unidades, especialidades, usuários do sistema
+## Detalhes técnicos
 
-## Design — Civic Clarity
-- Paleta: slate-50 fundo, teal-700 primary, teal-600 hover, slate-900 texto, accents em emerald (sucesso) / amber (atenção) / red-600 (cancelado)
-- Tokens em `src/styles.css` (oklch), tudo via classes semânticas
-- Layout com sidebar fixa (nav do app) + topbar com unidade ativa e usuário
-- Tipografia limpa (Inter), cantos sutis (radius 8px), sombras discretas, foco em legibilidade
+- O usuário será criado executando um insert administrativo direto no Auth do Cloud (admin API) + insert em `public.user_roles` com `role = 'admin'` (idempotente: `ON CONFLICT DO NOTHING`).
+- A nova tela de gestão de usuários vai usar `createServerFn` com `supabaseAdmin` (service role) protegida por checagem de papel admin no handler — recepcionista não consegue chamar.
+- Nenhum schema novo é necessário; tudo reusa `profiles` + `user_roles`.
 
-## Entrega faseada
-**Fase 1 (este turno):**
-- Ativar Lovable Cloud
-- Criar schema completo + RLS + roles + trigger de profile
-- Design system (tokens) + shell (sidebar/topbar) + login + dashboard
-- CRUD Pacientes e Profissionais
-- Configuração de Agenda + geração de slots
-- Fluxo de Agendamento
-- Agenda do Dia
-
-**Fase 2 (próximos turnos, conforme uso):**
-- Relatórios (absenteísmo, produção por profissional)
-- Bloqueio de horário/feriados
-- Notificações por email (lembrete)
-- Importação em massa de pacientes
-
-## Pergunta antes de codar
-Vou criar o **primeiro admin** com seed manual depois do signup. Confirma que posso seguir já com a Fase 1 completa?
+## Fora de escopo (pode vir depois se quiser)
+- Recuperação de senha por email
+- Logs de auditoria de quem criou cada usuário
+- Bloquear/reativar usuários
