@@ -42,9 +42,15 @@ function AgendarPage() {
   const [paciente, setPaciente] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [motivo, setMotivo] = useState("");
+  const [procedimentoId, setProcedimentoId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [comprovanteOpen, setComprovanteOpen] = useState(false);
   const [ultimoAgendamentoId, setUltimoAgendamentoId] = useState<string | null>(null);
+
+  const { data: procedimentos } = useQuery({
+    queryKey: ["procedimentos-ativos"],
+    queryFn: async () => (await supabase.from("procedimentos").select("id, codigo_sigtap, nome").eq("ativo", true).order("codigo_sigtap")).data ?? [],
+  });
 
   useEffect(() => {
     if (!unidadeId && unidadesAllowed && unidadesAllowed.length > 0) setUnidadeId(unidadesAllowed[0].id);
