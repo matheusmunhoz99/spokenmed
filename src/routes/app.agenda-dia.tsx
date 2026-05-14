@@ -15,7 +15,17 @@ import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { useAuth } from "@/hooks/use-auth";
 import { gerarPdfAgenda } from "@/lib/pdf-agenda";
 
+import { useAuth } from "@/hooks/use-auth";
+import { SemAcesso } from "@/components/sem-acesso";
+function AgendaDiaGuard() {
+  const { can } = useAuth();
+  if (!can("agenda_dia")) return <SemAcesso />;
+  return <AgendaDiaPage />;
+}
 export const Route = createFileRoute("/app/agenda-dia")({
+  component: AgendaDiaGuard,
+});
+const _UnusedAgendaDiaRoute = ({
   component: AgendaDiaPage,
   validateSearch: (s: Record<string, unknown>) => ({ data: (s.data as string) ?? "" }),
 });

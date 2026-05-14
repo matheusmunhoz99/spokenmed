@@ -11,7 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/app/configuracoes")({ component: ConfigPage });
+import { useAuth } from "@/hooks/use-auth";
+import { SemAcesso } from "@/components/sem-acesso";
+function ConfigGuard() {
+  const { can } = useAuth();
+  if (!can("unidades_especialidades")) return <SemAcesso />;
+  return <ConfigPage />;
+}
+export const Route = createFileRoute("/app/configuracoes")({ component: ConfigGuard });
 
 function ConfigPage() {
   return (

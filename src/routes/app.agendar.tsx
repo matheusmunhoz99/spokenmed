@@ -20,7 +20,14 @@ import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { formatCPF, formatCNS, formatTime, onlyDigits } from "@/lib/format";
 import { gerarComprovante } from "@/lib/pdf-comprovante";
 
-export const Route = createFileRoute("/app/agendar")({ component: AgendarPage });
+import { useAuth } from "@/hooks/use-auth";
+import { SemAcesso } from "@/components/sem-acesso";
+function AgendarGuard() {
+  const { can } = useAuth();
+  if (!can("agendar")) return <SemAcesso />;
+  return <AgendarPage />;
+}
+export const Route = createFileRoute("/app/agendar")({ component: AgendarGuard });
 
 function AgendarPage() {
   const { user, profile } = useAuth();

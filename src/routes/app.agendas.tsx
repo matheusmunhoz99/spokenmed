@@ -14,8 +14,15 @@ import { format } from "date-fns";
 import { formatTime } from "@/lib/format";
 import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 
+import { useAuth } from "@/hooks/use-auth";
+import { SemAcesso } from "@/components/sem-acesso";
+function AgendasGuard() {
+  const { can } = useAuth();
+  if (!can("agendas")) return <SemAcesso />;
+  return <AgendasPage />;
+}
 export const Route = createFileRoute("/app/agendas")({
-  component: AgendasPage,
+  component: AgendasGuard,
   validateSearch: (s: Record<string, unknown>) => ({ profissional: (s.profissional as string) ?? "" }),
 });
 

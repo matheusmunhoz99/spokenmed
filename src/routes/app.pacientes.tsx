@@ -16,7 +16,14 @@ import { formatCPF, formatCNS, formatPhone, formatCEP, onlyDigits, formatDate } 
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
 
-export const Route = createFileRoute("/app/pacientes")({ component: PacientesPage });
+import { useAuth } from "@/hooks/use-auth";
+import { SemAcesso } from "@/components/sem-acesso";
+function PacientesGuard() {
+  const { can } = useAuth();
+  if (!can("pacientes")) return <SemAcesso />;
+  return <PacientesPage />;
+}
+export const Route = createFileRoute("/app/pacientes")({ component: PacientesGuard });
 
 type Paciente = any;
 
