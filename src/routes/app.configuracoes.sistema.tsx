@@ -95,12 +95,23 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
   const list = useServerFn(listSystemUsers);
   const create = useServerFn(createSystemUser);
   const updRole = useServerFn(updateUserRole);
+  const setUnits = useServerFn(setUserUnidades);
   const del = useServerFn(deleteSystemUser);
 
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [newUserUnidades, setNewUserUnidades] = useState<string[]>([]);
+
+  const { data: unidades } = useQuery({
+    queryKey: ["all-unidades-admin"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("unidades").select("id, nome").eq("ativo", true).order("nome");
+      if (error) throw error;
+      return (data ?? []) as Unidade[];
+    },
+  });
 
   const reload = async () => {
     setLoading(true);
@@ -128,16 +139,29 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
           nome: String(fd.get("nome")),
           cargo: String(fd.get("cargo") ?? ""),
           role: String(fd.get("role")) as "admin" | "recepcionista",
+          unidade_ids: newUserUnidades,
         },
       });
       toast.success("Usuário criado!");
       setOpen(false);
+      setNewUserUnidades([]);
       (e.target as HTMLFormElement).reset();
       reload();
     } catch (err: any) {
       toast.error(err.message ?? "Erro ao criar usuário");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleUnitsChange = async (user_id: string, unidade_ids: string[]) => {
+    setUsers((prev) => prev.map((u) => (u.id === user_id ? { ...u, unidade_ids } : u)));
+    try {
+      await setUnits({ data: { user_id, unidade_ids } });
+      toast.success("Unidades atualizadas");
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao atualizar unidades");
+      reload();
     }
   };
 
