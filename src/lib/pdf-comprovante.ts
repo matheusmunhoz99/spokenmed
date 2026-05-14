@@ -7,8 +7,9 @@ export type ComprovanteData = {
   data: string;
   hora: string;
   paciente: { nome: string; cpf?: string | null; telefone?: string | null; cns?: string | null };
-  profissional: { nome: string; especialidade?: string | null };
-  unidade: { nome: string; endereco?: string | null; telefone?: string | null };
+  profissional: { nome: string; especialidade?: string | null; cbo?: string | null };
+  unidade: { nome: string; endereco?: string | null; telefone?: string | null; cnes?: string | null };
+  procedimento?: { codigo: string; nome: string } | null;
   motivo?: string | null;
   emitidoPor?: string;
 };
