@@ -49,16 +49,17 @@ function PacientesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative max-w-md flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1 sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar por nome, CPF, CNS ou telefone..." className="pl-9"
             value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
           <Button
             variant="outline"
             disabled={!data || data.length === 0}
+            className="w-full sm:w-auto"
             onClick={() => {
               if (!data || data.length === 0) return toast.info("Sem pacientes para exportar.");
               downloadCsv(`pacientes_${format(new Date(), "yyyy-MM-dd")}.csv`, data, [
@@ -86,13 +87,45 @@ function PacientesPage() {
             <Download className="mr-1 h-4 w-4" /> Exportar CSV
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button onClick={openNew}><Plus className="mr-1 h-4 w-4"/>Novo paciente</Button></DialogTrigger>
+            <DialogTrigger asChild><Button onClick={openNew} className="w-full sm:w-auto"><Plus className="mr-1 h-4 w-4"/>Novo paciente</Button></DialogTrigger>
             <PacienteDialog editing={editing} onSaved={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["pacientes"] }); }} />
           </Dialog>
         </div>
       </div>
 
-      <Card>
+      {/* Mobile: cards */}
+      <div className="grid gap-2 md:hidden">
+        {isLoading && <div className="rounded-md border bg-card p-6 text-center text-muted-foreground"><Loader2 className="inline mr-2 h-4 w-4 animate-spin"/>Carregando...</div>}
+        {!isLoading && data?.length === 0 && (
+          <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">Nenhum paciente encontrado.</div>
+        )}
+        {data?.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => openEdit(p)}
+            className="flex items-start gap-3 rounded-lg border bg-card p-3 text-left transition active:scale-[0.99]"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+              {(p.nome ?? "?").trim().charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold">{p.nome}</div>
+              <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                {p.cpf ? `CPF ${formatCPF(p.cpf)}` : p.cns ? `CNS ${formatCNS(p.cns)}` : "—"}
+              </div>
+              <div className="truncate text-xs text-muted-foreground">
+                {p.telefone ? formatPhone(p.telefone) : "Sem telefone"}
+                {p.cidade ? ` · ${p.cidade}/${p.uf ?? ""}` : ""}
+              </div>
+            </div>
+            <Pencil className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      <Card className="hidden md:block">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
