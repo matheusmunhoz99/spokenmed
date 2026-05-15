@@ -292,17 +292,71 @@ function AgendaDiaPage() {
         userId={user?.id}
       />
 
-      <AlertDialog open={!!excluir} onOpenChange={(v) => !v && setExcluir(null)}>
+      <AlertDialog open={!!excluir} onOpenChange={(v) => { if (!v) { setExcluir(null); setMotivoExclusao(""); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir agendamento?</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" /> Excluir agendamento?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação removerá permanentemente o agendamento de <strong>{excluir?.pacientes?.nome}</strong> às {excluir && formatTime(excluir.hora_inicio)}. O horário voltará a ficar livre.
+              Esta ação é permanente. Verifique os dados antes de confirmar.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {excluir && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 rounded-md border bg-muted/30 p-3 text-xs">
+                <div><span className="text-muted-foreground">Paciente:</span><br /><strong className="text-sm">{excluir.pacientes?.nome}</strong></div>
+                <div><span className="text-muted-foreground">Horário:</span><br /><strong className="text-sm">{formatTime(excluir.hora_inicio)}</strong></div>
+                <div className="col-span-2"><span className="text-muted-foreground">Profissional:</span> {excluir.profissionais?.nome}{excluir.profissionais?.especialidades?.nome ? ` · ${excluir.profissionais.especialidades.nome}` : ""}</div>
+                {excluir.unidades?.nome && (
+                  <div className="col-span-2"><span className="text-muted-foreground">Unidade:</span> {excluir.unidades.nome}</div>
+                )}
+              </div>
+
+              {filaChecking ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Verificando vínculo com a fila…
+                </div>
+              ) : filaLink?.id ? (
+                <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+                  <ListOrdered className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <strong>Paciente veio da fila de espera{(filaLink as any)?.especialidades?.nome ? ` (${(filaLink as any).especialidades.nome})` : ""}.</strong>
+                    <div>Ao excluir, ele será devolvido à fila com status <em>aguardando</em>.</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-md border bg-muted/20 p-2 text-xs text-muted-foreground">
+                  Este agendamento não está vinculado à fila de espera. O horário voltará a ficar livre.
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="motivo-exclusao" className="text-xs">Motivo da exclusão (opcional)</Label>
+                <Textarea
+                  id="motivo-exclusao"
+                  placeholder="Ex.: paciente desistiu, agendamento duplicado, erro de cadastro…"
+                  value={motivoExclusao}
+                  onChange={(e) => setMotivoExclusao(e.target.value.slice(0, 500))}
+                  rows={2}
+                />
+                <div className="text-[10px] text-muted-foreground">
+                  Será registrado no histórico do paciente e na auditoria.
+                </div>
+              </div>
+            </div>
+          )}
+
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => excluir && handleDelete(excluir)}>Excluir</AlertDialogAction>
+            <AlertDialogCancel disabled={excluindo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={excluindo || filaChecking}
+              onClick={(e) => { e.preventDefault(); excluir && handleDelete(excluir); }}
+            >
+              {excluindo ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Excluindo…</> : "Confirmar exclusão"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
