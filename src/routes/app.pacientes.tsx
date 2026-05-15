@@ -12,7 +12,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, Pencil, Loader2, Download, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { formatCPF, formatCNS, formatPhone, formatCEP, onlyDigits, formatDate } from "@/lib/format";
+import { formatCPF, formatCNS, formatPhone, formatCEP, onlyDigits, formatDate, isValidCPF } from "@/lib/format";
+import { fetchCep } from "@/lib/viacep";
 import { maskCPF, maskCNS, maskPhone } from "@/lib/mask";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
@@ -203,6 +204,8 @@ function PacientesPage() {
 
 function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSaved: () => void }) {
   const [submitting, setSubmitting] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cpfErro, setCpfErro] = useState<string | null>(null);
   const [form, setForm] = useState<any>(editing ?? {
     nome: "", cpf: "", cns: "", rg: "", data_nascimento: "", sexo: "",
     nome_mae: "", telefone: "", email: "",
@@ -211,6 +214,33 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
   });
 
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+
+  const handleCepBlur = async () => {
+    const d = onlyDigits(form.cep ?? "");
+    if (d.length !== 8) return;
+    setCepLoading(true);
+    const r = await fetchCep(d);
+    setCepLoading(false);
+    if (!r) { toast.info("CEP não encontrado."); return; }
+    setForm((f: any) => ({
+      ...f,
+      logradouro: f.logradouro?.trim() ? f.logradouro : r.logradouro,
+      bairro: f.bairro?.trim() ? f.bairro : r.bairro,
+      cidade: f.cidade?.trim() ? f.cidade : r.cidade,
+      uf: f.uf?.trim() ? f.uf : r.uf,
+      complemento: f.complemento?.trim() ? f.complemento : (r.complemento ?? f.complemento),
+    }));
+    setTimeout(() => {
+      const el = document.querySelector<HTMLInputElement>('input[data-field="numero"]');
+      el?.focus();
+    }, 50);
+  };
+
+  const handleCpfBlur = () => {
+    const d = onlyDigits(form.cpf ?? "");
+    if (!d) { setCpfErro(null); return; }
+    setCpfErro(isValidCPF(d) ? null : "CPF inválido (dígitos verificadores não conferem).");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -262,7 +292,15 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
           <Field label="Nome da mãe">
             <Input value={form.nome_mae ?? ""} onChange={(e) => set("nome_mae", e.target.value)} />
           </Field>
-          <Field label="CPF"><Input value={formatCPF(form.cpf ?? "")} onChange={(e) => set("cpf", e.target.value)} /></Field>
+          <Field label="CPF">
+            <Input
+              value={formatCPF(form.cpf ?? "")}
+              onChange={(e) => { set("cpf", e.target.value); if (cpfErro) setCpfErro(null); }}
+              onBlur={handleCpfBlur}
+              aria-invalid={!!cpfErro}
+            />
+            {cpfErro && <p className="text-xs text-destructive mt-1">{cpfErro}</p>}
+          </Field>
           <Field label="Cartão SUS (CNS)"><Input value={formatCNS(form.cns ?? "")} onChange={(e) => set("cns", e.target.value)} /></Field>
           <Field label="RG"><Input value={form.rg ?? ""} onChange={(e) => set("rg", e.target.value)} /></Field>
         </Section>
@@ -273,9 +311,19 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
         </Section>
 
         <Section title="Endereço">
-          <Field label="CEP"><Input value={formatCEP(form.cep ?? "")} onChange={(e) => set("cep", e.target.value)} /></Field>
+          <Field label="CEP">
+            <div className="relative">
+              <Input
+                value={formatCEP(form.cep ?? "")}
+                onChange={(e) => set("cep", e.target.value)}
+                onBlur={handleCepBlur}
+                placeholder="00000-000"
+              />
+              {cepLoading && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+            </div>
+          </Field>
           <Field label="Logradouro" className="md:col-span-2"><Input value={form.logradouro ?? ""} onChange={(e) => set("logradouro", e.target.value)} /></Field>
-          <Field label="Número"><Input value={form.numero ?? ""} onChange={(e) => set("numero", e.target.value)} /></Field>
+          <Field label="Número"><Input data-field="numero" value={form.numero ?? ""} onChange={(e) => set("numero", e.target.value)} /></Field>
           <Field label="Complemento"><Input value={form.complemento ?? ""} onChange={(e) => set("complemento", e.target.value)} /></Field>
           <Field label="Bairro"><Input value={form.bairro ?? ""} onChange={(e) => set("bairro", e.target.value)} /></Field>
           <Field label="Cidade"><Input value={form.cidade ?? ""} onChange={(e) => set("cidade", e.target.value)} /></Field>

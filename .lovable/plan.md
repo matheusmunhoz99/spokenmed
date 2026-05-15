@@ -1,27 +1,36 @@
-## Mostrar mais dados na listagem da Fila
+# Auto-preenchimento no cadastro de paciente
 
-Hoje cada item da fila exibe só: nome, especialidade, CPF (parcial) e urgência. O usuário quer ver também **data de nascimento** e **unidade**, deixando os dados de origem do paciente bem visíveis.
+## 1. CEP → endereço (ViaCEP) ✅
 
-### Mudanças em `src/routes/app.fila.tsx`
+**O quê:** ao digitar o CEP no diálogo de paciente (`src/routes/app.pacientes.tsx`), buscar automaticamente logradouro, bairro, cidade e UF e preencher os campos. Usuário pode editar tudo depois.
 
-1. **Buscar mais campos do paciente e unidade no SELECT da query da fila**
-   - Adicionar `data_nascimento` ao select de `pacientes`.
-   - Adicionar relação `unidades(id, nome)` ao select.
+**Como:**
+- Novo helper `src/lib/viacep.ts` com `fetchCep(cep: string)` chamando `https://viacep.com.br/ws/{cep}/json/`. Tratamento: timeout 5s (`AbortController`), trata `{erro: true}` como "não encontrado", silencioso em falha de rede.
+- No `PacienteDialog`, adicionar `onBlur` no input de CEP: se tiver 8 dígitos e os campos de endereço estiverem vazios (não sobrescrever o que o usuário digitou), preencher logradouro/bairro/cidade/uf e mover foco para "Número".
+- Indicador visual leve (spinner pequeno dentro do input) enquanto busca.
+- Toast discreto se CEP não encontrado; nada se sucesso (preenchimento já é o feedback).
 
-2. **Atualizar o item da lista** (bloco em torno das linhas 277–292) para mostrar uma linha de metadados rica:
-   - Nome (mantém)
-   - Badge de urgência (mantém)
-   - Linha de detalhes em grid/wrap:
-     - **Especialidade:** `f.especialidades?.nome`
-     - **Unidade:** `f.unidades?.nome`
-     - **CPF:** `formatCPF(f.pacientes?.cpf)`
-     - **Nascimento:** `formatDate(f.pacientes?.data_nascimento)` + idade calculada
-   - Manter "tempo na fila" e observações como já estão.
+**Por que ViaCEP e não BrasilAPI:** ViaCEP é o padrão de fato no Brasil, mais rápido para CEPs comuns, sem rate limit problemático. Sem chave, sem backend, sem segredo.
 
-3. **Atualizar também o diálogo de remover** (linhas 370–375) para incluir Unidade e Nascimento, já que reutiliza o mesmo objeto.
+## 2. CPF → validação local ✅
 
-4. **Importes**: adicionar `formatDate` de `@/lib/format` (já existe). Helper local pequeno para idade a partir de `data_nascimento`.
+**O quê:** validar o CPF pelos dígitos verificadores (algoritmo módulo 11) ao sair do campo. Mostrar erro inline se inválido. **Não consulta nada externo.**
 
-### Fora de escopo
-- Sem mudanças de backend / RLS (a coluna `data_nascimento` já existe em `pacientes` e `unidades.nome` já é selecionável pelo staff).
-- Sem mudanças na lógica de ordenação/posição da fila.
+**Como:**
+- Adicionar `isValidCPF(cpf: string)` em `src/lib/format.ts` (algoritmo padrão).
+- No campo CPF do `PacienteDialog`: `onBlur` valida e mostra mensagem vermelha embaixo se inválido. Não bloqueia o submit (alguns cadastros antigos podem ter CPF errado e a recepcionista pode querer salvar mesmo assim com aviso).
+
+## 3. CadSUS — não fazer ❌
+
+Documentar no plano por quê (acima). Se a prefeitura conseguir certificado ICP-Brasil + acesso oficial ao barramento CNS futuramente, aí sim implementamos via server function.
+
+## Fora de escopo
+- Consulta de CPF na Receita (paga — Serpro/Assertiva)
+- Qualquer integração com CADSUSWeb por scraping
+- Mudanças no schema do banco (campos já existem)
+- Mudanças em outras telas além de `app.pacientes.tsx`
+
+## Arquivos afetados
+- **Criar:** `src/lib/viacep.ts`
+- **Editar:** `src/lib/format.ts` (adicionar `isValidCPF`)
+- **Editar:** `src/routes/app.pacientes.tsx` (onBlur CEP + validação CPF)
