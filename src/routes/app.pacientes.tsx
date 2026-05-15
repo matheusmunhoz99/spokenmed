@@ -10,10 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Pencil, Loader2, Download, Eye, EyeOff } from "lucide-react";
+import { Plus, Search, Pencil, Loader2, Download, Eye, EyeOff, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
 import { formatCPF, formatCNS, formatPhone, formatCEP, onlyDigits, formatDate, isValidCPF } from "@/lib/format";
 import { fetchCep } from "@/lib/viacep";
+import { buscarPacienteCpf } from "@/lib/cadsus.functions";
 import { maskCPF, maskCNS, maskPhone } from "@/lib/mask";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
@@ -205,7 +207,9 @@ function PacientesPage() {
 function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSaved: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
+  const [cadsusLoading, setCadsusLoading] = useState(false);
   const [cpfErro, setCpfErro] = useState<string | null>(null);
+  const buscarCadSus = useServerFn(buscarPacienteCpf);
   const [form, setForm] = useState<any>(editing ?? {
     nome: "", cpf: "", cns: "", rg: "", data_nascimento: "", sexo: "",
     nome_mae: "", telefone: "", email: "",
@@ -240,6 +244,40 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
     const d = onlyDigits(form.cpf ?? "");
     if (!d) { setCpfErro(null); return; }
     setCpfErro(isValidCPF(d) ? null : "CPF inválido (dígitos verificadores não conferem).");
+  };
+
+  const handleBuscarCadSus = async () => {
+    const d = onlyDigits(form.cpf ?? "");
+    if (d.length !== 11 || !isValidCPF(d)) {
+      toast.error("Informe um CPF válido (11 dígitos).");
+      return;
+    }
+    setCadsusLoading(true);
+    try {
+      const r = await buscarCadSus({ data: { cpf: d } });
+      if (!r.success) {
+        if (r.error === "cpf_nao_encontrado") toast.info("CPF não encontrado no CadSUS.");
+        else if (r.error === "config_ausente") toast.error("Integração CadSUS não configurada.");
+        else toast.error("CadSUS indisponível no momento.");
+        return;
+      }
+      setForm((f: any) => ({
+        ...f,
+        nome: f.nome?.trim() ? f.nome : (r.nome ?? f.nome),
+        cns: f.cns?.trim() ? f.cns : (r.cns ?? f.cns),
+        telefone: f.telefone?.trim() ? f.telefone : (r.telefone ?? f.telefone),
+        logradouro: f.logradouro?.trim() ? f.logradouro : (r.endereco ?? f.logradouro),
+        numero: f.numero?.trim() ? f.numero : (r.numero ?? f.numero),
+        bairro: f.bairro?.trim() ? f.bairro : (r.bairro ?? f.bairro),
+        cidade: f.cidade?.trim() ? f.cidade : (r.cidade ?? f.cidade),
+        uf: f.uf?.trim() ? f.uf : (r.uf ?? f.uf),
+      }));
+      toast.success("Dados do CadSUS preenchidos.");
+    } catch (e) {
+      toast.error("Falha ao consultar CadSUS.");
+    } finally {
+      setCadsusLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -293,12 +331,24 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
             <Input value={form.nome_mae ?? ""} onChange={(e) => set("nome_mae", e.target.value)} />
           </Field>
           <Field label="CPF">
-            <Input
-              value={formatCPF(form.cpf ?? "")}
-              onChange={(e) => { set("cpf", e.target.value); if (cpfErro) setCpfErro(null); }}
-              onBlur={handleCpfBlur}
-              aria-invalid={!!cpfErro}
-            />
+            <div className="flex gap-2">
+              <Input
+                value={formatCPF(form.cpf ?? "")}
+                onChange={(e) => { set("cpf", e.target.value); if (cpfErro) setCpfErro(null); }}
+                onBlur={handleCpfBlur}
+                aria-invalid={!!cpfErro}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                title="Buscar dados no CadSUS"
+                disabled={cadsusLoading}
+                onClick={handleBuscarCadSus}
+              >
+                {cadsusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              </Button>
+            </div>
             {cpfErro && <p className="text-xs text-destructive mt-1">{cpfErro}</p>}
           </Field>
           <Field label="Cartão SUS (CNS)"><Input value={formatCNS(form.cns ?? "")} onChange={(e) => set("cns", e.target.value)} /></Field>
