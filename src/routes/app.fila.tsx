@@ -160,12 +160,23 @@ function FilaPage() {
   }, [filaOrdenada, busca]);
 
   const handleRemover = async (item: any) => {
-    const { error } = await (supabase.from(FILA_TABLE as any) as any)
-      .update({ status: "cancelado" }).eq("id", item.id);
-    if (error) return toast.error(error.message);
-    toast.success("Removido da fila");
-    setRemoverItem(null);
-    qc.invalidateQueries({ queryKey: ["fila", unidadeId] });
+    setRemovendo(true);
+    try {
+      const stamp = format(new Date(), "dd/MM/yyyy HH:mm");
+      const who = profile?.nome || user?.email || "—";
+      const motivo = motivoRemover.trim();
+      const tag = `[REMOVIDO em ${stamp} por ${who}${motivo ? `: ${motivo}` : ""}]`;
+      const novasObs = item.observacoes ? `${item.observacoes}\n${tag}` : tag;
+      const { error } = await (supabase.from(FILA_TABLE as any) as any)
+        .update({ status: "cancelado", observacoes: novasObs }).eq("id", item.id);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Removido da fila");
+      setRemoverItem(null);
+      setMotivoRemover("");
+      qc.invalidateQueries({ queryKey: ["fila", unidadeId] });
+    } finally {
+      setRemovendo(false);
+    }
   };
 
   const handleAlterarUrgencia = async (item: any, urgencia: Urgencia) => {
