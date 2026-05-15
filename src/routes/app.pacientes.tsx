@@ -10,10 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Pencil, Loader2, Download, Eye, EyeOff } from "lucide-react";
+import { Plus, Search, Pencil, Loader2, Download, Eye, EyeOff, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
 import { formatCPF, formatCNS, formatPhone, formatCEP, onlyDigits, formatDate, isValidCPF } from "@/lib/format";
 import { fetchCep } from "@/lib/viacep";
+import { buscarPacienteCpf } from "@/lib/cadsus.functions";
 import { maskCPF, maskCNS, maskPhone } from "@/lib/mask";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
