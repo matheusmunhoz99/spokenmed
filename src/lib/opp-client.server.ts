@@ -107,10 +107,27 @@ function getEnv(): { baseUrl: string; user: string; pass: string } | null {
   return { baseUrl, user, pass };
 }
 
-type CFEnv = { BROWSER?: unknown };
+type CFEnv = Record<string, unknown>;
 function getBrowserBinding(): unknown | null {
   const g = globalThis as unknown as { __CF_ENV?: CFEnv };
-  return g.__CF_ENV?.BROWSER ?? null;
+  const env = g.__CF_ENV;
+  if (!env) {
+    console.error("[opp] __CF_ENV ausente no globalThis");
+    return null;
+  }
+  const keys = Object.keys(env);
+  const candidate =
+    (env.BROWSER as unknown) ??
+    (env.browser as unknown) ??
+    (env.MYBROWSER as unknown) ??
+    null;
+  if (!candidate) {
+    console.error(
+      "[opp] binding BROWSER não encontrado. env keys:",
+      keys.join(",") || "(vazio)",
+    );
+  }
+  return candidate;
 }
 
 // ----------- error model -----------
