@@ -30,7 +30,18 @@ import { format, differenceInDays } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
 import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { SemAcesso } from "@/components/sem-acesso";
-import { formatCPF, formatTime, onlyDigits } from "@/lib/format";
+import { formatCPF, formatDate, formatTime, onlyDigits } from "@/lib/format";
+
+function calcIdade(dn?: string | null) {
+  if (!dn) return null;
+  const d = new Date(dn);
+  if (isNaN(d.getTime())) return null;
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - d.getFullYear();
+  const m = hoje.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && hoje.getDate() < d.getDate())) idade--;
+  return idade;
+}
 import { gerarComprovante } from "@/lib/pdf-comprovante";
 import { LoadingState } from "@/components/loading-state";
 import { EmptyState } from "@/components/empty-state";
