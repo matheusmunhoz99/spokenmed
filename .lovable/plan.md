@@ -1,43 +1,55 @@
-## Diagnóstico encontrado
+## Plano
 
-O erro atual não é senha nem CPF: o servidor está retornando `browser_indisponivel` porque o binding `BROWSER` não está chegando no runtime publicado. O log real mostra:
+Você cola 2 arquivos no Worker do Cloudflare, configura 4 secrets lá, e eu adapto o app pra chamar `https://spokenmed.meyssiner.workers.dev/` via HTTP — sem Puppeteer no Lovable.
 
-```text
-[opp] lookup failed {"code":"browser_indisponivel","msg":"Cloudflare Browser Rendering binding (BROWSER) não disponível neste runtime"}
-```
+## Parte 1 — Código que eu vou te entregar pra colar no Worker
 
-Ou seja: o código para antes de abrir o navegador e antes de tentar login no Fiorilli.
+### `src/index.js` (entrypoint do Worker)
+- Endpoint `GET /cpf?cpf=XXXXXXXXXXX` protegido por header `x-api-key`.
+- Valida CPF (11 dígitos), valida api key contra `env.API_KEY`.
+- Encaminha pra Durable Object `FIORILLI_DO` (singleton) via `idFromName("global")` — garante 1 sessão Puppeteer reaproveitada, sem corrida de seq.
+- Retorna JSON `{ ok, dados: { nome, logradouro, numero, bairro, cidade, uf, cns, cns_secundario, telefone } }` ou `{ ok:false, error }`.
+- Endpoint `GET /health` sem auth pra teste rápido.
 
-## Plano de correção
+### `src/fiorilli-do.js` (Durable Object)
+- Classe `FiorilliDO` exportada.
+- Mantém em memória: `cookies`, `_S_ID`, `createdAt`, contador hex `seq`.
+- `bootstrap()`: usa `@cloudflare/puppeteer` + `env.BROWSER` → abre `/sis/`, preenche `#O30/#O34`, clica `#O40`, espera `/ambulatorio/`, extrai `_S_ID` e cookies, fecha o browser.
+- `lookup(cpf)`: POST puro `fetch` em `/ambulatorio/ambulatorio.dll/HandleEvent` com `fp=%26O1162%3D%25024%2502%2502<cpf-formatado>`, seq hex incremental, cookies em jar.
+- Se resposta não tiver `.setText(`, considera sessão expirada → rebootstrap e tenta de novo (1x).
+- Parser regex extrai `O11CB` (logradouro), `O11CF` (número), `O11D3` (bairro), `O11DB` (cidade-UF), `O11E3` (CNS), `O11E7` (CNS sec), + heurística pra nome (UPPERCASE com espaços) e telefone.
+- TTL de sessão 10min.
 
-1. **Parar de depender de `globalThis.__CF_ENV` para o Browser Rendering**
-   - Ajustar o wrapper do servidor para propagar o `env` de forma segura por request.
-   - Garantir que o server function consiga acessar `env.BROWSER` no momento da chamada.
+### `wrangler.jsonc` do Worker (referência)
+- Binding `BROWSER` (Browser Rendering) → você já habilitou.
+- Binding `FIORILLI_DO` apontando pra classe `FiorilliDO` + migration `new_sqlite_classes`.
 
-2. **Adicionar diagnóstico visível e preciso no fluxo CPF**
-   - Logar se o binding `BROWSER` existe.
-   - Logar início do login Fiorilli, carregamento de `/sis/`, preenchimento do usuário, tentativa de submit e URL final.
-   - Sem expor senha nos logs.
+## Parte 2 — Secrets no Worker (Cloudflare dashboard)
 
-3. **Manter a arquitetura híbrida pedida**
-   - Browser Rendering somente para login inicial/renovação.
-   - Consulta CPF via HTTP puro no `HandleEvent`.
-   - Ignorar timers.
-   - Incrementar `seq` serializado.
-   - Parser via `setText/stateValue/originalValue`.
+Você adiciona em Workers → spokenmed → Settings → Variables and Secrets:
+- `OPP_BASE_URL` = `https://oppcloud.com.br` (ou a base correta do Fiorilli)
+- `OPP_USERNAME` = seu usuário
+- `OPP_PASSWORD` = sua senha
+- `API_KEY` = uma string aleatória que você cria (eu te passo um exemplo) — vai ser a mesma que o Lovable envia
 
-4. **Melhorar fallback quando Browser Rendering realmente não estiver disponível**
-   - Se o ambiente publicado continuar sem `BROWSER`, retornar mensagem técnica clara: `Binding BROWSER ausente no Worker publicado`.
-   - Isso diferencia erro de ambiente de erro de credencial/login.
+## Parte 3 — Mudanças no app Lovable
 
-5. **Verificar após implementar**
-   - Consultar os logs do servidor novamente.
-   - Confirmar se passou de `puppeteer.binding` para `puppeteer.launch`/`puppeteer.login`.
-   - Se depois disso falhar, o próximo erro já será o motivo real: login rejeitado, seletor mudou, `_S_ID` não extraído, timeout ou resposta Fiorilli sem `setText`.
+1. **Remover Puppeteer**: deletar `@cloudflare/puppeteer` do `package.json` e do `src/lib/opp-client.server.ts`.
+2. **Reescrever `src/lib/opp-client.server.ts`** como cliente HTTP fino:
+   - Chama `fetch("https://spokenmed.meyssiner.workers.dev/cpf?cpf=...")` com header `x-api-key: process.env.CADSUS_WORKER_API_KEY`.
+   - Mantém a mesma assinatura `buscarPacienteCpf` / `buscarPacienteCpfWithTrace` → zero mudança nos consumidores (`src/lib/cadsus.functions.ts`, `src/routes/app.pacientes.tsx`).
+   - Trace passa a registrar status HTTP + preview da resposta JSON.
+3. **Limpar `src/server.ts`**: remover `logEnvOnce` e `__CF_ENV` (não precisamos mais do binding BROWSER no app).
+4. **Limpar `wrangler.jsonc`**: remover `"browser": { "binding": "BROWSER" }`.
+5. **Secrets no Lovable** (eu vou pedir via tool):
+   - `CADSUS_WORKER_URL` = `https://spokenmed.meyssiner.workers.dev`
+   - `CADSUS_WORKER_API_KEY` = mesma string que você botou no Worker
 
-## Arquivos que serão ajustados
+## Ordem de execução quando você aprovar
 
-- `src/server.ts`
-- `src/lib/opp-client.server.ts`
-- `src/lib/cadsus-diag.functions.ts`
-- se necessário, `wrangler.jsonc` para compatibilidade correta do binding
+1. Te mostro o conteúdo de `src/index.js`, `src/fiorilli-do.js` e `wrangler.jsonc` do Worker (pra você colar e fazer `wrangler deploy`).
+2. Peço os 2 secrets no Lovable (`CADSUS_WORKER_URL`, `CADSUS_WORKER_API_KEY`).
+3. Reescrevo `opp-client.server.ts`, limpo `server.ts` e `wrangler.jsonc`, removo dependência puppeteer.
+4. Você publica o app e testa o botão de CPF. Se der erro, o trace agora mostra exatamente o que o Worker respondeu.
+
+Quer que eu siga assim?
