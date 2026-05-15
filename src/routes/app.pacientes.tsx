@@ -292,7 +292,15 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
           <Field label="Nome da mãe">
             <Input value={form.nome_mae ?? ""} onChange={(e) => set("nome_mae", e.target.value)} />
           </Field>
-          <Field label="CPF"><Input value={formatCPF(form.cpf ?? "")} onChange={(e) => set("cpf", e.target.value)} /></Field>
+          <Field label="CPF">
+            <Input
+              value={formatCPF(form.cpf ?? "")}
+              onChange={(e) => { set("cpf", e.target.value); if (cpfErro) setCpfErro(null); }}
+              onBlur={handleCpfBlur}
+              aria-invalid={!!cpfErro}
+            />
+            {cpfErro && <p className="text-xs text-destructive mt-1">{cpfErro}</p>}
+          </Field>
           <Field label="Cartão SUS (CNS)"><Input value={formatCNS(form.cns ?? "")} onChange={(e) => set("cns", e.target.value)} /></Field>
           <Field label="RG"><Input value={form.rg ?? ""} onChange={(e) => set("rg", e.target.value)} /></Field>
         </Section>
