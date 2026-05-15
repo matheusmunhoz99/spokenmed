@@ -81,7 +81,15 @@ function CidadaoPage() {
         setResultado(row);
       }
     } catch (e: any) {
-      toast.error(e?.message ?? "Erro na consulta. Tente novamente.");
+      const code = e?.code ?? "";
+      const msg = String(e?.message ?? "");
+      if (code === "P0010" || msg.includes("rate_limit_cpf")) {
+        toast.error("Muitas tentativas para este CPF. Tente novamente em 1 hora.");
+      } else if (code === "P0011" || msg.includes("rate_limit_ip")) {
+        toast.error("Muitas tentativas a partir do seu acesso. Tente novamente em 1 hora.");
+      } else {
+        toast.error("Erro na consulta. Tente novamente.");
+      }
     } finally {
       setSubmitting(false);
     }
