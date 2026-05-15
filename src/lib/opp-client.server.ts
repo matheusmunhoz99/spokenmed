@@ -86,7 +86,7 @@ async function timedFetch(url: string, init: RequestInit): Promise<Response> {
   const ac = new AbortController();
   const t = setTimeout(() => ac.abort(), REQUEST_TIMEOUT_MS);
   try {
-    return await fetch(url, { ...init, signal: ac.signal, redirect: "manual" });
+    return await fetch(url, { ...init, signal: ac.signal, redirect: "follow"" });
   } finally {
     clearTimeout(t);
   }
@@ -213,6 +213,18 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
     indexRes = await timedFetch(sisIndex, { headers: commonHeaders(jar, baseUrl) });
     const sc = ingestSetCookies(indexRes, jar);
     indexHtml = await indexRes.text();
+    console.log(indexHtml.slice(0, 1000));
+
+if (
+  indexHtml.includes("Just a moment") ||
+  indexHtml.includes("cf-browser-verification") ||
+  indexHtml.includes("Cloudflare")
+) {
+  throw new OppError(
+    "seed_falhou",
+    "Cloudflare bloqueou a sessão"
+  );
+}
     const sIdSeed = extractSId(indexHtml);
     trace?.push({
       step: "GET /sis/",
@@ -246,14 +258,17 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
 
   // Step 2: username
   try {
-    const r = await postHandleEvent(sisHandle, jar, sisIndex, {
-      ...baseFields,
-      Obj: "O30",
-      Evt: "change",
-      this: "O30",
-      _fp_: `&O30=${encodeURIComponent(user)}`,
-      _seq_: String(seqCounter++),
-    });
+   const r = await postHandleEvent(sisHandle, jar, sisIndex, {
+  ...baseFields,
+  Obj: "O30",
+  Evt: "keydown",
+  this: "O30",
+  key: "70",
+  ss: "0",
+  _fp_: `%26O30%3D%25020%2502%2502${encodeURIComponent(user)}`,
+  _seq_: String(seqCounter++),
+  _uo_: "O0",
+});
     trace?.push({
       step: "POST username (O30)",
       ok: r.res.status === 200,
@@ -274,10 +289,13 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
     const r = await postHandleEvent(sisHandle, jar, sisIndex, {
       ...baseFields,
       Obj: "O34",
-      Evt: "change",
-      this: "O34",
-      fp: `&O34=${encodeURIComponent(pass)}`,
-      seq: String(seqCounter++),
+Evt: "keydown",
+this: "O34",
+key: "50",
+ss: "0",
+_fp_: `%26O34%3D%25027%2502%2502${encodeURIComponent(pass)}`,
+_seq_: String(seqCounter++),
+_uo_: "O0",
     });
     trace?.push({
       step: "POST password (O34)",
@@ -302,8 +320,9 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
       Obj: "O40",
       Evt: "click",
       this: "O40",
-      fp: `&O30=${encodeURIComponent(user)}&O34=${encodeURIComponent(pass)}`,
-      seq: String(seqCounter++),
+      _fp_: `%26O34%3D%25027%2502%2502${encodeURIComponent(pass)}`,
+      _uo_: "O0",
+      _seq_: String(seqCounter++),
     });
     token = extractAmbulatorioToken(r.text);
     trace?.push({
@@ -415,7 +434,7 @@ async function performLookup(session: Session, cpf: string, trace?: TraceStep[])
   const url = `${session.baseUrl}/ambulatorio/ambulatorio.dll/HandleEvent`;
   const referer = `${session.baseUrl}/ambulatorio/ambulatorio.dll/`;
   const cpfFmt = formatCpfMasked(cpf);
-  const fpRaw = `&O1162=\x02\x02${cpfFmt}`;
+  const fpRaw =  `%26O1162%3D%25024%2502%2502${encodeURIComponent(cpfFmt)}`;
   const r = await postHandleEvent(url, session.cookies, referer, {
     Ajax: "1",
     IsEvent: "1",
@@ -423,9 +442,9 @@ async function performLookup(session: Session, cpf: string, trace?: TraceStep[])
     Evt: "click",
     this: "O117A",
     _S_ID: session.sId,
-    fp: fpRaw,
-    seq: String(seqCounter++),
-    uo: "O112A",
+    _fp_: fpRaw,
+    _seq_: String(seqCounter++),
+    _uo_: "O112A",
   });
   const setTextCount = (r.text.match(/setText\(/g) ?? []).length;
   trace?.push({
