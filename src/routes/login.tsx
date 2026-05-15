@@ -15,19 +15,47 @@ function LoginPage() {
   const { user, loading, signIn } = useAuth();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+  const [failures, setFailures] = useState(0);
+  const [lockUntil, setLockUntil] = useState(0);
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     if (!loading && user) navigate({ to: "/app" });
   }, [user, loading, navigate]);
 
+  // Atualiza contador regressivo do bloqueio
+  useEffect(() => {
+    if (lockUntil <= Date.now()) return;
+    const id = window.setInterval(() => setTick((t) => t + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [lockUntil]);
+
+  const remainingLock = Math.max(0, Math.ceil((lockUntil - Date.now()) / 1000));
+
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (remainingLock > 0) {
+      toast.error(`Aguarde ${remainingLock}s antes de tentar novamente.`);
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     setSubmitting(true);
     const { error } = await signIn(String(fd.get("email")), String(fd.get("password")));
     setSubmitting(false);
-    if (error) toast.error(error);
-    else toast.success("Bem-vindo!");
+    if (error) {
+      const next = failures + 1;
+      setFailures(next);
+      // Throttle progressivo: 3 falhas → 15s, 4 → 30s, 5+ → 60s
+      if (next >= 3) {
+        const wait = next >= 5 ? 60 : next >= 4 ? 30 : 15;
+        setLockUntil(Date.now() + wait * 1000);
+      }
+      toast.error(error);
+    } else {
+      setFailures(0);
+      setLockUntil(0);
+      toast.success("Bem-vindo!");
+    }
   };
 
   return (
@@ -68,8 +96,9 @@ function LoginPage() {
                 <Label htmlFor="password">Senha</Label>
                 <Input id="password" name="password" type="password" required autoComplete="current-password" />
               </div>
-              <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Entrar
+              <Button type="submit" className="w-full" disabled={submitting || remainingLock > 0}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {remainingLock > 0 ? `Aguarde ${remainingLock}s` : "Entrar"}
               </Button>
               <p className="pt-2 text-center text-xs text-muted-foreground">
                 Não tem acesso? Solicite ao administrador da Secretaria.
