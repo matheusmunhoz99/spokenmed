@@ -204,6 +204,8 @@ function PacientesPage() {
 
 function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSaved: () => void }) {
   const [submitting, setSubmitting] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cpfErro, setCpfErro] = useState<string | null>(null);
   const [form, setForm] = useState<any>(editing ?? {
     nome: "", cpf: "", cns: "", rg: "", data_nascimento: "", sexo: "",
     nome_mae: "", telefone: "", email: "",
@@ -212,6 +214,33 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
   });
 
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+
+  const handleCepBlur = async () => {
+    const d = onlyDigits(form.cep ?? "");
+    if (d.length !== 8) return;
+    setCepLoading(true);
+    const r = await fetchCep(d);
+    setCepLoading(false);
+    if (!r) { toast.info("CEP não encontrado."); return; }
+    setForm((f: any) => ({
+      ...f,
+      logradouro: f.logradouro?.trim() ? f.logradouro : r.logradouro,
+      bairro: f.bairro?.trim() ? f.bairro : r.bairro,
+      cidade: f.cidade?.trim() ? f.cidade : r.cidade,
+      uf: f.uf?.trim() ? f.uf : r.uf,
+      complemento: f.complemento?.trim() ? f.complemento : (r.complemento ?? f.complemento),
+    }));
+    setTimeout(() => {
+      const el = document.querySelector<HTMLInputElement>('input[data-field="numero"]');
+      el?.focus();
+    }, 50);
+  };
+
+  const handleCpfBlur = () => {
+    const d = onlyDigits(form.cpf ?? "");
+    if (!d) { setCpfErro(null); return; }
+    setCpfErro(isValidCPF(d) ? null : "CPF inválido (dígitos verificadores não conferem).");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
