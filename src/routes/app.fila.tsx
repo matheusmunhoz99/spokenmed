@@ -30,7 +30,18 @@ import { format, differenceInDays } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
 import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { SemAcesso } from "@/components/sem-acesso";
-import { formatCPF, formatTime, onlyDigits } from "@/lib/format";
+import { formatCPF, formatDate, formatTime, onlyDigits } from "@/lib/format";
+
+function calcIdade(dn?: string | null) {
+  if (!dn) return null;
+  const d = new Date(dn);
+  if (isNaN(d.getTime())) return null;
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - d.getFullYear();
+  const m = hoje.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && hoje.getDate() < d.getDate())) idade--;
+  return idade;
+}
 import { gerarComprovante } from "@/lib/pdf-comprovante";
 import { LoadingState } from "@/components/loading-state";
 import { EmptyState } from "@/components/empty-state";
@@ -102,7 +113,7 @@ function FilaPage() {
     enabled: !!unidadeId,
     queryFn: async () => {
       let q = (supabase.from(FILA_TABLE as any) as any)
-        .select("id, created_at, observacoes, paciente_id, especialidade_id, unidade_id, status, urgencia, agendamento_id, pacientes(id, nome, cpf, telefone), especialidades(id, nome)")
+        .select("id, created_at, observacoes, paciente_id, especialidade_id, unidade_id, status, urgencia, agendamento_id, pacientes(id, nome, cpf, telefone, data_nascimento), especialidades(id, nome), unidades(id, nome)")
         .eq("unidade_id", unidadeId)
         .in("status", statusFiltro === "todos" ? ["aguardando", "agendado"] : [statusFiltro])
         .order("created_at", { ascending: true });
@@ -282,9 +293,16 @@ function FilaPage() {
                             {URGENCIA_LABEL[urg]}
                           </Badge>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {f.especialidades?.nome}
-                          {f.pacientes?.cpf && <> · CPF {formatCPF(f.pacientes.cpf)}</>}
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                          {f.especialidades?.nome && <span><span className="font-medium text-foreground/70">Especialidade:</span> {f.especialidades.nome}</span>}
+                          {f.unidades?.nome && <span><span className="font-medium text-foreground/70">Unidade:</span> {f.unidades.nome}</span>}
+                          {f.pacientes?.cpf && <span><span className="font-medium text-foreground/70">CPF:</span> {formatCPF(f.pacientes.cpf)}</span>}
+                          {f.pacientes?.data_nascimento && (
+                            <span>
+                              <span className="font-medium text-foreground/70">Nasc.:</span> {formatDate(f.pacientes.data_nascimento)}
+                              {calcIdade(f.pacientes.data_nascimento) !== null && ` (${calcIdade(f.pacientes.data_nascimento)} anos)`}
+                            </span>
+                          )}
                         </div>
                         {f.observacoes && (
                           <div className="mt-1 line-clamp-2 text-xs italic text-muted-foreground">"{f.observacoes}"</div>
@@ -370,6 +388,9 @@ function FilaPage() {
               <div className="grid grid-cols-2 gap-2 rounded-md border bg-muted/30 p-3 text-xs">
                 <div className="col-span-2"><span className="text-muted-foreground">Paciente:</span><br /><strong className="text-sm">{removerItem.pacientes?.nome}</strong></div>
                 <div><span className="text-muted-foreground">Especialidade:</span><br />{removerItem.especialidades?.nome ?? "—"}</div>
+                <div><span className="text-muted-foreground">Unidade:</span><br />{removerItem.unidades?.nome ?? "—"}</div>
+                {removerItem.pacientes?.cpf && <div><span className="text-muted-foreground">CPF:</span><br />{formatCPF(removerItem.pacientes.cpf)}</div>}
+                {removerItem.pacientes?.data_nascimento && <div><span className="text-muted-foreground">Nascimento:</span><br />{formatDate(removerItem.pacientes.data_nascimento)}</div>}
                 <div><span className="text-muted-foreground">Urgência:</span><br /><Badge className={urgenciaBadgeClass(removerItem.urgencia)}>{URGENCIA_LABEL[removerItem.urgencia as Urgencia]}</Badge></div>
                 <div className="col-span-2"><span className="text-muted-foreground">Na fila desde:</span> {removerItem.created_at ? format(new Date(removerItem.created_at), "dd/MM/yyyy HH:mm") : "—"}</div>
               </div>
