@@ -293,9 +293,16 @@ function FilaPage() {
                             {URGENCIA_LABEL[urg]}
                           </Badge>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {f.especialidades?.nome}
-                          {f.pacientes?.cpf && <> · CPF {formatCPF(f.pacientes.cpf)}</>}
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                          {f.especialidades?.nome && <span><span className="font-medium text-foreground/70">Especialidade:</span> {f.especialidades.nome}</span>}
+                          {f.unidades?.nome && <span><span className="font-medium text-foreground/70">Unidade:</span> {f.unidades.nome}</span>}
+                          {f.pacientes?.cpf && <span><span className="font-medium text-foreground/70">CPF:</span> {formatCPF(f.pacientes.cpf)}</span>}
+                          {f.pacientes?.data_nascimento && (
+                            <span>
+                              <span className="font-medium text-foreground/70">Nasc.:</span> {formatDate(f.pacientes.data_nascimento)}
+                              {calcIdade(f.pacientes.data_nascimento) !== null && ` (${calcIdade(f.pacientes.data_nascimento)} anos)`}
+                            </span>
+                          )}
                         </div>
                         {f.observacoes && (
                           <div className="mt-1 line-clamp-2 text-xs italic text-muted-foreground">"{f.observacoes}"</div>
