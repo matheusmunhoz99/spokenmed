@@ -346,10 +346,7 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
     console.log("LOGIN_RESPONSE_END");
 
     if (!token) {
-      throw new OppError(
-        "login_invalido",
-        "resposta do login não contém setUrl(...ambulatorio...). Provável: usuário/senha incorretos, ou IDs O30/O34/O40 diferentes neste município.",
-      );
+      throw new OppError("login_invalido", r.text.slice(0, 4000));
     }
   } catch (err) {
     if (err instanceof OppError) throw err;
