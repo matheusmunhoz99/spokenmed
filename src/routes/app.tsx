@@ -1,4 +1,5 @@
-import { createFileRoute, Outlet, Navigate, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, Outlet, Navigate, useRouterState, redirect } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useIdleLogout } from "@/hooks/use-idle-logout";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
