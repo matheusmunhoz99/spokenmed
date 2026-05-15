@@ -69,6 +69,8 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      // Expose Cloudflare bindings (e.g. env.BROWSER) to server-only modules.
+      (globalThis as unknown as { __CF_ENV?: unknown }).__CF_ENV = env;
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

@@ -1,84 +1,98 @@
-# Diagnóstico CadSUS — adicionar logs detalhados e endpoint de teste
+# Refatoração da integração Fiorilli/CadSUS
 
-## Por que está caindo em "indisponível"
+## Objetivo
+A tentativa atual de fazer login 100% via HTTP no SIS Fiorilli não funciona (o uniGUI exige um handshake de browser real). Vamos trocar **somente a etapa de login** por Puppeteer (Cloudflare Browser Rendering, já habilitado), persistir cookies + `_S_ID` em cache no Worker, e fazer todas as consultas de CPF como **POST HTTP puro** no `/ambulatorio/ambulatorio.dll/HandleEvent`, parseando o JavaScript de retorno.
 
-A integração faz scraping de uma tela web do Fiorilli/OPP. Há **muitos pontos** onde pode falhar e hoje todos eles caem no mesmo `toast` genérico:
+Sem Durable Object (não disponível no plano). Usamos cache em memória do Worker + um lock simples para serializar o `seq`. É menos robusto que DO, mas funciona para o volume de uma clínica e é o melhor disponível sem upgrade.
 
-1. Variáveis de ambiente ausentes ou com URL errada
-2. `GET /sis/` não retorna `_S_ID` (HTML diferente do esperado)
-3. POST de login retorna mas **sem** `O1C8.setUrl(...)` → credenciais erradas, CAPTCHA, ou nomes de campo `O30/O34/O40` mudaram
-4. Resposta é redirect (`302`) e não estamos seguindo
-5. Cookies não estão sendo enviados de volta (sessão perdida entre requests)
-6. Consulta de CPF responde, mas IDs `O11CB/O11CF/...` não existem nesse município
-7. Cloudflare Worker bloqueado pelo firewall do OPP (User-Agent / origem)
+## Arquitetura
 
-Sem ver o que **realmente** voltou de cada passo, qualquer correção é chute.
-
-## O que vou fazer
-
-### 1. Logs estruturados em cada etapa de `src/lib/opp-client.server.ts`
-Cada passo loga `step`, `status HTTP`, tamanho da resposta, `Set-Cookie` presentes, e um **preview** (~400 chars) do corpo — sempre **mascarando** usuário/senha/`_S_ID`/token. Etapas:
-
-- `[opp] env` — confere se `OPP_BASE_URL`/`OPP_USERNAME`/`OPP_PASSWORD` estão setados (loga só presença e tamanho, nunca o valor)
-- `[opp] GET /sis/` — status + se achou `_S_ID` no HTML
-- `[opp] POST username (O30)` — status + cookies recebidos
-- `[opp] POST password (O34)` — idem
-- `[opp] POST login click (O40)` — status + se achou `setUrl(...ambulatorio...)` + preview mascarado
-- `[opp] GET ambulatorio/?user=...` — status + se achou novo `_S_ID`
-- `[opp] POST lookup CPF` — status + quantos `setText(...)` apareceram + preview
-
-Exemplo de log de falha:
+```text
+Frontend (botão "Buscar CadSUS" em /app/pacientes)
+        │  useServerFn
+        ▼
+buscarPacienteCpf  (createServerFn, requireSupabaseAuth)
+        │
+        ▼
+opp-client.server.ts
+   ├── getSession()           → cache singleton (TTL 10 min)
+   │     └── bootstrapWithPuppeteer()  ← @cloudflare/puppeteer
+   │            • abre /sis/, digita user/senha, clica login
+   │            • aguarda navegação para /ambulatorio/...
+   │            • extrai cookies + _S_ID + seq inicial
+   │            • fecha browser (≈ 1 chamada/10 min)
+   │
+   ├── lookupCpf(cpf)         → POST puro /ambulatorio/.../HandleEvent
+   │     • fila serializada (mutex) p/ não colidir seq
+   │     • seq incrementado em hex
+   │     • ignora respostas vazias / timer
+   │
+   ├── parseUniguiResponse()  → regex em setText/stateValue/originalValue
+   │     • mapeia O11CB→logradouro, O11CF→numero, O11D3→bairro,
+   │       O11DB→cidade, O11E3→cns, O11E7→cns_secundario
+   │
+   └── retry: se resposta indica sessão expirada → invalida cache,
+              re-bootstrap via Puppeteer, tenta de novo (1x)
 ```
-[opp] login_failed: token não extraído  status=200  bodyLen=812  preview="alert('Usuário ou senha inválidos');..."
+
+## Mudanças por arquivo
+
+**`wrangler.jsonc`** — adicionar binding de Browser Rendering:
+```jsonc
+"browser": { "binding": "BROWSER" }
 ```
 
-Isso aparece nos **server function logs** (acessíveis via `stack_modern--server-function-logs`).
+**`package.json`** — `bun add @cloudflare/puppeteer`.
 
-### 2. Códigos de erro mais granulares
-Substituir o `fiorilli_indisponivel` único por:
+**`src/server.ts`** — passar `env.BROWSER` adiante via `globalThis` (ou ALS) para o `opp-client` acessar dentro do server fn (Cloudflare injeta env por request, não em escopo de módulo).
 
-- `config_ausente` (já existe)
-- `seed_falhou` — `_S_ID` inicial não encontrado
-- `login_invalido` — credenciais rejeitadas (resposta sem `setUrl`)
-- `ambulatorio_indisponivel` — login OK mas módulo não abriu
-- `lookup_sem_resposta` — CPF foi enviado mas resposta não tem `setText`
-- `cpf_nao_encontrado`
-- `timeout` / `rede` — falha de fetch
+**`src/lib/opp-client.server.ts`** — reescrita:
+- `bootstrapWithPuppeteer(env)`:
+  - `puppeteer.launch(env.BROWSER)`
+  - `page.goto('https://saudeteresopolis.oppcloud.com.br/sis/')`
+  - `page.type('#O30 input', user)` / `page.type('#O34 input', pass)` / `page.click('#O40')`
+  - `page.waitForNavigation()` até cair em `/ambulatorio/ambulatorio.dll/?user=...`
+  - extrai `_S_ID` da URL/HTML, `document.cookie`, fecha browser
+- `lookupCpf(cpf)`:
+  - mutex global serializa requests
+  - monta payload exato:
+    ```
+    Ajax=1&IsEvent=1&Obj=O117A&Evt=click&this=O117A
+    &_S_ID=<sid>&fp=%26O1162%3D%25024%2502%2502<cpf-fmt>
+    &seq=<hex++>&uo=O112A
+    ```
+  - headers: Cookie do jar, Origin, Referer `/ambulatorio/ambulatorio.dll/`, `X-Requested-With: XMLHttpRequest`
+- `parseUniguiResponse(js)`: regex em `setText`, `stateValue`, `originalValue`, decodifica `\uXXXX`, retorna mapa `{ID → valor}` + dados normalizados
+- detecção de sessão expirada: resposta sem nenhum `setText` + presença de redirect/login/`_S_ID inv`
+- TTL 10 min + refresh proativo se expira em <60s
 
-Cada um vira um `toast` diferente no front, com a causa real.
+**`src/lib/cadsus.functions.ts`** — sem mudança de assinatura; apenas chama o novo `lookupCpf`. Resposta padronizada:
+```ts
+{ ok: boolean,
+  dados?: { logradouro, numero, bairro, cidade, uf, cns, cns_secundario, telefone? },
+  error?: 'config_ausente'|'login_invalido'|'cpf_nao_encontrado'|'lookup_sem_resposta'|'timeout'|'rede' }
+```
 
-### 3. Endpoint de diagnóstico server-side
-Criar `src/lib/cadsus-diag.functions.ts` com `diagnoseCadSus()` que executa o fluxo completo com um CPF de teste e retorna **todos os passos** + previews mascarados. Restrito a `requireSupabaseAuth`. Vou invocar via `stack_modern--invoke-server-function` (ou um botão temporário) para ver exatamente onde quebra **sem** te pedir para abrir DevTools.
+**`src/routes/app.pacientes.tsx`** — ajustar para a nova forma `{ ok, dados }` (hoje espera `{ success, ... }`). Sem mudanças visuais.
 
-### 4. Ajustes prováveis baseados nos logs (vou aplicar conforme o diagnóstico apontar)
-- Seguir redirect 302 manualmente se o login responder com Location
-- Adicionar `Origin` e `Referer` corretos a cada POST
-- Reordenar a sequência (talvez precise primeiro abrir `/sis/sis.dll/` em vez de `/sis/`)
-- Mudar a forma do `fp` (sua spec mostrava `&O1162=%024%02%02CPF` — `%02` é o byte STX, vou verificar se está sendo enviado corretamente)
-- Se IDs internos (`O30`, `O34`, etc.) divergirem deste município, extraí-los do HTML em vez de hardcode
+**`src/lib/cadsus-diag.functions.ts`** — manter, atualizar o trace para refletir as novas etapas (`puppeteer.launch`, `puppeteer.login`, `http.lookup`).
 
-## Como vamos usar
+## Detalhes técnicos importantes
 
-1. Aplico os logs e o endpoint de diagnóstico (não mexe no comportamento atual).
-2. Você tenta consultar um CPF (qualquer um, real, dessa região).
-3. Eu leio os server logs com `server-function-logs`, identifico o passo exato que falhou, e corrijo.
-4. Reaplico, você testa de novo. Loop curto até funcionar.
+1. **Browser Rendering só roda em runtime**: `env.BROWSER` é injetado por request. Acessamos via `getRequest()` + ALS, ou propagamos do `src/server.ts`. Não usar em escopo de módulo.
+2. **Cache singleton no Worker**: cada isolate tem seu próprio cache. Em prática a Cloudflare reusa isolates, então o login custa ~1x a cada 10 min por isolate. Aceitável.
+3. **Mutex de seq**: `Promise` chain global; cada lookup aguarda o anterior. Garante ordem do `seq` hex.
+4. **Ignorar timers**: nunca disparamos `O589/timer` — apenas o click `O117A`. Já está correto.
+5. **Sem endpoint público**: mantemos só a server function autenticada. Não expor `/api/public/cpf`.
+6. **Logs**: mantém `[opp]` estruturado por etapa, mascarando CPF/credenciais.
 
-## Arquivos
+## Limitações (te aviso para ficar claro)
 
-**Editar**
-- `src/lib/opp-client.server.ts` — logs em cada passo + códigos de erro granulares
-- `src/lib/cadsus.functions.ts` — propagar novos códigos
-- `src/routes/app.pacientes.tsx` — toasts específicos por código de erro
-
-**Criar**
-- `src/lib/cadsus-diag.functions.ts` — `diagnoseCadSus()` que devolve trace mascarado de todas as etapas
+- **Sem Durable Object**: se o Worker escalar para vários isolates, cada um abre seu próprio login. Não há "sessão única global". Para o uso interno da clínica isso é irrelevante.
+- **Browser Rendering tem cota**: cada bootstrap consome 1 sessão de browser. Com TTL 10 min e cache, fica em poucos por hora.
+- **Re-login automático**: implementado via retry 1x. Se o re-login falhar, retorna `login_invalido` e o usuário vê toast claro.
 
 ## Fora de escopo
-
-- Esconder credenciais já está OK (estão em secrets, não no bundle).
-- Não vou trocar a estratégia de scraping antes de ver os logs — qualquer mudança às cegas é perda de tempo.
-
-## Aviso honesto
-
-Se os logs mostrarem `login_invalido` (credenciais rejeitadas pelo Fiorilli), o problema **não é código** — é que a senha `2036` está incorreta, expirou, ou esse usuário não tem permissão de acessar o módulo Ambulatório. Nesse caso vou te dizer e a correção é trocar o secret `OPP_PASSWORD`.
+- Endpoint público `/api/public/cpf` (você pediu só botão interno).
+- Migração para Durable Object (requer plano pago).
+- Mudanças visuais na tela de Pacientes.
