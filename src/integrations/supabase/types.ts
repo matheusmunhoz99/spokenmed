@@ -903,18 +903,6 @@ export type Database = {
       }
       gen_agendamento_codigo: { Args: never; Returns: string }
       gerar_slots: { Args: { _config_id: string }; Returns: number }
-      has_permission: {
-        Args: { _action: string; _module: string; _user: string }
-        Returns: boolean
-      }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      is_authenticated_staff: { Args: { _user_id: string }; Returns: boolean }
       log_auth: {
         Args: { p_acao: string; p_ip?: string; p_ua?: string }
         Returns: undefined
@@ -942,14 +930,6 @@ export type Database = {
       set_audit_context: {
         Args: { p_ip?: string; p_modulo?: string; p_ua?: string }
         Returns: undefined
-      }
-      user_can_access_unidade: {
-        Args: { _unidade: string; _user: string }
-        Returns: boolean
-      }
-      user_can_see_profissional: {
-        Args: { _prof: string; _user: string }
-        Returns: boolean
       }
     }
     Enums: {
