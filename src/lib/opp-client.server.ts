@@ -344,6 +344,12 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
     console.log("LOGIN_RESPONSE_START");
     console.log(r.text.slice(0, 4000));
     console.log("LOGIN_RESPONSE_END");
+    const sidMatch = r.text.match(/_S_ID=([A-Za-z0-9_]+)/);
+
+    if (sidMatch?.[1]) {
+      console.log("NOVO_SID", sidMatch[1]);
+      sId = sidMatch[1];
+    }
 
     if (!token) {
       throw new OppError("login_invalido", r.text.slice(0, 4000));
