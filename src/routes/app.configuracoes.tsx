@@ -261,9 +261,48 @@ function ProcedimentosCard() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Procedimentos SIGTAP</CardTitle>
-        <CardDescription>Tabela de procedimentos do SUS para faturamento e relatórios. Use o código oficial SIGTAP.</CardDescription>
+      <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+        <div>
+          <CardTitle>Procedimentos SIGTAP</CardTitle>
+          <CardDescription>Tabela de procedimentos do SUS para faturamento e relatórios. Use o código oficial SIGTAP.</CardDescription>
+        </div>
+        <CsvImportDialog
+          trigger={<Button size="sm" variant="outline"><Upload className="h-4 w-4 mr-1" />Importar CSV</Button>}
+          title="Importar procedimentos SIGTAP"
+          description="Faz match pelo código SIGTAP. Existentes são atualizados; novos são inseridos."
+          columns={procedimentoColumns}
+          sampleFilename="modelo-sigtap.csv"
+          sampleHeader={["codigo_sigtap", "nome", "valor_sus"]}
+          sampleRows={[
+            ["0301010072", "CONSULTA MEDICA EM ATENCAO BASICA", "10,00"],
+            ["0101010010", "ACOES COLETIVAS/INDIVIDUAIS EM SAUDE", "0,00"],
+          ]}
+          onImport={async (rows) => {
+            const existing = (await supabase.from("procedimentos").select("id, codigo_sigtap")).data ?? [];
+            const byCod = new Map(existing.map((p) => [p.codigo_sigtap, p]));
+            let inserted = 0, updated = 0, skipped = 0;
+            for (const r of rows) {
+              const payload: any = {
+                codigo_sigtap: String(r.values.codigo_sigtap),
+                nome: String(r.values.nome),
+                valor_sus: r.values.valor_sus ?? null,
+                ativo: true,
+              };
+              const match = byCod.get(payload.codigo_sigtap);
+              if (match) {
+                const { error } = await supabase.from("procedimentos").update(payload).eq("id", match.id);
+                if (error) { skipped++; continue; }
+                updated++;
+              } else {
+                const { error } = await supabase.from("procedimentos").insert(payload);
+                if (error) { skipped++; continue; }
+                inserted++;
+              }
+            }
+            qc.invalidateQueries({ queryKey: ["procedimentos"] });
+            return { inserted, updated, skipped };
+          }}
+        />
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-2 md:grid-cols-12">
