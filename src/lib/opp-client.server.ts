@@ -239,7 +239,7 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
       sIdSeed: !!sIdSeed,
     });
     if (!sIdSeed) {
-      throw new OppError("seed_falhou", "S_ID inicial ausente no /sis/");
+      throw new OppError("seed_falhou", indexHtml.slice(0, 1200));
     }
     var sId = sIdSeed;
   } catch (err) {
