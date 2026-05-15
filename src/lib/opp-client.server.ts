@@ -41,17 +41,20 @@ function formatCpfMasked(cpf: string) {
 }
 
 function jarToHeader(jar: CookieJar): string {
-  return Array.from(jar.entries()).map(([k, v]) => `${k}=${v}`).join("; ");
+  return Array.from(jar.entries())
+    .map(([k, v]) => `${k}=${v}`)
+    .join("; ");
 }
 
 function ingestSetCookies(res: Response, jar: CookieJar): string[] {
   const anyHeaders = res.headers as unknown as { getSetCookie?: () => string[] };
-  const list: string[] = typeof anyHeaders.getSetCookie === "function"
-    ? anyHeaders.getSetCookie()
-    : (() => {
-        const raw = res.headers.get("set-cookie");
-        return raw ? [raw] : [];
-      })();
+  const list: string[] =
+    typeof anyHeaders.getSetCookie === "function"
+      ? anyHeaders.getSetCookie()
+      : (() => {
+          const raw = res.headers.get("set-cookie");
+          return raw ? [raw] : [];
+        })();
   const names: string[] = [];
   for (const sc of list) {
     const first = sc.split(";")[0];
@@ -119,11 +122,11 @@ function getEnv(): { baseUrl: string; user: string; pass: string } | null {
 
 function commonHeaders(jar: CookieJar, referer: string): HeadersInit {
   const h: Record<string, string> = {
-    "Accept": "*/*",
+    Accept: "*/*",
     "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
     "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36",
-    "Referer": referer,
+    Referer: referer,
   };
   const cookieHeader = jarToHeader(jar);
   if (cookieHeader) h["Cookie"] = cookieHeader;
@@ -142,7 +145,7 @@ async function postHandleEvent(
     method: "POST",
     headers: {
       ...commonHeaders(jar, referer),
-      "Origin": new URL(referer).origin,
+      Origin: new URL(referer).origin,
       "X-Requested-With": "XMLHttpRequest",
       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
     },
@@ -180,7 +183,10 @@ export type CadSusResult =
   | { success: false; error: ErrorCode };
 
 class OppError extends Error {
-  constructor(public code: ErrorCode, msg: string) {
+  constructor(
+    public code: ErrorCode,
+    msg: string,
+  ) {
     super(msg);
   }
 }
@@ -245,8 +251,8 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
       Obj: "O30",
       Evt: "change",
       this: "O30",
-      fp: `&O30=${encodeURIComponent(user)}`,
-      seq: String(seqCounter++),
+      _fp_: `&O30=${encodeURIComponent(user)}`,
+      _seq_: String(seqCounter++),
     });
     trace?.push({
       step: "POST username (O30)",
@@ -405,11 +411,7 @@ function looksLikeLoggedOut(js: string): boolean {
   return /login|sess[aã]o|expirad|_S_ID inv/i.test(js) && !/setText\(/i.test(js);
 }
 
-async function performLookup(
-  session: Session,
-  cpf: string,
-  trace?: TraceStep[],
-): Promise<string> {
+async function performLookup(session: Session, cpf: string, trace?: TraceStep[]): Promise<string> {
   const url = `${session.baseUrl}/ambulatorio/ambulatorio.dll/HandleEvent`;
   const referer = `${session.baseUrl}/ambulatorio/ambulatorio.dll/`;
   const cpfFmt = formatCpfMasked(cpf);
@@ -506,8 +508,7 @@ export async function buscarPacienteCpfWithTrace(cpfInput: string): Promise<Look
       value: m[2].replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16))),
     });
   }
-  const telefone =
-    allTexts.find((t) => /^\(?\d{2}\)?\s*\d{4,5}-?\d{4}$/.test(t.value.trim()))?.value.trim() ?? null;
+  const telefone = allTexts.find((t) => /^\(?\d{2}\)?\s*\d{4,5}-?\d{4}$/.test(t.value.trim()))?.value.trim() ?? null;
   const knownIds = new Set(["O11CB", "O11CF", "O11D3", "O11DB", "O11E3", "O11E7"]);
   const nomeCandidato = allTexts.find(
     (t) =>
@@ -534,7 +535,10 @@ export async function buscarPacienteCpfWithTrace(cpfInput: string): Promise<Look
     trace.push({
       step: "parse",
       ok: false,
-      note: `nenhum campo conhecido encontrado. setText IDs: ${allTexts.map((t) => t.id).slice(0, 20).join(",")}`,
+      note: `nenhum campo conhecido encontrado. setText IDs: ${allTexts
+        .map((t) => t.id)
+        .slice(0, 20)
+        .join(",")}`,
     });
     return { result: { success: false, error: "cpf_nao_encontrado" }, trace };
   }
