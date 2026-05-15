@@ -52,6 +52,8 @@ function AgendaDiaPage() {
   const [profId, setProfId] = useState<string>("all");
   const [chamar, setChamar] = useState<any>(null);
   const [excluir, setExcluir] = useState<any>(null);
+  const [motivoExclusao, setMotivoExclusao] = useState("");
+  const [excluindo, setExcluindo] = useState(false);
   const [reagendar, setReagendar] = useState<any>(null);
   const [historico, setHistorico] = useState<any>(null);
   const [encaixeOpen, setEncaixeOpen] = useState(false);
