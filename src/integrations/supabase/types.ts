@@ -943,8 +943,6 @@ export type Database = {
         Args: { p_ip?: string; p_modulo?: string; p_ua?: string }
         Returns: undefined
       }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
       user_can_access_unidade: {
         Args: { _unidade: string; _user: string }
         Returns: boolean

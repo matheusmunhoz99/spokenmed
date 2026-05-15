@@ -41,7 +41,7 @@ async function applyDefaultPerms(user_id: string, role: AppRole) {
   await supabaseAdmin.from("user_permissions").delete().eq("user_id", user_id);
   const rows = defaultPermsFor(role).map((r) => ({ user_id, ...r }));
   const { error } = await supabaseAdmin.from("user_permissions").insert(rows);
-  if (error) throw new Error(error.message);
+  if (error) { console.error("[admin-users]", error); throw new Error("Operação falhou. Verifique os dados e tente novamente."); }
 }
 
 async function assertAdmin(userId: string) {
@@ -51,7 +51,7 @@ async function assertAdmin(userId: string) {
     .eq("user_id", userId)
     .eq("role", "admin")
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) { console.error("[admin-users]", error); throw new Error("Operação falhou. Verifique os dados e tente novamente."); }
   if (!data) throw new Error("Apenas administradores podem gerenciar usuários.");
 }
 
@@ -64,7 +64,7 @@ export const listSystemUsers = createServerFn({ method: "GET" })
       page: 1,
       perPage: 200,
     });
-    if (authErr) throw new Error(authErr.message);
+    if (authErr) { console.error("[admin-users]", authErr); throw new Error("Falha ao listar usuários."); }
 
     const ids = authList.users.map((u) => u.id);
     const [{ data: profiles }, { data: roles }, { data: uu }, { data: profs }] = await Promise.all([
@@ -110,7 +110,7 @@ async function syncUserUnidades(user_id: string, unidade_ids: string[]) {
   if (unidade_ids.length > 0) {
     const rows = unidade_ids.map((uid) => ({ user_id, unidade_id: uid }));
     const { error } = await supabaseAdmin.from("user_unidades").insert(rows);
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[admin-users]", error); throw new Error("Operação falhou. Verifique os dados e tente novamente."); }
   }
 }
 
@@ -138,14 +138,14 @@ export const createSystemUser = createServerFn({ method: "POST" })
       email_confirm: true,
       user_metadata: { nome: data.nome, cargo: data.cargo },
     });
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[admin-users]", error); throw new Error("Operação falhou. Verifique os dados e tente novamente."); }
     const newId = created.user!.id;
 
     await supabaseAdmin.from("user_roles").delete().eq("user_id", newId);
     const { error: rErr } = await supabaseAdmin
       .from("user_roles")
       .insert({ user_id: newId, role: data.role });
-    if (rErr) throw new Error(rErr.message);
+    if (rErr) { console.error("[admin-users]", rErr); throw new Error("Falha ao atualizar papel do usuário."); }
 
     await syncUserUnidades(newId, data.unidade_ids);
     await applyDefaultPerms(newId, data.role);
@@ -157,7 +157,7 @@ export const createSystemUser = createServerFn({ method: "POST" })
         .from("profissionais")
         .update({ user_id: newId })
         .eq("id", data.profissional_id);
-      if (linkErr) throw new Error(linkErr.message);
+      if (linkErr) { console.error("[admin-users]", linkErr); throw new Error("Falha ao vincular profissional."); }
     }
 
     return { id: newId };
@@ -179,7 +179,7 @@ export const updateUserRole = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin
       .from("user_roles")
       .insert({ user_id: data.user_id, role: data.role });
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[admin-users]", error); throw new Error("Operação falhou. Verifique os dados e tente novamente."); }
 
     // reset permissions to defaults of the new role
     await applyDefaultPerms(data.user_id, data.role);
@@ -216,7 +216,7 @@ export const deleteSystemUser = createServerFn({ method: "POST" })
       throw new Error("Você não pode excluir a si mesmo.");
     }
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[admin-users]", error); throw new Error("Operação falhou. Verifique os dados e tente novamente."); }
     return { ok: true };
   });
 
@@ -229,7 +229,7 @@ export const getUserPermissions = createServerFn({ method: "GET" })
       .from("user_permissions")
       .select("module, can_view, can_manage")
       .eq("user_id", data.user_id);
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[admin-users]", error); throw new Error("Operação falhou. Verifique os dados e tente novamente."); }
     return rows ?? [];
   });
 
@@ -255,7 +255,7 @@ export const setUserPermissions = createServerFn({ method: "POST" })
     const rows = data.perms.map((p) => ({ user_id: data.user_id, ...p }));
     if (rows.length > 0) {
       const { error } = await supabaseAdmin.from("user_permissions").insert(rows);
-      if (error) throw new Error(error.message);
+      if (error) { console.error("[admin-users]", error); throw new Error("Operação falhou. Verifique os dados e tente novamente."); }
     }
     return { ok: true };
   });
@@ -279,7 +279,7 @@ export const linkMedicoProfissional = createServerFn({ method: "POST" })
         .from("profissionais")
         .update({ user_id: data.user_id })
         .eq("id", data.profissional_id);
-      if (error) throw new Error(error.message);
+      if (error) { console.error("[admin-users]", error); throw new Error("Operação falhou. Verifique os dados e tente novamente."); }
     }
     return { ok: true };
   });
@@ -293,6 +293,6 @@ export const listProfissionaisForLink = createServerFn({ method: "GET" })
       .select("id, nome, user_id")
       .eq("ativo", true)
       .order("nome");
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[admin-users]", error); throw new Error("Operação falhou. Verifique os dados e tente novamente."); }
     return data ?? [];
   });
