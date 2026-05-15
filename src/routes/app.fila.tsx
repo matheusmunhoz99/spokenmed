@@ -113,7 +113,7 @@ function FilaPage() {
     enabled: !!unidadeId,
     queryFn: async () => {
       let q = (supabase.from(FILA_TABLE as any) as any)
-        .select("id, created_at, observacoes, paciente_id, especialidade_id, unidade_id, status, urgencia, agendamento_id, pacientes(id, nome, cpf, telefone), especialidades(id, nome)")
+        .select("id, created_at, observacoes, paciente_id, especialidade_id, unidade_id, status, urgencia, agendamento_id, pacientes(id, nome, cpf, telefone, data_nascimento), especialidades(id, nome), unidades(id, nome)")
         .eq("unidade_id", unidadeId)
         .in("status", statusFiltro === "todos" ? ["aguardando", "agendado"] : [statusFiltro])
         .order("created_at", { ascending: true });
