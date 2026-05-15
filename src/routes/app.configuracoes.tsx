@@ -123,34 +123,59 @@ function UnidadesCard() {
             ["ESF Rio Claro Módulo I (Centro)", "6232205", "Rio Claro/RJ", ""],
             ["Centro de Saúde Boa Vista", "6232272", "Boa Vista, Rio Claro/RJ", ""],
           ]}
-          onImport={async (rows) => {
-            const existing = (await supabase.from("unidades").select("id, nome, cnes")).data ?? [];
+          batchSize={50}
+          processBatch={async (rows) => {
+            const cnesList = rows.map((r) => String(r.values.cnes ?? "")).filter(Boolean);
+            const existing = cnesList.length
+              ? ((await supabase.from("unidades").select("id, nome, cnes").in("cnes", cnesList)).data ?? [])
+              : [];
+            const nomes = rows.map((r) => String(r.values.nome ?? ""));
+            const existingByName = nomes.length
+              ? ((await supabase.from("unidades").select("id, nome, cnes").in("nome", nomes)).data ?? [])
+              : [];
             const byCnes = new Map(existing.filter((u) => u.cnes).map((u) => [u.cnes!, u]));
-            const byNome = new Map(existing.map((u) => [normName(u.nome), u]));
+            const byNome = new Map(existingByName.map((u) => [normName(u.nome), u]));
+
             let inserted = 0, updated = 0, skipped = 0;
+            const errors: Array<{ lineNumber: number; message: string }> = [];
+
+            const toInsert: Array<{ row: typeof rows[number]; payload: any }> = [];
+            const toUpdate: Array<{ row: typeof rows[number]; id: string; payload: any }> = [];
+
             for (const r of rows) {
               const cnes = String(r.values.cnes ?? "");
               const nome = String(r.values.nome ?? "");
-              const match = byCnes.get(cnes) ?? byNome.get(normName(nome));
-              const payload: any = {
-                nome,
-                cnes,
+              const payload = {
+                nome, cnes,
                 endereco: r.values.endereco || null,
                 telefone: r.values.telefone || null,
                 ativo: true,
               };
-              if (match) {
-                const { error } = await supabase.from("unidades").update(payload).eq("id", match.id);
-                if (error) { skipped++; continue; }
-                updated++;
+              const match = byCnes.get(cnes) ?? byNome.get(normName(nome));
+              if (match) toUpdate.push({ row: r, id: match.id, payload });
+              else toInsert.push({ row: r, payload });
+            }
+
+            if (toInsert.length) {
+              const { data, error } = await supabase.from("unidades").insert(toInsert.map((x) => x.payload)).select("id");
+              if (error) {
+                // fallback linha-a-linha para identificar quem falhou
+                for (const x of toInsert) {
+                  const { error: e2 } = await supabase.from("unidades").insert(x.payload);
+                  if (e2) { skipped++; errors.push({ lineNumber: x.row.lineNumber, message: e2.message }); }
+                  else inserted++;
+                }
               } else {
-                const { error } = await supabase.from("unidades").insert(payload);
-                if (error) { skipped++; continue; }
-                inserted++;
+                inserted += data?.length ?? toInsert.length;
               }
             }
+            for (const x of toUpdate) {
+              const { error } = await supabase.from("unidades").update(x.payload).eq("id", x.id);
+              if (error) { skipped++; errors.push({ lineNumber: x.row.lineNumber, message: error.message }); }
+              else updated++;
+            }
             qc.invalidateQueries({ queryKey: ["unidades"] });
-            return { inserted, updated, skipped };
+            return { inserted, updated, skipped, errors };
           }}
         />
       </CardHeader>
