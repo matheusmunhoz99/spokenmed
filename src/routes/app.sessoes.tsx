@@ -39,8 +39,26 @@ function SessoesPage() {
         .eq("tabela", "auth")
         .in("acao", ["LOGIN", "LOGOUT"])
         .order("created_at", { ascending: false })
-        .limit(50);
-      return data ?? [];
+        .limit(200);
+      // Agrupa por (acao + ip + user_agent) consecutivos: mantém o mais recente
+      // e conta quantas vezes ocorreu na sequência (mesmo IP/dispositivo).
+      const grouped: Array<any & { count: number; last_at: string; first_at: string }> = [];
+      for (const log of data ?? []) {
+        const last = grouped[grouped.length - 1];
+        if (
+          last &&
+          last.acao === log.acao &&
+          (last.ip ?? null) === (log.ip ?? null) &&
+          (last.user_agent ?? null) === (log.user_agent ?? null)
+        ) {
+          last.count += 1;
+          last.first_at = log.created_at; // o mais antigo da sequência
+        } else {
+          grouped.push({ ...log, count: 1, last_at: log.created_at, first_at: log.created_at });
+        }
+        if (grouped.length >= 50) break;
+      }
+      return grouped;
     },
   });
 
