@@ -1,5 +1,5 @@
 // Server-only client for the Fiorilli/OPP system.
-// SECURITY: Never import this file from client code. Credentials, cookies and
+// SECURITY: Never import this from client code. Credentials, cookies and
 // session IDs live exclusively in the server runtime.
 
 type CookieJar = Map<string, string>;
@@ -12,7 +12,17 @@ type Session = {
   createdAt: number;
 };
 
-const SESSION_TTL_MS = 10 * 60 * 1000; // 10 min
+export type TraceStep = {
+  step: string;
+  ok: boolean;
+  status?: number;
+  bodyLen?: number;
+  setCookies?: string[];
+  preview?: string;
+  note?: string;
+};
+
+const SESSION_TTL_MS = 10 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 12_000;
 
 let cachedSession: Session | null = null;
@@ -34,8 +44,7 @@ function jarToHeader(jar: CookieJar): string {
   return Array.from(jar.entries()).map(([k, v]) => `${k}=${v}`).join("; ");
 }
 
-function ingestSetCookies(res: Response, jar: CookieJar) {
-  // In Workers/undici, multiple Set-Cookie headers are joined by getSetCookie()
+function ingestSetCookies(res: Response, jar: CookieJar): string[] {
   const anyHeaders = res.headers as unknown as { getSetCookie?: () => string[] };
   const list: string[] = typeof anyHeaders.getSetCookie === "function"
     ? anyHeaders.getSetCookie()
@@ -43,14 +52,31 @@ function ingestSetCookies(res: Response, jar: CookieJar) {
         const raw = res.headers.get("set-cookie");
         return raw ? [raw] : [];
       })();
+  const names: string[] = [];
   for (const sc of list) {
     const first = sc.split(";")[0];
     const eq = first.indexOf("=");
     if (eq <= 0) continue;
     const name = first.slice(0, eq).trim();
     const value = first.slice(eq + 1).trim();
-    if (name) jar.set(name, value);
+    if (name) {
+      jar.set(name, value);
+      names.push(name);
+    }
   }
+  return names;
+}
+
+function maskPreview(text: string, secrets: string[]): string {
+  let out = text.slice(0, 600);
+  for (const s of secrets) {
+    if (s && s.length >= 3) {
+      out = out.split(s).join("***");
+    }
+  }
+  out = out.replace(/_S_ID["']?\s*[:=]\s*["']?[A-Za-z0-9._-]+/gi, "_S_ID=***");
+  out = out.replace(/[?&]user=[^&"'\s]+/gi, "&user=***");
+  return out;
 }
 
 async function timedFetch(url: string, init: RequestInit): Promise<Response> {
@@ -64,7 +90,6 @@ async function timedFetch(url: string, init: RequestInit): Promise<Response> {
 }
 
 function extractSId(text: string): string | null {
-  // Try several patterns the Fiorilli/OPP UI uses to embed the session id.
   const patterns = [
     /_S_ID["']?\s*[:=]\s*["']([^"']+)["']/i,
     /name=["']_S_ID["']\s+value=["']([^"']+)["']/i,
@@ -80,18 +105,15 @@ function extractSId(text: string): string | null {
 function extractAmbulatorioToken(js: string): string | null {
   const m = js.match(/setUrl\(["']([^"']*ambulatorio\.dll\/?\?user=[^"']+)["']\)/i);
   if (!m) return null;
-  const u = m[1];
-  const tokenMatch = u.match(/[?&]user=([^&"']+)/);
+  const tokenMatch = m[1].match(/[?&]user=([^&"']+)/);
   return tokenMatch ? tokenMatch[1] : null;
 }
 
-function getEnv(): { baseUrl: string; user: string; pass: string } {
+function getEnv(): { baseUrl: string; user: string; pass: string } | null {
   const baseUrl = (process.env.OPP_BASE_URL ?? "").replace(/\/+$/, "");
   const user = process.env.OPP_USERNAME ?? "";
   const pass = process.env.OPP_PASSWORD ?? "";
-  if (!baseUrl || !user || !pass) {
-    throw new Error("opp_env_missing");
-  }
+  if (!baseUrl || !user || !pass) return null;
   return { baseUrl, user, pass };
 }
 
@@ -99,7 +121,8 @@ function commonHeaders(jar: CookieJar, referer: string): HeadersInit {
   const h: Record<string, string> = {
     "Accept": "*/*",
     "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-    "User-Agent": "Mozilla/5.0 (compatible; SpokenMED/1.0)",
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36",
     "Referer": referer,
   };
   const cookieHeader = jarToHeader(jar);
@@ -112,81 +135,232 @@ async function postHandleEvent(
   jar: CookieJar,
   referer: string,
   body: Record<string, string>,
-): Promise<{ res: Response; text: string }> {
+): Promise<{ res: Response; text: string; setCookies: string[] }> {
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(body)) params.set(k, v);
   const res = await timedFetch(url, {
     method: "POST",
     headers: {
       ...commonHeaders(jar, referer),
+      "Origin": new URL(referer).origin,
       "X-Requested-With": "XMLHttpRequest",
       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
     },
     body: params.toString(),
   });
-  ingestSetCookies(res, jar);
+  const setCookies = ingestSetCookies(res, jar);
   const text = await res.text();
-  return { res, text };
+  return { res, text, setCookies };
 }
 
-async function bootstrapSession(): Promise<Session> {
-  const { baseUrl, user, pass } = getEnv();
-  const jar: CookieJar = new Map();
+export type ErrorCode =
+  | "config_ausente"
+  | "seed_falhou"
+  | "login_invalido"
+  | "ambulatorio_indisponivel"
+  | "lookup_sem_resposta"
+  | "cpf_nao_encontrado"
+  | "timeout"
+  | "rede";
 
-  // 1) GET /sis/ to seed cookies + initial _S_ID
-  const sisIndex = `${baseUrl}/sis/`;
-  const indexRes = await timedFetch(sisIndex, { headers: commonHeaders(jar, baseUrl) });
-  ingestSetCookies(indexRes, jar);
-  const indexHtml = await indexRes.text();
-  let sId = extractSId(indexHtml);
-  if (!sId) throw new Error("opp_session_seed_failed");
+export type CadSusResult =
+  | {
+      success: true;
+      cpf: string;
+      nome: string | null;
+      endereco: string | null;
+      numero: string | null;
+      bairro: string | null;
+      cidade: string | null;
+      uf: string | null;
+      cns: string | null;
+      cns_secundario: string | null;
+      telefone: string | null;
+    }
+  | { success: false; error: ErrorCode };
 
-  const sisHandle = `${baseUrl}/sis/sis.dll/HandleEvent`;
+class OppError extends Error {
+  constructor(public code: ErrorCode, msg: string) {
+    super(msg);
+  }
+}
 
-  // 2) Fill username (Obj=O30, change), then password (Obj=O34, change), then click login (Obj=O40, click)
-  const baseFields = { Ajax: "1", IsEvent: "1", _S_ID: sId };
-
-  await postHandleEvent(sisHandle, jar, sisIndex, {
-    ...baseFields,
-    Obj: "O30",
-    Evt: "change",
-    this: "O30",
-    fp: `&O30=${encodeURIComponent(user)}`,
-    seq: String(seqCounter++),
-  });
-
-  await postHandleEvent(sisHandle, jar, sisIndex, {
-    ...baseFields,
-    Obj: "O34",
-    Evt: "change",
-    this: "O34",
-    fp: `&O34=${encodeURIComponent(pass)}`,
-    seq: String(seqCounter++),
-  });
-
-  const { text: loginJs } = await postHandleEvent(sisHandle, jar, sisIndex, {
-    ...baseFields,
-    Obj: "O40",
-    Evt: "click",
-    this: "O40",
-    fp: `&O30=${encodeURIComponent(user)}&O34=${encodeURIComponent(pass)}`,
-    seq: String(seqCounter++),
-  });
-
-  const token = extractAmbulatorioToken(loginJs);
-  if (!token) {
-    console.error("[opp] login_failed: no ambulatorio token in response", {
-      preview: loginJs.slice(0, 300).replace(/[?&]_S_ID=[^&"']+/g, "&_S_ID=***"),
+async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
+  const env = getEnv();
+  if (!env) {
+    console.error("[opp] env_missing", {
+      baseUrl: !!process.env.OPP_BASE_URL,
+      user: !!process.env.OPP_USERNAME,
+      pass: !!process.env.OPP_PASSWORD,
     });
-    throw new Error("opp_login_failed");
+    throw new OppError("config_ausente", "OPP_* env vars not set");
+  }
+  const { baseUrl, user, pass } = env;
+  const jar: CookieJar = new Map();
+  const secrets = [user, pass];
+
+  // Step 1: GET /sis/
+  const sisIndex = `${baseUrl}/sis/`;
+  let indexRes: Response;
+  let indexHtml = "";
+  try {
+    indexRes = await timedFetch(sisIndex, { headers: commonHeaders(jar, baseUrl) });
+    const sc = ingestSetCookies(indexRes, jar);
+    indexHtml = await indexRes.text();
+    const sIdSeed = extractSId(indexHtml);
+    trace?.push({
+      step: "GET /sis/",
+      ok: !!sIdSeed,
+      status: indexRes.status,
+      bodyLen: indexHtml.length,
+      setCookies: sc,
+      preview: maskPreview(indexHtml, secrets),
+      note: sIdSeed ? "S_ID seed encontrado" : "S_ID NÃO encontrado no HTML",
+    });
+    console.log("[opp] step=seed", {
+      status: indexRes.status,
+      bodyLen: indexHtml.length,
+      cookies: sc,
+      sIdSeed: !!sIdSeed,
+    });
+    if (!sIdSeed) {
+      throw new OppError("seed_falhou", "S_ID inicial ausente no /sis/");
+    }
+    var sId = sIdSeed;
+  } catch (err) {
+    if (err instanceof OppError) throw err;
+    const msg = err instanceof Error ? err.message : String(err);
+    trace?.push({ step: "GET /sis/", ok: false, note: `fetch falhou: ${msg}` });
+    console.error("[opp] step=seed fetch_fail", { msg });
+    throw new OppError(msg.includes("abort") ? "timeout" : "rede", msg);
   }
 
-  // 3) Open ambulatorio with token to upgrade session
-  const ambUrl = `${baseUrl}/ambulatorio/ambulatorio.dll/?user=${encodeURIComponent(token)}`;
-  const ambRes = await timedFetch(ambUrl, { headers: commonHeaders(jar, sisIndex) });
-  ingestSetCookies(ambRes, jar);
-  const ambHtml = await ambRes.text();
-  const ambSid = extractSId(ambHtml) ?? sId;
+  const sisHandle = `${baseUrl}/sis/sis.dll/HandleEvent`;
+  const baseFields = { Ajax: "1", IsEvent: "1", _S_ID: sId };
+
+  // Step 2: username
+  try {
+    const r = await postHandleEvent(sisHandle, jar, sisIndex, {
+      ...baseFields,
+      Obj: "O30",
+      Evt: "change",
+      this: "O30",
+      fp: `&O30=${encodeURIComponent(user)}`,
+      seq: String(seqCounter++),
+    });
+    trace?.push({
+      step: "POST username (O30)",
+      ok: r.res.status === 200,
+      status: r.res.status,
+      bodyLen: r.text.length,
+      setCookies: r.setCookies,
+      preview: maskPreview(r.text, secrets),
+    });
+    console.log("[opp] step=username", { status: r.res.status, bodyLen: r.text.length });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    trace?.push({ step: "POST username (O30)", ok: false, note: msg });
+    throw new OppError(msg.includes("abort") ? "timeout" : "rede", msg);
+  }
+
+  // Step 3: password
+  try {
+    const r = await postHandleEvent(sisHandle, jar, sisIndex, {
+      ...baseFields,
+      Obj: "O34",
+      Evt: "change",
+      this: "O34",
+      fp: `&O34=${encodeURIComponent(pass)}`,
+      seq: String(seqCounter++),
+    });
+    trace?.push({
+      step: "POST password (O34)",
+      ok: r.res.status === 200,
+      status: r.res.status,
+      bodyLen: r.text.length,
+      setCookies: r.setCookies,
+      preview: maskPreview(r.text, secrets),
+    });
+    console.log("[opp] step=password", { status: r.res.status, bodyLen: r.text.length });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    trace?.push({ step: "POST password (O34)", ok: false, note: msg });
+    throw new OppError(msg.includes("abort") ? "timeout" : "rede", msg);
+  }
+
+  // Step 4: login click
+  let token: string | null;
+  try {
+    const r = await postHandleEvent(sisHandle, jar, sisIndex, {
+      ...baseFields,
+      Obj: "O40",
+      Evt: "click",
+      this: "O40",
+      fp: `&O30=${encodeURIComponent(user)}&O34=${encodeURIComponent(pass)}`,
+      seq: String(seqCounter++),
+    });
+    token = extractAmbulatorioToken(r.text);
+    trace?.push({
+      step: "POST login click (O40)",
+      ok: !!token,
+      status: r.res.status,
+      bodyLen: r.text.length,
+      setCookies: r.setCookies,
+      preview: maskPreview(r.text, secrets),
+      note: token ? "token ambulatorio extraído" : "setUrl(...ambulatorio...) ausente",
+    });
+    console.log("[opp] step=login", {
+      status: r.res.status,
+      bodyLen: r.text.length,
+      hasToken: !!token,
+      preview: maskPreview(r.text, secrets).slice(0, 200),
+    });
+    if (!token) {
+      throw new OppError(
+        "login_invalido",
+        "resposta do login não contém setUrl(...ambulatorio...). Provável: usuário/senha incorretos, ou IDs O30/O34/O40 diferentes neste município.",
+      );
+    }
+  } catch (err) {
+    if (err instanceof OppError) throw err;
+    const msg = err instanceof Error ? err.message : String(err);
+    trace?.push({ step: "POST login click (O40)", ok: false, note: msg });
+    throw new OppError(msg.includes("abort") ? "timeout" : "rede", msg);
+  }
+
+  // Step 5: open ambulatorio
+  let ambSid = sId;
+  try {
+    const ambUrl = `${baseUrl}/ambulatorio/ambulatorio.dll/?user=${encodeURIComponent(token)}`;
+    const ambRes = await timedFetch(ambUrl, { headers: commonHeaders(jar, sisIndex) });
+    const sc = ingestSetCookies(ambRes, jar);
+    const ambHtml = await ambRes.text();
+    const newSid = extractSId(ambHtml);
+    if (newSid) ambSid = newSid;
+    trace?.push({
+      step: "GET /ambulatorio/?user=***",
+      ok: ambRes.status === 200,
+      status: ambRes.status,
+      bodyLen: ambHtml.length,
+      setCookies: sc,
+      preview: maskPreview(ambHtml, secrets),
+      note: newSid ? "novo S_ID capturado" : "sem S_ID novo, usando o anterior",
+    });
+    console.log("[opp] step=ambulatorio", {
+      status: ambRes.status,
+      bodyLen: ambHtml.length,
+      cookies: sc,
+      newSid: !!newSid,
+    });
+    if (ambRes.status >= 400) {
+      throw new OppError("ambulatorio_indisponivel", `status ${ambRes.status}`);
+    }
+  } catch (err) {
+    if (err instanceof OppError) throw err;
+    const msg = err instanceof Error ? err.message : String(err);
+    trace?.push({ step: "GET /ambulatorio/", ok: false, note: msg });
+    throw new OppError(msg.includes("abort") ? "timeout" : "rede", msg);
+  }
 
   return {
     baseUrl,
@@ -197,14 +371,15 @@ async function bootstrapSession(): Promise<Session> {
   };
 }
 
-async function getSession(force = false): Promise<Session> {
+async function getSession(force = false, trace?: TraceStep[]): Promise<Session> {
   if (!force && cachedSession && Date.now() - cachedSession.createdAt < SESSION_TTL_MS) {
+    trace?.push({ step: "session", ok: true, note: "usando sessão em cache" });
     return cachedSession;
   }
-  if (bootstrapInflight) return bootstrapInflight;
+  if (bootstrapInflight && !trace) return bootstrapInflight;
   bootstrapInflight = (async () => {
     try {
-      const s = await bootstrapSession();
+      const s = await bootstrapSession(trace);
       cachedSession = s;
       return s;
     } finally {
@@ -230,30 +405,16 @@ function looksLikeLoggedOut(js: string): boolean {
   return /login|sess[aã]o|expirad|_S_ID inv/i.test(js) && !/setText\(/i.test(js);
 }
 
-export type CadSusResult =
-  | {
-      success: true;
-      cpf: string;
-      nome: string | null;
-      endereco: string | null;
-      numero: string | null;
-      bairro: string | null;
-      cidade: string | null;
-      uf: string | null;
-      cns: string | null;
-      cns_secundario: string | null;
-      telefone: string | null;
-    }
-  | { success: false; error: "cpf_nao_encontrado" | "fiorilli_indisponivel" | "config_ausente" };
-
-async function performLookup(session: Session, cpf: string): Promise<string> {
+async function performLookup(
+  session: Session,
+  cpf: string,
+  trace?: TraceStep[],
+): Promise<string> {
   const url = `${session.baseUrl}/ambulatorio/ambulatorio.dll/HandleEvent`;
   const referer = `${session.baseUrl}/ambulatorio/ambulatorio.dll/`;
   const cpfFmt = formatCpfMasked(cpf);
-  // The CPF input is named O1162. The fp field encodes &O1162=<chr 02><chr 02><CPF>
-  // (control chars come from how the OPP form serializes value+display).
   const fpRaw = `&O1162=\x02\x02${cpfFmt}`;
-  const { text } = await postHandleEvent(url, session.cookies, referer, {
+  const r = await postHandleEvent(url, session.cookies, referer, {
     Ajax: "1",
     IsEvent: "1",
     Obj: "O117A",
@@ -264,38 +425,69 @@ async function performLookup(session: Session, cpf: string): Promise<string> {
     seq: String(seqCounter++),
     uo: "O112A",
   });
-  return text;
+  const setTextCount = (r.text.match(/setText\(/g) ?? []).length;
+  trace?.push({
+    step: "POST lookup CPF",
+    ok: setTextCount > 0,
+    status: r.res.status,
+    bodyLen: r.text.length,
+    setCookies: r.setCookies,
+    preview: maskPreview(r.text, [maskCpf(cpf)]),
+    note: `setText() count=${setTextCount}`,
+  });
+  console.log("[opp] step=lookup", {
+    cpf: maskCpf(cpf),
+    status: r.res.status,
+    bodyLen: r.text.length,
+    setTextCount,
+  });
+  return r.text;
 }
 
-export async function buscarPacienteCpf(cpfInput: string): Promise<CadSusResult> {
+export type LookupOutput = { result: CadSusResult; trace: TraceStep[] };
+
+export async function buscarPacienteCpfWithTrace(cpfInput: string): Promise<LookupOutput> {
+  const trace: TraceStep[] = [];
   const cpf = cpfInput.replace(/\D/g, "");
-  if (cpf.length !== 11) return { success: false, error: "cpf_nao_encontrado" };
+  if (cpf.length !== 11) {
+    return { result: { success: false, error: "cpf_nao_encontrado" }, trace };
+  }
 
   let session: Session;
   try {
-    session = await getSession();
+    session = await getSession(false, trace);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg === "opp_env_missing") return { success: false, error: "config_ausente" };
-    console.error("[opp] bootstrap error", { msg, cpf: maskCpf(cpf) });
-    return { success: false, error: "fiorilli_indisponivel" };
+    const code: ErrorCode = err instanceof OppError ? err.code : "rede";
+    console.error("[opp] bootstrap_failed", {
+      code,
+      msg: err instanceof Error ? err.message : String(err),
+      cpf: maskCpf(cpf),
+    });
+    return { result: { success: false, error: code }, trace };
   }
 
   let js: string;
   try {
-    js = await performLookup(session, cpf);
+    js = await performLookup(session, cpf, trace);
     if (looksLikeLoggedOut(js)) {
-      // session expired — refresh and retry once
       cachedSession = null;
-      session = await getSession(true);
-      js = await performLookup(session, cpf);
+      trace.push({ step: "retry", ok: true, note: "sessão aparentemente expirada, refazendo login" });
+      session = await getSession(true, trace);
+      js = await performLookup(session, cpf, trace);
     }
   } catch (err) {
-    console.error("[opp] lookup error", {
+    const code: ErrorCode = err instanceof OppError ? err.code : "rede";
+    console.error("[opp] lookup_failed", {
+      code,
       msg: err instanceof Error ? err.message : String(err),
       cpf: maskCpf(cpf),
     });
-    return { success: false, error: "fiorilli_indisponivel" };
+    return { result: { success: false, error: code }, trace };
+  }
+
+  const setTextCount = (js.match(/setText\(/g) ?? []).length;
+  if (setTextCount === 0) {
+    return { result: { success: false, error: "lookup_sem_resposta" }, trace };
   }
 
   const endereco = extractSetText(js, "O11CB");
@@ -305,23 +497,25 @@ export async function buscarPacienteCpf(cpfInput: string): Promise<CadSusResult>
   const cns = extractSetText(js, "O11E3");
   const cnsSecundario = extractSetText(js, "O11E7");
 
-  // Heurística: nome / telefone — varremos os outros setText
   const allTexts: Array<{ id: string; value: string }> = [];
   const re = /(O[0-9A-F]+)\.setText\(\s*["']([\s\S]*?)["']\s*\)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(js)) !== null) {
-    allTexts.push({ id: m[1], value: m[2].replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16))) });
+    allTexts.push({
+      id: m[1],
+      value: m[2].replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16))),
+    });
   }
-  // Telefone: valor que parece telefone brasileiro
-  const telefone = allTexts.find((t) => /^\(?\d{2}\)?\s*\d{4,5}-?\d{4}$/.test(t.value.trim()))?.value.trim() ?? null;
-  // Nome: string longa, em maiúsculas, com espaço, que não é endereço/cidade/cns
+  const telefone =
+    allTexts.find((t) => /^\(?\d{2}\)?\s*\d{4,5}-?\d{4}$/.test(t.value.trim()))?.value.trim() ?? null;
   const knownIds = new Set(["O11CB", "O11CF", "O11D3", "O11DB", "O11E3", "O11E7"]);
-  const nomeCandidato = allTexts.find((t) =>
-    !knownIds.has(t.id) &&
-    t.value.length >= 6 &&
-    t.value.length <= 120 &&
-    /\s/.test(t.value) &&
-    /^[A-ZÁÉÍÓÚÂÊÔÃÕÇ ]+$/.test(t.value.trim()),
+  const nomeCandidato = allTexts.find(
+    (t) =>
+      !knownIds.has(t.id) &&
+      t.value.length >= 6 &&
+      t.value.length <= 120 &&
+      /\s/.test(t.value) &&
+      /^[A-ZÁÉÍÓÚÂÊÔÃÕÇ ]+$/.test(t.value.trim()),
   );
 
   let cidade: string | null = null;
@@ -336,22 +530,38 @@ export async function buscarPacienteCpf(cpfInput: string): Promise<CadSusResult>
     }
   }
 
-  // Se não veio nada de nada, considera não encontrado
   if (!endereco && !cns && !nomeCandidato && !cidade) {
-    return { success: false, error: "cpf_nao_encontrado" };
+    trace.push({
+      step: "parse",
+      ok: false,
+      note: `nenhum campo conhecido encontrado. setText IDs: ${allTexts.map((t) => t.id).slice(0, 20).join(",")}`,
+    });
+    return { result: { success: false, error: "cpf_nao_encontrado" }, trace };
   }
 
   return {
-    success: true,
-    cpf,
-    nome: nomeCandidato?.value.trim() ?? null,
-    endereco,
-    numero,
-    bairro,
-    cidade,
-    uf,
-    cns,
-    cns_secundario: cnsSecundario,
-    telefone,
+    result: {
+      success: true,
+      cpf,
+      nome: nomeCandidato?.value.trim() ?? null,
+      endereco,
+      numero,
+      bairro,
+      cidade,
+      uf,
+      cns,
+      cns_secundario: cnsSecundario,
+      telefone,
+    },
+    trace,
   };
+}
+
+export async function buscarPacienteCpf(cpfInput: string): Promise<CadSusResult> {
+  const { result } = await buscarPacienteCpfWithTrace(cpfInput);
+  return result;
+}
+
+export function clearOppSessionCache() {
+  cachedSession = null;
 }

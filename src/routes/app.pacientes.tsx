@@ -256,9 +256,19 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
     try {
       const r = await buscarCadSus({ data: { cpf: d } });
       if (!r.success) {
-        if (r.error === "cpf_nao_encontrado") toast.info("CPF não encontrado no CadSUS.");
-        else if (r.error === "config_ausente") toast.error("Integração CadSUS não configurada.");
-        else toast.error("CadSUS indisponível no momento.");
+        const msgs: Record<string, string> = {
+          cpf_nao_encontrado: "CPF não encontrado no CadSUS.",
+          config_ausente: "Integração CadSUS não configurada (faltam credenciais).",
+          seed_falhou: "Não foi possível abrir o portal Fiorilli (página inicial).",
+          login_invalido: "Login Fiorilli rejeitado — verifique usuário/senha.",
+          ambulatorio_indisponivel: "Login OK, mas módulo Ambulatório não abriu.",
+          lookup_sem_resposta: "Fiorilli respondeu, mas sem dados do paciente.",
+          timeout: "Tempo esgotado ao consultar o Fiorilli.",
+          rede: "Falha de rede ao acessar o Fiorilli.",
+        };
+        const msg = msgs[r.error] ?? "CadSUS indisponível no momento.";
+        if (r.error === "cpf_nao_encontrado") toast.info(msg);
+        else toast.error(msg);
         return;
       }
       setForm((f: any) => ({
