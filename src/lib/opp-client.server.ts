@@ -376,18 +376,44 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
 
   // Step 5: open ambulatorio
   let ambSid = sId;
+
   try {
     const ambUrl = `${baseUrl}/ambulatorio/ambulatorio.dll/?user=${encodeURIComponent(token)}`;
-    const ambRes = await timedFetch(ambUrl, { headers: commonHeaders(jar, sisIndex) });
+
+    console.log("COOKIES_BEFORE_AMB");
+    console.log(Array.from(jar.entries()));
+
+    console.log("AMB_URL", ambUrl);
+
+    const ambRes = await timedFetch(ambUrl, {
+      headers: {
+        ...commonHeaders(jar, ambUrl),
+        Referer: `${baseUrl}/sis/`,
+      },
+    });
+
+    console.log("COOKIES_AFTER_AMB");
+    console.log(Array.from(jar.entries()));
+
+    console.log("AMB_STATUS", ambRes.status);
+
+    console.log("AMB_HEADERS", Object.fromEntries(ambRes.headers.entries()));
+
     const sc = ingestSetCookies(ambRes, jar);
+
     const ambHtml = await ambRes.text();
+
     console.log("AMB_HTML_START");
     console.log(ambHtml.slice(0, 4000));
     console.log("AMB_HTML_END");
+
     const newSid = extractSId(ambHtml);
+
     if (newSid) ambSid = newSid;
+
     console.log("FINAL_AMB_SID", ambSid);
     console.log("COOKIES_FINAL", Array.from(jar.entries()));
+
     trace?.push({
       step: "GET /ambulatorio/?user=***",
       ok: ambRes.status === 200,
@@ -397,19 +423,28 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
       preview: maskPreview(ambHtml, secrets),
       note: newSid ? "novo S_ID capturado" : "sem S_ID novo, usando o anterior",
     });
+
     console.log("[opp] step=ambulatorio", {
       status: ambRes.status,
       bodyLen: ambHtml.length,
       cookies: sc,
       newSid: !!newSid,
     });
+
     if (ambRes.status >= 400) {
       throw new OppError("ambulatorio_indisponivel", `status ${ambRes.status}`);
     }
   } catch (err) {
     if (err instanceof OppError) throw err;
+
     const msg = err instanceof Error ? err.message : String(err);
-    trace?.push({ step: "GET /ambulatorio/", ok: false, note: msg });
+
+    trace?.push({
+      step: "GET /ambulatorio/",
+      ok: false,
+      note: msg,
+    });
+
     throw new OppError(msg.includes("abort") ? "timeout" : "rede", msg);
   }
 
@@ -421,7 +456,6 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
     createdAt: Date.now(),
   };
 }
-
 async function getSession(force = false, trace?: TraceStep[]): Promise<Session> {
   if (!force && cachedSession && Date.now() - cachedSession.createdAt < SESSION_TTL_MS) {
     trace?.push({ step: "session", ok: true, note: "usando sessão em cache" });
@@ -520,9 +554,18 @@ export async function buscarPacienteCpfWithTrace(cpfInput: string): Promise<Look
   try {
     js = await performLookup(session, cpf, trace);
     if (looksLikeLoggedOut(js)) {
+      console.log("SESSION_EXPIRED_DETECTED");
+
       cachedSession = null;
-      trace.push({ step: "retry", ok: true, note: "sessão aparentemente expirada, refazendo login" });
+
+      trace.push({
+        step: "retry",
+        ok: true,
+        note: "sessão aparentemente expirada, refazendo login",
+      });
+
       session = await getSession(true, trace);
+
       js = await performLookup(session, cpf, trace);
     }
   } catch (err) {
