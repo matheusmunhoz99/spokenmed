@@ -263,7 +263,7 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
   // Step 2: username
   try {
     const r = await postHandleEvent(sisHandle, jar, sisIndex, {
-      ...baseFields,
+      ...baseFields(),
       Obj: "O30",
       Evt: "keydown",
       this: "O30",
@@ -291,7 +291,7 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
   // Step 3: password
   try {
     const r = await postHandleEvent(sisHandle, jar, sisIndex, {
-      ...baseFields,
+      ...baseFields(),
       Obj: "O34",
       Evt: "keydown",
       this: "O34",
@@ -320,7 +320,7 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
   let token: string | null;
   try {
     const r = await postHandleEvent(sisHandle, jar, sisIndex, {
-      ...baseFields,
+      ...baseFields(),
       Obj: "O40",
       Evt: "click",
       this: "O40",
