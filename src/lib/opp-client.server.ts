@@ -476,8 +476,16 @@ async function getSession(force = false, trace?: TraceStep[]): Promise<Session> 
 
 function extractSetText(js: string, objId: string): string | null {
   const re = new RegExp(`${objId}\\.setText\\(\\s*["']([\\s\\S]*?)["']\\s*\\)`);
+
   const m = js.match(re);
-  if (!m) return null;
+
+  if (!m) {
+    console.log("EXTRACT_FIELD_FAIL", objId);
+    return null;
+  }
+
+  console.log("EXTRACT_FIELD_OK", objId);
+
   return m[1]
     .replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
     .replace(/\\"/g, '"')
