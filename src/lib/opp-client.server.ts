@@ -206,7 +206,10 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
   const secrets = [user, pass];
 
   // Step 1: GET /sis/
-  const sisIndex = `${baseUrl}/`;
+  const sisIndex = `${baseUrl}/sis/`;
+
+  console.log("BASE_URL", baseUrl);
+  console.log("URL_FINAL", sisIndex);
   let indexRes: Response;
   let indexHtml = "";
   try {
