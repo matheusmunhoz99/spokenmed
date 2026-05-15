@@ -1,94 +1,84 @@
-# Integração Fiorilli/OPP → SpokenMED (consulta de paciente por CPF)
+# Diagnóstico CadSUS — adicionar logs detalhados e endpoint de teste
 
-## Ajuste de arquitetura (importante)
+## Por que está caindo em "indisponível"
 
-Você pediu uma **Supabase Edge Function**, mas este projeto roda em **TanStack Start (Cloudflare Worker)**, não em Edge Functions Deno. O padrão correto aqui é **`createServerFn`**, que entrega exatamente as garantias que você listou:
+A integração faz scraping de uma tela web do Fiorilli/OPP. Há **muitos pontos** onde pode falhar e hoje todos eles caem no mesmo `toast` genérico:
 
-- credenciais só em `process.env` (nunca no bundle do browser)
-- cookies/sessão ficam 100% no servidor
-- o frontend chama por RPC tipado, sem ver payload, `_S_ID`, nem URL do Fiorilli
-- mesmo runtime já autenticado (Supabase auth middleware)
+1. Variáveis de ambiente ausentes ou com URL errada
+2. `GET /sis/` não retorna `_S_ID` (HTML diferente do esperado)
+3. POST de login retorna mas **sem** `O1C8.setUrl(...)` → credenciais erradas, CAPTCHA, ou nomes de campo `O30/O34/O40` mudaram
+4. Resposta é redirect (`302`) e não estamos seguindo
+5. Cookies não estão sendo enviados de volta (sessão perdida entre requests)
+6. Consulta de CPF responde, mas IDs `O11CB/O11CF/...` não existem nesse município
+7. Cloudflare Worker bloqueado pelo firewall do OPP (User-Agent / origem)
 
-Vou implementar como server function. Funcionalmente é idêntico ao que você descreveu.
+Sem ver o que **realmente** voltou de cada passo, qualquer correção é chute.
 
-## Pré-requisitos (vou pedir antes de codar)
+## O que vou fazer
 
-1. **Secrets** via `add_secret`:
-   - `OPP_USERNAME` = `fiorilli`
-   - `OPP_PASSWORD` = `2036`
-   - `OPP_BASE_URL` = `https://saudeteresopolis.oppcloud.com.br`
-2. **Confirmação:** o host é mesmo Teresópolis (suas credenciais CadSUS anteriores eram de Álvares Florence-SP — quero garantir que estamos no sistema certo).
+### 1. Logs estruturados em cada etapa de `src/lib/opp-client.server.ts`
+Cada passo loga `step`, `status HTTP`, tamanho da resposta, `Set-Cookie` presentes, e um **preview** (~400 chars) do corpo — sempre **mascarando** usuário/senha/`_S_ID`/token. Etapas:
 
-## O que vou construir
+- `[opp] env` — confere se `OPP_BASE_URL`/`OPP_USERNAME`/`OPP_PASSWORD` estão setados (loga só presença e tamanho, nunca o valor)
+- `[opp] GET /sis/` — status + se achou `_S_ID` no HTML
+- `[opp] POST username (O30)` — status + cookies recebidos
+- `[opp] POST password (O34)` — idem
+- `[opp] POST login click (O40)` — status + se achou `setUrl(...ambulatorio...)` + preview mascarado
+- `[opp] GET ambulatorio/?user=...` — status + se achou novo `_S_ID`
+- `[opp] POST lookup CPF` — status + quantos `setText(...)` apareceram + preview
 
-### 1. `src/lib/opp-client.server.ts` (server-only)
-Cliente HTTP isolado com:
-- **Cookie jar manual** (Map de `name → value`, serializa em `Cookie:` a cada request) — `fetch` no Worker não persiste cookies sozinho.
-- `bootstrapSession()`:
-  1. `GET /sis/` → guarda `Set-Cookie` e faz scrape do HTML para extrair o `_S_ID` inicial (procura `_S_ID=...` em scripts/inputs).
-  2. `POST /sis/sis.dll/HandleEvent` enviando o usuário no campo `Obj=O30` (`Evt=change`), depois senha em `Obj=O34`, depois clique em `Obj=O40` `Evt=click`. Headers: `X-Requested-With: XMLHttpRequest`, `Content-Type: application/x-www-form-urlencoded; charset=UTF-8`, `Referer: <base>/sis/`.
-  3. Faz regex no JS de resposta para `O1C8.setUrl("...ambulatorio.dll/?user=TOKEN")` e extrai `TOKEN`.
-  4. `GET /ambulatorio/ambulatorio.dll/?user=TOKEN` para abrir o módulo, captura novo `_S_ID` do ambulatório.
-- `lookupCpf(cpf)`:
-  1. `POST /ambulatorio/ambulatorio.dll/HandleEvent` com `Ajax=1&IsEvent=1&Obj=O117A&Evt=click&_S_ID=...&fp=...&seq=...&uo=O112A`.
-  2. O `fp` carrega o CPF formatado: `&O1162=%024%02%02<CPF formatado>` (URL-encoded).
-  3. Faz regex no JS de resposta:
-     - `O11CB.setText("...")` → `endereco`
-     - `O11CF.setText("...")` → `numero`
-     - `O11D3.setText("...")` → `bairro`
-     - `O11DB.setText("...")` → `cidade` (separa `CIDADE-UF`)
-     - `O11E3.setText("...")` → `cns`
-     - `O11E7.setText("...")` → `cns_secundario`
-     - varre os demais `setText` do payload para tentar achar `nome` e `telefone` (vou logar o JS bruto na primeira execução para mapear os Obj IDs corretos — sua spec não os trouxe).
-- **Sessão em memória**: cache singleton no módulo (TTL 10 min) com lock simples para evitar 2 logins simultâneos.
-- **Retry de sessão**: se a resposta da consulta vier vazia ou contiver `login` / `_S_ID inválido`, descarta cache, refaz `bootstrapSession()` e tenta a consulta 1× a mais.
-- Timeouts de 10s por request (`AbortController`), todos os erros logados sem expor senha/sessão.
-
-### 2. `src/lib/cadsus.functions.ts`
-```ts
-export const buscarPacienteCpf = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])           // só usuário logado pode chamar
-  .inputValidator(z.object({ cpf: z.string().regex(/^\d{11}$/) }).parse)
-  .handler(async ({ data }) => {
-    return await lookupCpf(data.cpf);          // { success, nome, cpf, endereco, ... }
-  });
+Exemplo de log de falha:
 ```
-Resposta padronizada: `{ success: true, ...campos }` ou `{ success: false, error: "cpf_nao_encontrado" | "fiorilli_indisponivel" }` — nunca vaza stack/sessão.
+[opp] login_failed: token não extraído  status=200  bodyLen=812  preview="alert('Usuário ou senha inválidos');..."
+```
 
-### 3. Integração no cadastro de paciente (`src/routes/app.pacientes.tsx`)
-- Adiciono um botão **"Buscar no CadSUS"** ao lado do campo CPF (e onBlur quando CPF tiver 11 dígitos válidos).
-- Chama `buscarPacienteCpf` via `useServerFn`.
-- Preenche apenas campos vazios: `nome`, `cns`, `logradouro`, `numero`, `bairro`, `cidade`, `uf`, `telefone`.
-- Spinner inline + toast de sucesso/falha. Não bloqueia o cadastro se a consulta falhar.
+Isso aparece nos **server function logs** (acessíveis via `stack_modern--server-function-logs`).
 
-## Segurança (atende todos os "NÃO FAZER")
+### 2. Códigos de erro mais granulares
+Substituir o `fiorilli_indisponivel` único por:
 
-- ❌ Nada de `_S_ID`, cookies, payload Fiorilli, URL interna, ou credenciais no bundle do browser — tudo vive em `*.server.ts` + `.functions.ts`.
-- ✅ `requireSupabaseAuth` exige usuário logado SpokenMED para invocar.
-- ✅ Validação de CPF (11 dígitos + dígitos verificadores antes de enviar).
-- ✅ Logs no servidor não imprimem usuário/senha/`_S_ID` — só CPF mascarado e código de erro.
+- `config_ausente` (já existe)
+- `seed_falhou` — `_S_ID` inicial não encontrado
+- `login_invalido` — credenciais rejeitadas (resposta sem `setUrl`)
+- `ambulatorio_indisponivel` — login OK mas módulo não abriu
+- `lookup_sem_resposta` — CPF foi enviado mas resposta não tem `setText`
+- `cpf_nao_encontrado`
+- `timeout` / `rede` — falha de fetch
 
-## Limites conhecidos (quero ser honesto)
+Cada um vira um `toast` diferente no front, com a causa real.
 
-1. **Scraping é frágil**: se o Fiorilli mudar nomes de campos (`O30/O34/O40/O117A/...`) ou trocar a estrutura do JS de resposta, a integração quebra silenciosamente. Mitigação: erros estruturados + log do HTML/JS recebido (sem credenciais) para diagnóstico rápido.
-2. **`fp/seq/uo`**: sua spec descreve a forma geral, mas o `seq` parece ser um contador da sessão (visto `seq=346` no exemplo). Vou começar com `seq=1` e incrementar; se o servidor exigir o valor real, leio do HTML da tela do ambulatório antes de submeter.
-3. **Termos de uso**: automatizar login/scraping de portal municipal pode violar contrato com a prefeitura/fornecedor. Confirme internamente que está autorizado antes de publicar.
-4. **CAPTCHA / 2FA**: se o Fiorilli adicionar um, a integração para de funcionar — não há contorno legítimo.
+### 3. Endpoint de diagnóstico server-side
+Criar `src/lib/cadsus-diag.functions.ts` com `diagnoseCadSus()` que executa o fluxo completo com um CPF de teste e retorna **todos os passos** + previews mascarados. Restrito a `requireSupabaseAuth`. Vou invocar via `stack_modern--invoke-server-function` (ou um botão temporário) para ver exatamente onde quebra **sem** te pedir para abrir DevTools.
+
+### 4. Ajustes prováveis baseados nos logs (vou aplicar conforme o diagnóstico apontar)
+- Seguir redirect 302 manualmente se o login responder com Location
+- Adicionar `Origin` e `Referer` corretos a cada POST
+- Reordenar a sequência (talvez precise primeiro abrir `/sis/sis.dll/` em vez de `/sis/`)
+- Mudar a forma do `fp` (sua spec mostrava `&O1162=%024%02%02CPF` — `%02` é o byte STX, vou verificar se está sendo enviado corretamente)
+- Se IDs internos (`O30`, `O34`, etc.) divergirem deste município, extraí-los do HTML em vez de hardcode
+
+## Como vamos usar
+
+1. Aplico os logs e o endpoint de diagnóstico (não mexe no comportamento atual).
+2. Você tenta consultar um CPF (qualquer um, real, dessa região).
+3. Eu leio os server logs com `server-function-logs`, identifico o passo exato que falhou, e corrijo.
+4. Reaplico, você testa de novo. Loop curto até funcionar.
 
 ## Arquivos
 
-**Criar**
-- `src/lib/opp-client.server.ts`
-- `src/lib/cadsus.functions.ts`
-
 **Editar**
-- `src/routes/app.pacientes.tsx` (botão CadSUS + autopreenchimento)
+- `src/lib/opp-client.server.ts` — logs em cada passo + códigos de erro granulares
+- `src/lib/cadsus.functions.ts` — propagar novos códigos
+- `src/routes/app.pacientes.tsx` — toasts específicos por código de erro
 
-**Secrets a adicionar**
-- `OPP_USERNAME`, `OPP_PASSWORD`, `OPP_BASE_URL`
+**Criar**
+- `src/lib/cadsus-diag.functions.ts` — `diagnoseCadSus()` que devolve trace mascarado de todas as etapas
 
 ## Fora de escopo
 
-- Edge Function Deno (substituída por server function — mesma garantia, stack correto).
-- Cache persistente (Redis/DB) — fica em memória do worker por enquanto.
-- Tela admin para reconfigurar credenciais — gerenciado via secrets do Lovable Cloud.
+- Esconder credenciais já está OK (estão em secrets, não no bundle).
+- Não vou trocar a estratégia de scraping antes de ver os logs — qualquer mudança às cegas é perda de tempo.
+
+## Aviso honesto
+
+Se os logs mostrarem `login_invalido` (credenciais rejeitadas pelo Fiorilli), o problema **não é código** — é que a senha `2036` está incorreta, expirou, ou esse usuário não tem permissão de acessar o módulo Ambulatório. Nesse caso vou te dizer e a correção é trocar o secret `OPP_PASSWORD`.
