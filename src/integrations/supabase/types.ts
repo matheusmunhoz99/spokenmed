@@ -502,6 +502,36 @@ export type Database = {
           },
         ]
       }
+      fiorilli_sessions: {
+        Row: {
+          cookies: Json | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          session_key: string | null
+          sid: string | null
+          token: string | null
+        }
+        Insert: {
+          cookies?: Json | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          session_key?: string | null
+          sid?: string | null
+          token?: string | null
+        }
+        Update: {
+          cookies?: Json | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          session_key?: string | null
+          sid?: string | null
+          token?: string | null
+        }
+        Relationships: []
+      }
       pacientes: {
         Row: {
           ativo: boolean
