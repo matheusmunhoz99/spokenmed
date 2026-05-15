@@ -1,40 +1,33 @@
+## Causa raiz
 
-# Reorganização da navegação lateral
+O agendamento das 13:00 do Dr. Carlos Alberto (paciente Matheus Munhoz) tem uma linha vinculada em `fila_espera` com `status='agendado'` e `agendamento_id` apontando pra ele.
 
-Concordo — hoje a sidebar lista 13+ links soltos, fica densa. A proposta é agrupar por **módulo**, com cada módulo expandindo para mostrar suas telas só quando clicado.
-
-## Como vai ficar
-
-Sidebar enxuta com 4 módulos principais (cada um vira um item clicável que expande):
+A FK `fila_espera.agendamento_id → agendamentos.id` está configurada como **`ON DELETE SET NULL`**. Quando o front faz `DELETE FROM agendamentos`, o Postgres dispara essa ação **antes** do trigger `fn_ag_after_delete` rodar — ele tenta zerar o `agendamento_id` da fila **mantendo** `status='agendado'`. Aí o trigger `BEFORE UPDATE` `fn_fila_check_link` barra:
 
 ```
-SpokenMED
-├─ ▸ Operação           (Painel, Agenda do Dia, Agendar, Fila, Painel de Chamada)
-├─ ▸ Cadastros          (Pacientes, Profissionais, Agendas)
-├─ ▸ Administração      (Relatórios, Unidades & Especialidades, Configurações, Auditoria)
-└─ ▸ Conta              (Segurança & Sessões)
+IF NEW.status = 'agendado' AND NEW.agendamento_id IS NULL
+  → RAISE 'fila_agendado_sem_agendamento_id'
 ```
 
-- Clicar no módulo **expande/recolhe** os sub-itens (accordion).
-- O módulo que contém a rota atual abre automaticamente.
-- Só um módulo aberto por vez (mantém a lateral leve).
-- Quando a sidebar está colapsada (modo ícone), cada módulo vira um ícone único; hover/click mostra o submenu em popover.
-- Filtro por permissão continua igual: módulo só aparece se o usuário tem acesso a pelo menos um item dele.
+Resultado: o DELETE inteiro é abortado e o `fn_ag_after_delete` (que faria a coisa certa: `status='aguardando'` + `agendamento_id=NULL`) nunca chega a rodar.
 
-## Detalhes técnicos
+## Correção (frontend, sem mexer em DB)
 
-- Editar `src/components/app-sidebar.tsx`:
-  - Reestruturar os arrays `main`/`cadastros`/`admin`/`conta` em uma estrutura de **módulos com children**.
-  - Usar `Collapsible` (`@/components/ui/collapsible`, já no projeto) dentro de `SidebarMenuItem` com `SidebarMenuSub` / `SidebarMenuSubItem` (do shadcn sidebar) para os filhos.
-  - Ícones por módulo: Operação (`Activity`), Cadastros (`FolderPlus`), Administração (`ShieldCheck`), Conta (`UserCog`).
-  - Estado de "qual módulo está aberto" controlado localmente (`useState`), inicializado pela rota atual via `useRouterState`.
-  - Auto-expandir o módulo ativo ao navegar.
-- Sem mudanças em rotas, permissões ou backend — puramente apresentação.
-- Mobile bottom nav (`MobileBottomNav`) permanece como está (já é enxuto).
+Em `src/routes/app.agenda-dia.tsx`, função `handleDelete`, **inverter a ordem**:
 
-## Pergunta antes de implementar
+1. Buscar a linha de `fila_espera` vinculada a `a.id`.
+2. Se existir, **primeiro** atualizar `fila_espera` para `status='aguardando'` + `agendamento_id=NULL` (atualiza os dois campos juntos → passa o trigger).
+3. **Depois** dar `DELETE` no agendamento. O FK `SET NULL` vira no-op (já está NULL) e o trigger não dispara erro.
+4. Manter o `update slots → livre` (idempotente, o trigger `fn_ag_after_delete` já faz isso também).
+5. Mostrar o toast adequado ("devolvido à fila" vs "excluído").
 
-Quero confirmar dois pontos:
+## Por que não mexer no banco
 
-1. **Painel de Chamada** (`/painel`) hoje está em Operação. Mantém lá ou prefere separar?
-2. Quer que eu mantenha **um único módulo aberto por vez** (mais limpo) ou **vários simultaneamente** (mais flexível)?
+- A FK `ON DELETE SET NULL` + o trigger de consistência são corretos como proteção contra órfãos. O bug é só a ordem de operações no cliente.
+- Mexer no trigger / FK exigiria migration e poderia abrir brecha pra estados inconsistentes vindos de outros caminhos.
+
+## Arquivos afetados
+
+- `src/routes/app.agenda-dia.tsx` (apenas a função `handleDelete`)
+
+Sem migration, sem outras telas tocadas.

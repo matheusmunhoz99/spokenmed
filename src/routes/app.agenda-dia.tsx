@@ -103,21 +103,23 @@ function AgendaDiaPage() {
   };
 
   const handleDelete = async (a: any) => {
-    const { error } = await supabase.from("agendamentos").delete().eq("id", a.id);
-    if (error) return toast.error(error.message);
-    if (a.slot_id) {
-      await supabase.from("slots").update({ status: "livre" }).eq("id", a.slot_id);
-    }
-    // Se veio da fila, devolve para fila preservando posição original
+    // 1) Liberar a fila ANTES do delete (FK ON DELETE SET NULL dispara trigger fn_fila_check_link
+    //    se a linha estiver com status='agendado' — então zeramos status+link juntos primeiro).
     const { data: filaItem } = await (supabase.from("fila_espera" as any) as any)
       .select("id").eq("agendamento_id", a.id).maybeSingle();
     if (filaItem?.id) {
-      await (supabase.from("fila_espera" as any) as any)
+      const { error: filaErr } = await (supabase.from("fila_espera" as any) as any)
         .update({ status: "aguardando", agendamento_id: null }).eq("id", filaItem.id);
-      toast.success("Agendamento excluído. Paciente devolvido à fila.");
-    } else {
-      toast.success("Agendamento excluído");
+      if (filaErr) return toast.error(filaErr.message);
     }
+    // 2) Deletar o agendamento
+    const { error } = await supabase.from("agendamentos").delete().eq("id", a.id);
+    if (error) return toast.error(error.message);
+    // 3) Liberar slot (idempotente — o trigger fn_ag_after_delete também faz isso)
+    if (a.slot_id) {
+      await supabase.from("slots").update({ status: "livre" }).eq("id", a.slot_id);
+    }
+    toast.success(filaItem?.id ? "Agendamento excluído. Paciente devolvido à fila." : "Agendamento excluído");
     setExcluir(null);
     qc.invalidateQueries({ queryKey: ["agenda-dia"] });
   };
