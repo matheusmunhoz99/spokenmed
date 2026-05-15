@@ -13,7 +13,7 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/use-auth";
 import { SemAcesso } from "@/components/sem-acesso";
-import { CsvImportDialog, type ColumnSpec, type ParsedRow, normName } from "@/components/csv-import-dialog";
+import { CsvImportDialog, type ColumnSpec, normName } from "@/components/csv-import-dialog";
 function ConfigGuard() {
   const { can } = useAuth();
   if (!can("unidades_especialidades")) return <SemAcesso />;
