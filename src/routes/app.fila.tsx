@@ -388,6 +388,9 @@ function FilaPage() {
               <div className="grid grid-cols-2 gap-2 rounded-md border bg-muted/30 p-3 text-xs">
                 <div className="col-span-2"><span className="text-muted-foreground">Paciente:</span><br /><strong className="text-sm">{removerItem.pacientes?.nome}</strong></div>
                 <div><span className="text-muted-foreground">Especialidade:</span><br />{removerItem.especialidades?.nome ?? "—"}</div>
+                <div><span className="text-muted-foreground">Unidade:</span><br />{removerItem.unidades?.nome ?? "—"}</div>
+                {removerItem.pacientes?.cpf && <div><span className="text-muted-foreground">CPF:</span><br />{formatCPF(removerItem.pacientes.cpf)}</div>}
+                {removerItem.pacientes?.data_nascimento && <div><span className="text-muted-foreground">Nascimento:</span><br />{formatDate(removerItem.pacientes.data_nascimento)}</div>}
                 <div><span className="text-muted-foreground">Urgência:</span><br /><Badge className={urgenciaBadgeClass(removerItem.urgencia)}>{URGENCIA_LABEL[removerItem.urgencia as Urgencia]}</Badge></div>
                 <div className="col-span-2"><span className="text-muted-foreground">Na fila desde:</span> {removerItem.created_at ? format(new Date(removerItem.created_at), "dd/MM/yyyy HH:mm") : "—"}</div>
               </div>
