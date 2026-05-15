@@ -151,8 +151,6 @@ function AgendarPage() {
   const handleAgendar = async () => {
     if (!canConfirm) return;
     setSubmitting(true);
-    const { error: e1 } = await supabase.from("slots").update({ status: "reservado" }).eq("id", slot.id).eq("status", "livre");
-    if (e1) { setSubmitting(false); return toast.error("Vaga não está mais livre."); }
     const { data: created, error: e2 } = await supabase.from("agendamentos").insert({
       slot_id: slot.id, paciente_id: paciente.id, profissional_id: profId, unidade_id: unidadeId,
       data, hora_inicio: slot.hora_inicio,
@@ -161,8 +159,15 @@ function AgendarPage() {
     }).select("id").single();
     setSubmitting(false);
     if (e2 || !created) {
-      await supabase.from("slots").update({ status: "livre" }).eq("id", slot.id);
-      return toast.error(e2?.message ?? "Erro ao agendar");
+      const msg = e2?.message ?? "";
+      let friendly = "Erro ao agendar";
+      if (msg.includes("slot_indisponivel")) friendly = "Esse horário acabou de ser reservado. Escolha outro.";
+      else if (msg.includes("slot_incoerente")) friendly = "Horário inválido para os filtros selecionados.";
+      else if (msg.includes("slot_inexistente")) friendly = "Horário não existe mais.";
+      else if (msg.toLowerCase().includes("permission")) friendly = "Sem permissão para agendar nesta unidade.";
+      else if (msg) friendly = msg;
+      qc.invalidateQueries({ queryKey: ["slots-ag"] });
+      return toast.error(friendly);
     }
     toast.success("Consulta agendada!");
     qc.invalidateQueries();
