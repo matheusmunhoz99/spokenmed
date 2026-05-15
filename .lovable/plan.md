@@ -1,169 +1,79 @@
-## Pacote de hardening + performance + robustez
+## Status atual
 
-Foco em alto impacto, baixo risco. Tudo isolado, sem refatorar lógica de negócio.
+**Bug crítico já corrigido na mensagem anterior:** funções `private.user_can_access_unidade`, `user_can_see_profissional` e `has_permission` chamavam `public.has_role` (que não existe — só existe em `private`). Isso quebrava praticamente tudo para usuários não-admin (cadastro de profissionais, agendas, fila, anexos).
 
----
+**Verificações automáticas que acabei de rodar:**
 
-### 1. Segurança (banco) — migration única
+- Linter Supabase: nenhum erro novo (os 6 warnings são funções intencionalmente públicas/admin já validadas internamente)
+- Nenhuma outra função no banco referencia `public.has_role`/`public.is_authenticated_staff`/etc.
+- Todas as chamadas `.rpc(...)` no frontend apontam para funções existentes (`gerar_slots`, `log_view`, `log_auth`, `log_export`, `cidadao_consultar`)
+- 2 usuários no sistema: `admin@opportunity.com` (admin) e `m.gomesscouto@gmail.com` (recepcionista)
 
-```text
-a) Rate limit em cidadao_consultar
-   - Nova tabela cidadao_consulta_tentativas (ip, codigo, cpf_hash, created_at)
-   - Função verifica: máx 5 tentativas/minuto por IP, 20/hora por CPF
-   - Bloqueia brute force no único endpoint público
+## O que preciso de você para o teste tela-a-tela
 
-b) Política de INSERT em profiles
-   - profiles_insert_self: WITH CHECK (id = auth.uid())
-   - Hoje só o trigger handle_new_user cria; preventivo
+A sessão do navegador da minha ferramenta **não compartilha** o login do seu preview — é uma sessão Chrome separada. Para entrar no `/app` preciso da **senha do `admin@opportunity.com**`.
 
-c) Filtragem de realtime por unidade
-   - Política realtime.messages restringida a staff + 
-     verificação de claim do tópico (formato "unidade:<uuid>")
-   - Atualizar src/lib/realtime para usar canais nomeados por unidade
-   - Recepcionista da Unidade A não escuta mais eventos da B
+Como prefere que eu prossiga?
 
-d) Trigger de validação de CPF/CNS em pacientes
-   - Hoje aceita qualquer string; adicionar CHECK via trigger
-     (CPF: 11 dígitos + algoritmo, CNS: 15 dígitos + algoritmo)
-   - Bloqueia digitação errada antes de salvar
+## Plano de teste (quando tiver a senha)
 
-e) Índices faltantes (performance + RLS)
-   - agendamentos(data, profissional_id) — agenda do dia
-   - agendamentos(paciente_id) — histórico do paciente
-   - slots(profissional_id, data, status) — busca de horários livres
-   - audit_logs(user_id, created_at DESC) — central de auditoria
-   - fila_espera(unidade_id, status, urgencia) — listagem fila
-```
+Vou rodar este roteiro como `admin`, capturando print + log de console + log de rede em cada etapa, e parando IMEDIATAMENTE para corrigir qualquer erro encontrado:
 
-### 2. Auth/segurança — código
+**1. Cadastros (Admin)**
 
-```text
-f) Habilitar HIBP (verificação de senha vazada) via configure_auth
-   - Rejeita senhas comprometidas no signup/troca
+- Criar uma Unidade
+- Criar um Profissional vinculado a essa unidade (o bug que você reportou)
+- Criar uma Especialidade e um Procedimento
+- Criar uma Agenda + gerar slots (`gerar_slots`)
 
-g) Throttle no login
-   - Hoje sem proteção; adicionar contador client-side + delay
-     progressivo após 3 tentativas falhas (UX), backstop server
-     já existe via Supabase
+**2. Operação (Recepcionista)**
 
-h) Tornar tempo de idle-logout configurável
-   - src/hooks/use-idle-logout.tsx hoje hardcoded
-   - Ler de uma config admin (tabela app_config) com default 15min
-```
+- Cadastrar um Paciente novo (validando sanitização CPF/CNS)
+- Agendar paciente em um slot
+- Reagendar (deve liberar slot anterior)
+- Cancelar (deve liberar slot e voltar fila)
+- Criar encaixe (sem slot, com justificativa)
+- Adicionar à Fila de Espera + vincular a agendamento
+- Anexar documento ao agendamento
 
-### 3. Performance — frontend
+**3. Painel / Atendimento**
 
-```text
-i) Lazy-load das rotas pesadas
-   - src/routes/app.auditoria.tsx, app.relatorios.tsx, app.agendas.tsx
-   - Componentes de PDF (pdf-agenda, pdf-comprovante) já são pesados
-     — code-split via dynamic import
+- Chamar paciente (insere em `chamadas`, dispara realtime)
+- Verificar painel `/painel` recebendo o evento
 
-j) Preload de fonte + LCP image no __root
-   - <link rel="preload" as="font"> nas fontes Inter
-   - Reduz CLS e FOIT
+**4. Cidadão (público, sem login)**
 
-k) React Query — defaults globais
-   - staleTime: 30s (hoje 0 → refetch a cada foco)
-   - gcTime: 5min
-   - refetchOnWindowFocus: false em listas grandes
-   - Reduz drasticamente tráfego e re-render
+- Consultar com CPF + código válido → ver dados
+- Consultar com código errado 11x → validar rate limit (P0010)
 
-l) Memo nas tabelas grandes
-   - Agenda do dia, fila, pacientes: virtualizar lista quando >50 itens
-     (TanStack Virtual já no projeto? confirmar; senão react-window)
+**5. Auditoria & Permissões (Admin)**
 
-m) Debounce nos campos de busca
-   - app.pacientes (busca por nome/CPF) hoje refaz query a cada tecla
-   - 300ms debounce
-```
+- Visualizar tela de Auditoria (logs gerados pelos passos acima)
+- Visualizar Permissões/Usuários, atribuir módulo a recepcionista
+- Trocar de usuário e validar que vê só o que tem permissão
 
-### 4. Robustez / a prova de erros
+**6. Login**
 
-```text
-n) Error boundaries por rota
-   - errorComponent + notFoundComponent em TODAS as rotas /app/*
-   - Hoje só __root tem; um erro em /app/agenda-dia quebra tudo
+- Logout/login (gerar log_auth)
+- Forçar 3 falhas e ver throttle progressivo
 
-o) Retry automático em mutations falhas
-   - React Query retry: 2 tentativas com backoff exponencial
-   - Toast amigável em vez de erro técnico
+## Tipos de bugs que vou caçar
 
-p) Optimistic updates onde faz sentido
-   - Marcar presente / cancelar agendamento já tem; revisar fila e chamadas
+- Mensagens de erro técnicas vazando para usuário (ex.: códigos PostgreSQL crus)
+- Estados de loading travados / queries que não invalidam
+- Form sem validação client-side suficiente
+- Botões que não dão feedback (toast) após ação
+- Layouts quebrados em desktop 1399px (viewport atual)
+- Race conditions em mutations sequenciais (delete + insert em `profissional_unidades`)
+- Permissões mostrando opções que o usuário não pode executar
+- Realtime que não atualiza sem refresh
 
-q) Sentry-like log centralizado (sem dependência externa)
-   - src/lib/error-capture já existe; estender pra mandar erros
-     client → server fn → audit_logs (acao='CLIENT_ERROR')
-   - Permite ver erros reais em produção
+## Alternativas se você não quiser passar a senha
 
-r) Fallback de rede offline
-   - Service Worker já existe (PWA); adicionar página offline
-     amigável + cache de read-only (lista de unidades, especialidades)
-```
+A. Eu **reseto a senha do admin** via SQL (gera senha temporária, te entrego, você troca depois)
+B. Você cria um **usuário de teste** novo (`teste@spokenmed.local` / senha simples) só pra eu usar, e depois deleta
+C. Eu testo apenas os fluxos públicos (`/`, `/cidadao`, `/painel/<unidade>`) que não exigem login
 
-### 5. Observabilidade
-
-```text
-s) Health check endpoint
-   - /api/public/health → checa DB + auth, retorna {ok, latency}
-   - Útil pra monitoramento externo
-
-t) Web Vitals reporting
-   - src/lib/web-vitals.ts → envia LCP/INP/CLS pra audit_logs
-   - Sem dependência externa, dá pra ver perf real dos usuários
-```
-
----
-
-### Arquivos afetados
-
-**Migrations (2 novas):**
-- `supabase/migrations/<ts>_security_perf_hardening.sql` — itens a-e
-- `supabase/migrations/<ts>_app_config.sql` — item h
-
-**Código novo:**
-- `src/lib/cidadao-rate-limit.ts`
-- `src/lib/cpf-cns-validator.ts`
-- `src/lib/web-vitals.ts`
-- `src/lib/error-report.functions.ts`
-- `src/components/offline-fallback.tsx`
-- `src/routes/api/public/health.ts`
-
-**Código editado:**
-- `src/router.tsx` — defaults do React Query, retry global
-- `src/routes/__root.tsx` — preload de fontes, error boundary global, web vitals
-- `src/routes/app.*.tsx` (todas) — adicionar errorComponent
-- `src/routes/app.auditoria.tsx`, `app.relatorios.tsx`, `app.agendas.tsx` — lazy-load
-- `src/routes/login.tsx` — throttle progressivo
-- `src/routes/cidadao.tsx` — chamar rate-limit antes do RPC
-- `src/hooks/use-idle-logout.tsx` — ler config
-- `src/hooks/use-realtime-*.ts` — canais por unidade
-- `src/lib/error-capture.ts` — pipe pra audit_logs
-- `src/components/app-sidebar.tsx` — debounce na busca (se tiver)
-
-**Configurações:**
-- `configure_auth` — habilitar HIBP
-
----
-
-### O que **NÃO** vou tocar
-
-- Lógica de negócio (RLS, triggers de agendamento, fila) — já validada
-- `client.ts`, `client.server.ts`, `auth-middleware.ts`, `types.ts` — auto-gerados
-- FKs lógicas — decisão consciente (auditoria + histórico cobrem)
-- Migrar mutations cliente→serverFn em massa — refator grande, fora de escopo
-- Schema das tabelas existentes (só adicionar índices e políticas)
-
-### Garantias de não-regressão
-
-- Nenhuma migração faz `DROP` de tabela/coluna/política existente
-- Mudanças de RLS são **aditivas** (novas políticas, não substituição)
-- Cada item é independente — se um falhar, os outros continuam valendo
-- Testo a sessão atual de login + agendamento + fila depois de aplicar
-
----
-
-### Tempo estimado
-
-3 lotes (segurança DB → frontend perf → robustez/obs), ~5-7 turnos de implementação.
+Me diga qual e seguimos.  
+  
+use [admin@opportunity.com](mailto:admin@opportunity.com) senha Xofome23@ ja tem criado
