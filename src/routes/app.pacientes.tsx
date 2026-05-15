@@ -331,12 +331,24 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
             <Input value={form.nome_mae ?? ""} onChange={(e) => set("nome_mae", e.target.value)} />
           </Field>
           <Field label="CPF">
-            <Input
-              value={formatCPF(form.cpf ?? "")}
-              onChange={(e) => { set("cpf", e.target.value); if (cpfErro) setCpfErro(null); }}
-              onBlur={handleCpfBlur}
-              aria-invalid={!!cpfErro}
-            />
+            <div className="flex gap-2">
+              <Input
+                value={formatCPF(form.cpf ?? "")}
+                onChange={(e) => { set("cpf", e.target.value); if (cpfErro) setCpfErro(null); }}
+                onBlur={handleCpfBlur}
+                aria-invalid={!!cpfErro}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                title="Buscar dados no CadSUS"
+                disabled={cadsusLoading}
+                onClick={handleBuscarCadSus}
+              >
+                {cadsusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              </Button>
+            </div>
             {cpfErro && <p className="text-xs text-destructive mt-1">{cpfErro}</p>}
           </Field>
           <Field label="Cartão SUS (CNS)"><Input value={formatCNS(form.cns ?? "")} onChange={(e) => set("cns", e.target.value)} /></Field>
