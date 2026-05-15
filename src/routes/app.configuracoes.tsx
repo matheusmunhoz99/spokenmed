@@ -21,6 +21,53 @@ function ConfigGuard() {
 }
 export const Route = createFileRoute("/app/configuracoes")({ component: ConfigGuard });
 
+const unidadeColumns: ColumnSpec[] = [
+  {
+    key: "nome", label: "Nome", required: true,
+    aliases: ["unidade", "estabelecimento", "nome_unidade", "nome_estabelecimento", "razao_social"],
+    transform: (v) => v.replace(/\s+/g, " ").trim(),
+    validate: (v) => (String(v).length < 2 ? "nome muito curto" : null),
+  },
+  {
+    key: "cnes", label: "CNES", required: true,
+    aliases: ["codigo_cnes", "cod_cnes", "cnes_unidade"],
+    transform: (v) => v.replace(/\D/g, ""),
+    validate: (v) => (String(v).length !== 7 ? "CNES deve ter 7 dígitos" : null),
+  },
+  { key: "endereco", label: "Endereço", aliases: ["logradouro", "address"], transform: (v) => v.trim() || "" },
+  { key: "telefone", label: "Telefone", aliases: ["fone", "tel", "phone"], transform: (v) => v.trim() || "" },
+];
+
+const procedimentoColumns: ColumnSpec[] = [
+  {
+    key: "codigo_sigtap", label: "Código SIGTAP", required: true,
+    aliases: ["codigo", "cod_sigtap", "sigtap", "cod_procedimento", "codigo_procedimento", "co_procedimento"],
+    transform: (v) => v.replace(/\D/g, ""),
+    validate: (v) => {
+      const s = String(v);
+      if (s.length < 7 || s.length > 10) return "código SIGTAP deve ter 7 a 10 dígitos";
+      return null;
+    },
+  },
+  {
+    key: "nome", label: "Descrição", required: true,
+    aliases: ["descricao", "nome_procedimento", "ds_procedimento", "procedimento"],
+    transform: (v) => v.replace(/\s+/g, " ").trim(),
+    validate: (v) => (String(v).length < 3 ? "descrição muito curta" : null),
+  },
+  {
+    key: "valor_sus", label: "Valor SUS", aliases: ["valor", "vl_sus", "valor_total", "vl_total"],
+    transform: (v) => {
+      const s = v.trim().replace(/^R\$\s*/i, "").replace(/\./g, "").replace(",", ".");
+      if (!s) return null;
+      const n = Number(s);
+      return Number.isFinite(n) ? n : null;
+    },
+    validate: (v) => (v !== null && v !== undefined && (typeof v !== "number" || v < 0) ? "valor inválido" : null),
+  },
+];
+
+
 function ConfigPage() {
   return (
     <div className="space-y-6">
