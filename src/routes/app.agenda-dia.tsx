@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2, Download, Trash2, Megaphone, CalendarClock, History, Zap, Plus, Paperclip } from "lucide-react";
+import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2, Download, Trash2, Megaphone, CalendarClock, History, Zap, Plus, Paperclip, ListOrdered } from "lucide-react";
 import { LoadingState } from "@/components/loading-state";
 import { EmptyState } from "@/components/empty-state";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { StatusBadge } from "./app.index";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { formatTime } from "@/lib/format";
 import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { useAuth } from "@/hooks/use-auth";
@@ -50,6 +52,8 @@ function AgendaDiaPage() {
   const [profId, setProfId] = useState<string>("all");
   const [chamar, setChamar] = useState<any>(null);
   const [excluir, setExcluir] = useState<any>(null);
+  const [motivoExclusao, setMotivoExclusao] = useState("");
+  const [excluindo, setExcluindo] = useState(false);
   const [reagendar, setReagendar] = useState<any>(null);
   const [historico, setHistorico] = useState<any>(null);
   const [encaixeOpen, setEncaixeOpen] = useState(false);
@@ -102,26 +106,64 @@ function AgendaDiaPage() {
     qc.invalidateQueries({ queryKey: ["agenda-dia"] });
   };
 
+  // Pré-checa se o agendamento a excluir veio da fila
+  const { data: filaLink, isFetching: filaChecking } = useQuery({
+    queryKey: ["agenda-dia-fila-link", excluir?.id],
+    enabled: !!excluir?.id,
+    queryFn: async () => {
+      const { data } = await (supabase.from("fila_espera" as any) as any)
+        .select("id, especialidades(nome)").eq("agendamento_id", excluir.id).maybeSingle();
+      return data ?? null;
+    },
+  });
+
   const handleDelete = async (a: any) => {
-    // 1) Liberar a fila ANTES do delete (FK ON DELETE SET NULL dispara trigger fn_fila_check_link
-    //    se a linha estiver com status='agendado' — então zeramos status+link juntos primeiro).
-    const { data: filaItem } = await (supabase.from("fila_espera" as any) as any)
-      .select("id").eq("agendamento_id", a.id).maybeSingle();
-    if (filaItem?.id) {
-      const { error: filaErr } = await (supabase.from("fila_espera" as any) as any)
-        .update({ status: "aguardando", agendamento_id: null }).eq("id", filaItem.id);
-      if (filaErr) return toast.error(filaErr.message);
+    setExcluindo(true);
+    try {
+      // 1) Snapshot + histórico (preserva motivo após o DELETE; tabela não tem FK em cascata)
+      const snapshot = {
+        id: a.id,
+        data,
+        hora_inicio: a.hora_inicio,
+        paciente: a.pacientes?.nome,
+        paciente_id: a.paciente_id,
+        profissional: a.profissionais?.nome,
+        profissional_id: a.profissional_id,
+        unidade: a.unidades?.nome,
+        unidade_id: a.unidade_id,
+        status: a.status,
+        slot_id: a.slot_id,
+        is_encaixe: a.is_encaixe,
+        veio_da_fila: !!filaLink?.id,
+      };
+      await (supabase.from("agendamento_historico" as any) as any).insert({
+        agendamento_id: a.id,
+        evento: "excluido",
+        motivo: motivoExclusao.trim() || null,
+        de: snapshot,
+        user_id: user?.id ?? null,
+        user_email: user?.email ?? null,
+      });
+      // 2) Liberar a fila ANTES do delete (FK ON DELETE SET NULL dispara fn_fila_check_link)
+      if (filaLink?.id) {
+        const { error: filaErr } = await (supabase.from("fila_espera" as any) as any)
+          .update({ status: "aguardando", agendamento_id: null }).eq("id", filaLink.id);
+        if (filaErr) { toast.error(filaErr.message); return; }
+      }
+      // 3) Deletar o agendamento
+      const { error } = await supabase.from("agendamentos").delete().eq("id", a.id);
+      if (error) { toast.error(error.message); return; }
+      // 4) Liberar slot (idempotente)
+      if (a.slot_id) {
+        await supabase.from("slots").update({ status: "livre" }).eq("id", a.slot_id);
+      }
+      toast.success(filaLink?.id ? "Agendamento excluído. Paciente devolvido à fila." : "Agendamento excluído");
+      setExcluir(null);
+      setMotivoExclusao("");
+      qc.invalidateQueries({ queryKey: ["agenda-dia"] });
+    } finally {
+      setExcluindo(false);
     }
-    // 2) Deletar o agendamento
-    const { error } = await supabase.from("agendamentos").delete().eq("id", a.id);
-    if (error) return toast.error(error.message);
-    // 3) Liberar slot (idempotente — o trigger fn_ag_after_delete também faz isso)
-    if (a.slot_id) {
-      await supabase.from("slots").update({ status: "livre" }).eq("id", a.slot_id);
-    }
-    toast.success(filaItem?.id ? "Agendamento excluído. Paciente devolvido à fila." : "Agendamento excluído");
-    setExcluir(null);
-    qc.invalidateQueries({ queryKey: ["agenda-dia"] });
   };
 
   return (
@@ -250,17 +292,71 @@ function AgendaDiaPage() {
         userId={user?.id}
       />
 
-      <AlertDialog open={!!excluir} onOpenChange={(v) => !v && setExcluir(null)}>
+      <AlertDialog open={!!excluir} onOpenChange={(v) => { if (!v) { setExcluir(null); setMotivoExclusao(""); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir agendamento?</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" /> Excluir agendamento?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação removerá permanentemente o agendamento de <strong>{excluir?.pacientes?.nome}</strong> às {excluir && formatTime(excluir.hora_inicio)}. O horário voltará a ficar livre.
+              Esta ação é permanente. Verifique os dados antes de confirmar.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {excluir && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 rounded-md border bg-muted/30 p-3 text-xs">
+                <div><span className="text-muted-foreground">Paciente:</span><br /><strong className="text-sm">{excluir.pacientes?.nome}</strong></div>
+                <div><span className="text-muted-foreground">Horário:</span><br /><strong className="text-sm">{formatTime(excluir.hora_inicio)}</strong></div>
+                <div className="col-span-2"><span className="text-muted-foreground">Profissional:</span> {excluir.profissionais?.nome}{excluir.profissionais?.especialidades?.nome ? ` · ${excluir.profissionais.especialidades.nome}` : ""}</div>
+                {excluir.unidades?.nome && (
+                  <div className="col-span-2"><span className="text-muted-foreground">Unidade:</span> {excluir.unidades.nome}</div>
+                )}
+              </div>
+
+              {filaChecking ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Verificando vínculo com a fila…
+                </div>
+              ) : filaLink?.id ? (
+                <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+                  <ListOrdered className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <strong>Paciente veio da fila de espera{(filaLink as any)?.especialidades?.nome ? ` (${(filaLink as any).especialidades.nome})` : ""}.</strong>
+                    <div>Ao excluir, ele será devolvido à fila com status <em>aguardando</em>.</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-md border bg-muted/20 p-2 text-xs text-muted-foreground">
+                  Este agendamento não está vinculado à fila de espera. O horário voltará a ficar livre.
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="motivo-exclusao" className="text-xs">Motivo da exclusão (opcional)</Label>
+                <Textarea
+                  id="motivo-exclusao"
+                  placeholder="Ex.: paciente desistiu, agendamento duplicado, erro de cadastro…"
+                  value={motivoExclusao}
+                  onChange={(e) => setMotivoExclusao(e.target.value.slice(0, 500))}
+                  rows={2}
+                />
+                <div className="text-[10px] text-muted-foreground">
+                  Será registrado no histórico do paciente e na auditoria.
+                </div>
+              </div>
+            </div>
+          )}
+
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => excluir && handleDelete(excluir)}>Excluir</AlertDialogAction>
+            <AlertDialogCancel disabled={excluindo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={excluindo || filaChecking}
+              onClick={(e) => { e.preventDefault(); excluir && handleDelete(excluir); }}
+            >
+              {excluindo ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Excluindo…</> : "Confirmar exclusão"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -175,7 +175,15 @@ function AuditoriaPage() {
               </CardTitle>
               <CardDescription>Registro completo e imutável de todas as operações sensíveis.</CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={acao === "DELETE" ? "default" : "outline"}
+                size="sm"
+                onClick={() => { setAcao(acao === "DELETE" ? "all" : "DELETE"); setPage(0); }}
+                title="Mostrar apenas exclusões"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Exclusões
+              </Button>
               <Button variant="outline" size="sm" onClick={() => refetch()}>
                 <Filter className="mr-2 h-4 w-4" /> Atualizar
               </Button>
