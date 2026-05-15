@@ -66,11 +66,25 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   return brandedErrorResponse();
 }
 
+let envLogged = false;
+function logEnvOnce(env: unknown) {
+  if (envLogged) return;
+  envLogged = true;
+  try {
+    const keys = env && typeof env === "object" ? Object.keys(env as Record<string, unknown>) : [];
+    const hasBrowser = !!(env as Record<string, unknown> | null)?.BROWSER;
+    console.log("[wrapper] env keys:", keys.join(",") || "(none)", "BROWSER=", hasBrowser);
+  } catch (e) {
+    console.log("[wrapper] env introspection failed", e);
+  }
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       // Expose Cloudflare bindings (e.g. env.BROWSER) to server-only modules.
       (globalThis as unknown as { __CF_ENV?: unknown }).__CF_ENV = env;
+      logEnvOnce(env);
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
