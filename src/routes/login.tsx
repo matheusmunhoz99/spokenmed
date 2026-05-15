@@ -18,6 +18,9 @@ function LoginPage() {
   const [failures, setFailures] = useState(0);
   const [lockUntil, setLockUntil] = useState(0);
   const [, setTick] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (!loading && user) navigate({ to: "/app" });
@@ -30,7 +33,7 @@ function LoginPage() {
     return () => window.clearInterval(id);
   }, [lockUntil]);
 
-  const remainingLock = Math.max(0, Math.ceil((lockUntil - Date.now()) / 1000));
+  const remainingLock = mounted ? Math.max(0, Math.ceil((lockUntil - Date.now()) / 1000)) : 0;
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
