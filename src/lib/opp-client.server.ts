@@ -334,17 +334,17 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
       preview: maskPreview(r.text, secrets),
       note: token ? "token ambulatorio extraído" : "setUrl(...ambulatorio...) ausente",
     });
- console.log("[opp] step=login", {
-  status: r.res.status,
-  bodyLen: r.text.length,
-  hasToken: !!token,
-  preview: maskPreview(r.text, secrets).slice(0, 200),
-});
-
-console.log("LOGIN_RESPONSE_START");
-console.log(r.text.slice(0, 4000));
-console.log("LOGIN_RESPONSE_END");
+    console.log("[opp] step=login", {
+      status: r.res.status,
+      bodyLen: r.text.length,
+      hasToken: !!token,
+      preview: maskPreview(r.text, secrets).slice(0, 200),
     });
+
+    console.log("LOGIN_RESPONSE_START");
+    console.log(r.text.slice(0, 4000));
+    console.log("LOGIN_RESPONSE_END");
+
     if (!token) {
       throw new OppError(
         "login_invalido",
