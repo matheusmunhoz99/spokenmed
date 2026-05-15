@@ -72,6 +72,8 @@ function FilaPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [agendarItem, setAgendarItem] = useState<any>(null);
   const [removerItem, setRemoverItem] = useState<any>(null);
+  const [motivoRemover, setMotivoRemover] = useState("");
+  const [removendo, setRemovendo] = useState(false);
 
   useEffect(() => {
     if (!unidadeId && unidadesAllowed?.length) setUnidadeId(unidadesAllowed[0].id);
