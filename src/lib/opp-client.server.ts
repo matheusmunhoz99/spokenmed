@@ -96,12 +96,21 @@ function extractSId(text: string): string | null {
   const patterns = [
     /_S_ID["']?\s*[:=]\s*["']([^"']+)["']/i,
     /name=["']_S_ID["']\s+value=["']([^"']+)["']/i,
-    /[?&]_S_ID=([A-Za-z0-9._-]+)/,
+    /(?:[?&]_S_ID=|_S_ID%3D)([A-Za-z0-9._-]+)/i,
+    /cache\/sis_dll\/([A-Za-z0-9._-]+)\//i,
   ];
+
   for (const re of patterns) {
     const m = text.match(re);
-    if (m && m[1]) return m[1];
+
+    if (m?.[1]) {
+      return m[1]
+        .replace(/^_S_ID=/i, "")
+        .replace(/%3D/gi, "")
+        .trim();
+    }
   }
+
   return null;
 }
 
@@ -348,11 +357,11 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
     console.log("LOGIN_RESPONSE_START");
     console.log(r.text.slice(0, 4000));
     console.log("LOGIN_RESPONSE_END");
-    const sidMatch = r.text.match(/_S_ID=([A-Za-z0-9_]+)/);
+    const sidMatch = r.text.match(/_S_ID(?:%3D|=)([A-Za-z0-9._-]+)/i);
 
     if (sidMatch?.[1]) {
       console.log("NOVO_SID", sidMatch[1]);
-      sId = sidMatch[1];
+      sId = sidMatch[1].trim();
     }
 
     if (!token) {
@@ -377,6 +386,8 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
     console.log("AMB_HTML_END");
     const newSid = extractSId(ambHtml);
     if (newSid) ambSid = newSid;
+    console.log("FINAL_AMB_SID", ambSid);
+    console.log("COOKIES_FINAL", Array.from(jar.entries()));
     trace?.push({
       step: "GET /ambulatorio/?user=***",
       ok: ambRes.status === 200,
@@ -442,7 +453,7 @@ function extractSetText(js: string, objId: string): string | null {
 }
 
 function looksLikeLoggedOut(js: string): boolean {
-  return /login|sess[aã]o|expirad|_S_ID inv/i.test(js) && !/setText\(/i.test(js);
+  return /login|sess[aã]o|expirad|session not found|_S_ID inv/i.test(js) && !/setText\(/i.test(js);
 }
 
 async function performLookup(session: Session, cpf: string, trace?: TraceStep[]): Promise<string> {
