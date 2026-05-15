@@ -52,9 +52,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(sess?.user ?? null);
       if (sess?.user) {
         setTimeout(() => loadUserData(sess.user.id), 0);
-        if (event === "SIGNED_IN") {
-          setTimeout(() => { import("@/lib/audit").then((m) => m.logAuth("LOGIN")); }, 0);
-        }
       } else {
         if (event === "SIGNED_OUT") {
           import("@/lib/audit").then((m) => m.logAuth("LOGOUT"));
@@ -88,6 +85,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn: AuthContextType["signIn"] = async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error) {
+      setTimeout(() => { import("@/lib/audit").then((m) => m.logAuth("LOGIN")); }, 0);
+    }
     return { error: error?.message ?? null };
   };
 
