@@ -10,7 +10,17 @@ import { ShortcutsHelp } from "@/components/shortcuts-help";
 import { Button } from "@/components/ui/button";
 import { Keyboard, Loader2 } from "lucide-react";
 
-export const Route = createFileRoute("/app")({ component: AppLayout });
+export const Route = createFileRoute("/app")({
+  beforeLoad: async () => {
+    // Server/client-side gate: ensure session is hydrated before children load.
+    if (typeof window === "undefined") return;
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      throw redirect({ to: "/login" });
+    }
+  },
+  component: AppLayout,
+});
 
 const titles: Record<string, string> = {
   "/app": "Painel",
