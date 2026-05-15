@@ -368,6 +368,9 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
     const ambRes = await timedFetch(ambUrl, { headers: commonHeaders(jar, sisIndex) });
     const sc = ingestSetCookies(ambRes, jar);
     const ambHtml = await ambRes.text();
+    console.log("AMB_HTML_START");
+    console.log(ambHtml.slice(0, 4000));
+    console.log("AMB_HTML_END");
     const newSid = extractSId(ambHtml);
     if (newSid) ambSid = newSid;
     trace?.push({
