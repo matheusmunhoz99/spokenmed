@@ -472,6 +472,9 @@ async function performLookup(session: Session, cpf: string, trace?: TraceStep[])
     _seq_: String(seqCounter++),
     _uo_: "O112A",
   });
+  console.log("LOOKUP_RESPONSE_START");
+  console.log(r.text.slice(0, 4000));
+  console.log("LOOKUP_RESPONSE_END");
   const setTextCount = (r.text.match(/setText\(/g) ?? []).length;
   trace?.push({
     step: "POST lookup CPF",
