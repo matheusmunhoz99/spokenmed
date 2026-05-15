@@ -8,17 +8,65 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/use-auth";
 import { SemAcesso } from "@/components/sem-acesso";
+import { CsvImportDialog, type ColumnSpec, normName } from "@/components/csv-import-dialog";
 function ConfigGuard() {
   const { can } = useAuth();
   if (!can("unidades_especialidades")) return <SemAcesso />;
   return <ConfigPage />;
 }
 export const Route = createFileRoute("/app/configuracoes")({ component: ConfigGuard });
+
+const unidadeColumns: ColumnSpec[] = [
+  {
+    key: "nome", label: "Nome", required: true,
+    aliases: ["unidade", "estabelecimento", "nome_unidade", "nome_estabelecimento", "razao_social"],
+    transform: (v) => v.replace(/\s+/g, " ").trim(),
+    validate: (v) => (String(v).length < 2 ? "nome muito curto" : null),
+  },
+  {
+    key: "cnes", label: "CNES", required: true,
+    aliases: ["codigo_cnes", "cod_cnes", "cnes_unidade"],
+    transform: (v) => v.replace(/\D/g, ""),
+    validate: (v) => (String(v).length !== 7 ? "CNES deve ter 7 dígitos" : null),
+  },
+  { key: "endereco", label: "Endereço", aliases: ["logradouro", "address"], transform: (v) => v.trim() || "" },
+  { key: "telefone", label: "Telefone", aliases: ["fone", "tel", "phone"], transform: (v) => v.trim() || "" },
+];
+
+const procedimentoColumns: ColumnSpec[] = [
+  {
+    key: "codigo_sigtap", label: "Código SIGTAP", required: true,
+    aliases: ["codigo", "cod_sigtap", "sigtap", "cod_procedimento", "codigo_procedimento", "co_procedimento"],
+    transform: (v) => v.replace(/\D/g, ""),
+    validate: (v) => {
+      const s = String(v);
+      if (s.length < 7 || s.length > 10) return "código SIGTAP deve ter 7 a 10 dígitos";
+      return null;
+    },
+  },
+  {
+    key: "nome", label: "Descrição", required: true,
+    aliases: ["descricao", "nome_procedimento", "ds_procedimento", "procedimento"],
+    transform: (v) => v.replace(/\s+/g, " ").trim(),
+    validate: (v) => (String(v).length < 3 ? "descrição muito curta" : null),
+  },
+  {
+    key: "valor_sus", label: "Valor SUS", aliases: ["valor", "vl_sus", "valor_total", "vl_total"],
+    transform: (v) => {
+      const s = v.trim().replace(/^R\$\s*/i, "").replace(/\./g, "").replace(",", ".");
+      if (!s) return null;
+      const n = Number(s);
+      return Number.isFinite(n) ? n : null;
+    },
+    validate: (v) => (v !== null && v !== undefined && (typeof v !== "number" || v < 0) ? "valor inválido" : null),
+  },
+];
+
 
 function ConfigPage() {
   return (
@@ -59,7 +107,53 @@ function UnidadesCard() {
 
   return (
     <Card>
-      <CardHeader><CardTitle>Unidades de Saúde</CardTitle><CardDescription>UBS, postos, hospitais municipais.</CardDescription></CardHeader>
+      <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+        <div>
+          <CardTitle>Unidades de Saúde</CardTitle>
+          <CardDescription>UBS, postos, hospitais municipais.</CardDescription>
+        </div>
+        <CsvImportDialog
+          trigger={<Button size="sm" variant="outline"><Upload className="h-4 w-4 mr-1" />Importar CSV</Button>}
+          title="Importar unidades"
+          description="Faz match por CNES (preferencial) e por nome normalizado. Quando achar correspondência, atualiza; caso contrário, cria."
+          columns={unidadeColumns}
+          sampleFilename="modelo-unidades.csv"
+          sampleHeader={["nome", "cnes", "endereco", "telefone"]}
+          sampleRows={[
+            ["ESF Rio Claro Módulo I (Centro)", "6232205", "Rio Claro/RJ", ""],
+            ["Centro de Saúde Boa Vista", "6232272", "Boa Vista, Rio Claro/RJ", ""],
+          ]}
+          onImport={async (rows) => {
+            const existing = (await supabase.from("unidades").select("id, nome, cnes")).data ?? [];
+            const byCnes = new Map(existing.filter((u) => u.cnes).map((u) => [u.cnes!, u]));
+            const byNome = new Map(existing.map((u) => [normName(u.nome), u]));
+            let inserted = 0, updated = 0, skipped = 0;
+            for (const r of rows) {
+              const cnes = String(r.values.cnes ?? "");
+              const nome = String(r.values.nome ?? "");
+              const match = byCnes.get(cnes) ?? byNome.get(normName(nome));
+              const payload: any = {
+                nome,
+                cnes,
+                endereco: r.values.endereco || null,
+                telefone: r.values.telefone || null,
+                ativo: true,
+              };
+              if (match) {
+                const { error } = await supabase.from("unidades").update(payload).eq("id", match.id);
+                if (error) { skipped++; continue; }
+                updated++;
+              } else {
+                const { error } = await supabase.from("unidades").insert(payload);
+                if (error) { skipped++; continue; }
+                inserted++;
+              }
+            }
+            qc.invalidateQueries({ queryKey: ["unidades"] });
+            return { inserted, updated, skipped };
+          }}
+        />
+      </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-2 md:grid-cols-4">
           <div className="md:col-span-2 space-y-1.5"><Label className="text-xs">Nome *</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} /></div>
@@ -167,9 +261,48 @@ function ProcedimentosCard() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Procedimentos SIGTAP</CardTitle>
-        <CardDescription>Tabela de procedimentos do SUS para faturamento e relatórios. Use o código oficial SIGTAP.</CardDescription>
+      <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+        <div>
+          <CardTitle>Procedimentos SIGTAP</CardTitle>
+          <CardDescription>Tabela de procedimentos do SUS para faturamento e relatórios. Use o código oficial SIGTAP.</CardDescription>
+        </div>
+        <CsvImportDialog
+          trigger={<Button size="sm" variant="outline"><Upload className="h-4 w-4 mr-1" />Importar CSV</Button>}
+          title="Importar procedimentos SIGTAP"
+          description="Faz match pelo código SIGTAP. Existentes são atualizados; novos são inseridos."
+          columns={procedimentoColumns}
+          sampleFilename="modelo-sigtap.csv"
+          sampleHeader={["codigo_sigtap", "nome", "valor_sus"]}
+          sampleRows={[
+            ["0301010072", "CONSULTA MEDICA EM ATENCAO BASICA", "10,00"],
+            ["0101010010", "ACOES COLETIVAS/INDIVIDUAIS EM SAUDE", "0,00"],
+          ]}
+          onImport={async (rows) => {
+            const existing = (await supabase.from("procedimentos").select("id, codigo_sigtap")).data ?? [];
+            const byCod = new Map(existing.map((p) => [p.codigo_sigtap, p]));
+            let inserted = 0, updated = 0, skipped = 0;
+            for (const r of rows) {
+              const payload: any = {
+                codigo_sigtap: String(r.values.codigo_sigtap),
+                nome: String(r.values.nome),
+                valor_sus: r.values.valor_sus ?? null,
+                ativo: true,
+              };
+              const match = byCod.get(payload.codigo_sigtap);
+              if (match) {
+                const { error } = await supabase.from("procedimentos").update(payload).eq("id", match.id);
+                if (error) { skipped++; continue; }
+                updated++;
+              } else {
+                const { error } = await supabase.from("procedimentos").insert(payload);
+                if (error) { skipped++; continue; }
+                inserted++;
+              }
+            }
+            qc.invalidateQueries({ queryKey: ["procedimentos"] });
+            return { inserted, updated, skipped };
+          }}
+        />
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-2 md:grid-cols-12">
