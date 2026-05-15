@@ -383,6 +383,30 @@ export type Database = {
         }
         Relationships: []
       }
+      cidadao_consulta_tentativas: {
+        Row: {
+          cpf: string | null
+          created_at: string
+          id: string
+          ip: unknown
+          sucesso: boolean
+        }
+        Insert: {
+          cpf?: string | null
+          created_at?: string
+          id?: string
+          ip?: unknown
+          sucesso: boolean
+        }
+        Update: {
+          cpf?: string | null
+          created_at?: string
+          id?: string
+          ip?: unknown
+          sucesso?: boolean
+        }
+        Relationships: []
+      }
       especialidades: {
         Row: {
           ativo: boolean
