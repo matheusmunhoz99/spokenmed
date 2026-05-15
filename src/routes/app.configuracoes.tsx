@@ -60,7 +60,53 @@ function UnidadesCard() {
 
   return (
     <Card>
-      <CardHeader><CardTitle>Unidades de Saúde</CardTitle><CardDescription>UBS, postos, hospitais municipais.</CardDescription></CardHeader>
+      <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+        <div>
+          <CardTitle>Unidades de Saúde</CardTitle>
+          <CardDescription>UBS, postos, hospitais municipais.</CardDescription>
+        </div>
+        <CsvImportDialog
+          trigger={<Button size="sm" variant="outline"><Upload className="h-4 w-4 mr-1" />Importar CSV</Button>}
+          title="Importar unidades"
+          description="Faz match por CNES (preferencial) e por nome normalizado. Quando achar correspondência, atualiza; caso contrário, cria."
+          columns={unidadeColumns}
+          sampleFilename="modelo-unidades.csv"
+          sampleHeader={["nome", "cnes", "endereco", "telefone"]}
+          sampleRows={[
+            ["ESF Rio Claro Módulo I (Centro)", "6232205", "Rio Claro/RJ", ""],
+            ["Centro de Saúde Boa Vista", "6232272", "Boa Vista, Rio Claro/RJ", ""],
+          ]}
+          onImport={async (rows) => {
+            const existing = (await supabase.from("unidades").select("id, nome, cnes")).data ?? [];
+            const byCnes = new Map(existing.filter((u) => u.cnes).map((u) => [u.cnes!, u]));
+            const byNome = new Map(existing.map((u) => [normName(u.nome), u]));
+            let inserted = 0, updated = 0, skipped = 0;
+            for (const r of rows) {
+              const cnes = String(r.values.cnes ?? "");
+              const nome = String(r.values.nome ?? "");
+              const match = byCnes.get(cnes) ?? byNome.get(normName(nome));
+              const payload: any = {
+                nome,
+                cnes,
+                endereco: r.values.endereco || null,
+                telefone: r.values.telefone || null,
+                ativo: true,
+              };
+              if (match) {
+                const { error } = await supabase.from("unidades").update(payload).eq("id", match.id);
+                if (error) { skipped++; continue; }
+                updated++;
+              } else {
+                const { error } = await supabase.from("unidades").insert(payload);
+                if (error) { skipped++; continue; }
+                inserted++;
+              }
+            }
+            qc.invalidateQueries({ queryKey: ["unidades"] });
+            return { inserted, updated, skipped };
+          }}
+        />
+      </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-2 md:grid-cols-4">
           <div className="md:col-span-2 space-y-1.5"><Label className="text-xs">Nome *</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} /></div>
