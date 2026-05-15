@@ -246,6 +246,40 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
     setCpfErro(isValidCPF(d) ? null : "CPF inválido (dígitos verificadores não conferem).");
   };
 
+  const handleBuscarCadSus = async () => {
+    const d = onlyDigits(form.cpf ?? "");
+    if (d.length !== 11 || !isValidCPF(d)) {
+      toast.error("Informe um CPF válido (11 dígitos).");
+      return;
+    }
+    setCadsusLoading(true);
+    try {
+      const r = await buscarCadSus({ data: { cpf: d } });
+      if (!r.success) {
+        if (r.error === "cpf_nao_encontrado") toast.info("CPF não encontrado no CadSUS.");
+        else if (r.error === "config_ausente") toast.error("Integração CadSUS não configurada.");
+        else toast.error("CadSUS indisponível no momento.");
+        return;
+      }
+      setForm((f: any) => ({
+        ...f,
+        nome: f.nome?.trim() ? f.nome : (r.nome ?? f.nome),
+        cns: f.cns?.trim() ? f.cns : (r.cns ?? f.cns),
+        telefone: f.telefone?.trim() ? f.telefone : (r.telefone ?? f.telefone),
+        logradouro: f.logradouro?.trim() ? f.logradouro : (r.endereco ?? f.logradouro),
+        numero: f.numero?.trim() ? f.numero : (r.numero ?? f.numero),
+        bairro: f.bairro?.trim() ? f.bairro : (r.bairro ?? f.bairro),
+        cidade: f.cidade?.trim() ? f.cidade : (r.cidade ?? f.cidade),
+        uf: f.uf?.trim() ? f.uf : (r.uf ?? f.uf),
+      }));
+      toast.success("Dados do CadSUS preenchidos.");
+    } catch (e) {
+      toast.error("Falha ao consultar CadSUS.");
+    } finally {
+      setCadsusLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
