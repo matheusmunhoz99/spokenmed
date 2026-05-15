@@ -354,18 +354,61 @@ function FilaPage() {
         onDone={() => qc.invalidateQueries({ queryKey: ["fila", unidadeId] })}
       />
 
-      <AlertDialog open={!!removerItem} onOpenChange={(v) => !v && setRemoverItem(null)}>
+      <AlertDialog open={!!removerItem} onOpenChange={(v) => { if (!v) { setRemoverItem(null); setMotivoRemover(""); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover da fila?</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" /> Remover da fila?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {removerItem?.pacientes?.nome} sairá da fila de {removerItem?.especialidades?.nome}.
+              Esta ação marca o item como cancelado e o tira da fila ativa.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {removerItem && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 rounded-md border bg-muted/30 p-3 text-xs">
+                <div className="col-span-2"><span className="text-muted-foreground">Paciente:</span><br /><strong className="text-sm">{removerItem.pacientes?.nome}</strong></div>
+                <div><span className="text-muted-foreground">Especialidade:</span><br />{removerItem.especialidades?.nome ?? "—"}</div>
+                <div><span className="text-muted-foreground">Urgência:</span><br /><Badge className={urgenciaBadgeClass(removerItem.urgencia)}>{URGENCIA_LABEL[removerItem.urgencia as Urgencia]}</Badge></div>
+                <div className="col-span-2"><span className="text-muted-foreground">Na fila desde:</span> {removerItem.created_at ? format(new Date(removerItem.created_at), "dd/MM/yyyy HH:mm") : "—"}</div>
+              </div>
+
+              {removerItem.status === "agendado" && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <strong>Este item está vinculado a um agendamento ativo.</strong>
+                    <div>Recomenda-se cancelar/excluir pela Agenda do Dia em vez de remover diretamente daqui.</div>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="motivo-remover" className="text-xs">Motivo da remoção (opcional)</Label>
+                <Textarea
+                  id="motivo-remover"
+                  placeholder="Ex.: paciente desistiu, atendido por outro serviço, duplicado…"
+                  value={motivoRemover}
+                  onChange={(e) => setMotivoRemover(e.target.value.slice(0, 500))}
+                  rows={2}
+                />
+                <div className="text-[10px] text-muted-foreground">
+                  Será anexado às observações do item e ficará registrado na auditoria.
+                </div>
+              </div>
+            </div>
+          )}
+
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => removerItem && handleRemover(removerItem)}>Remover</AlertDialogAction>
+            <AlertDialogCancel disabled={removendo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={removendo}
+              onClick={(e) => { e.preventDefault(); removerItem && handleRemover(removerItem); }}
+            >
+              {removendo ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Removendo…</> : "Confirmar remoção"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
