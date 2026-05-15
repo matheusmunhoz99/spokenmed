@@ -254,7 +254,11 @@ async function bootstrapSession(trace?: TraceStep[]): Promise<Session> {
   }
 
   const sisHandle = `${baseUrl}/sis/sis.dll/HandleEvent`;
-  const baseFields = { Ajax: "1", IsEvent: "1", _S_ID: sId };
+  const baseFields = () => ({
+    Ajax: "1",
+    IsEvent: "1",
+    _S_ID: sId,
+  });
 
   // Step 2: username
   try {
