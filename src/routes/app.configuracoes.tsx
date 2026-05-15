@@ -302,30 +302,50 @@ function ProcedimentosCard() {
             ["0301010072", "CONSULTA MEDICA EM ATENCAO BASICA", "10,00"],
             ["0101010010", "ACOES COLETIVAS/INDIVIDUAIS EM SAUDE", "0,00"],
           ]}
-          onImport={async (rows) => {
-            const existing = (await supabase.from("procedimentos").select("id, codigo_sigtap")).data ?? [];
+          batchSize={100}
+          processBatch={async (rows) => {
+            const codigos = rows.map((r) => String(r.values.codigo_sigtap)).filter(Boolean);
+            const existing = codigos.length
+              ? ((await supabase.from("procedimentos").select("id, codigo_sigtap").in("codigo_sigtap", codigos)).data ?? [])
+              : [];
             const byCod = new Map(existing.map((p) => [p.codigo_sigtap, p]));
+
             let inserted = 0, updated = 0, skipped = 0;
+            const errors: Array<{ lineNumber: number; message: string }> = [];
+
+            const toInsert: Array<{ row: typeof rows[number]; payload: any }> = [];
+            const toUpdate: Array<{ row: typeof rows[number]; id: string; payload: any }> = [];
             for (const r of rows) {
-              const payload: any = {
+              const payload = {
                 codigo_sigtap: String(r.values.codigo_sigtap),
                 nome: String(r.values.nome),
                 valor_sus: r.values.valor_sus ?? null,
                 ativo: true,
               };
               const match = byCod.get(payload.codigo_sigtap);
-              if (match) {
-                const { error } = await supabase.from("procedimentos").update(payload).eq("id", match.id);
-                if (error) { skipped++; continue; }
-                updated++;
+              if (match) toUpdate.push({ row: r, id: match.id, payload });
+              else toInsert.push({ row: r, payload });
+            }
+
+            if (toInsert.length) {
+              const { data, error } = await supabase.from("procedimentos").insert(toInsert.map((x) => x.payload)).select("id");
+              if (error) {
+                for (const x of toInsert) {
+                  const { error: e2 } = await supabase.from("procedimentos").insert(x.payload);
+                  if (e2) { skipped++; errors.push({ lineNumber: x.row.lineNumber, message: e2.message }); }
+                  else inserted++;
+                }
               } else {
-                const { error } = await supabase.from("procedimentos").insert(payload);
-                if (error) { skipped++; continue; }
-                inserted++;
+                inserted += data?.length ?? toInsert.length;
               }
             }
+            for (const x of toUpdate) {
+              const { error } = await supabase.from("procedimentos").update(x.payload).eq("id", x.id);
+              if (error) { skipped++; errors.push({ lineNumber: x.row.lineNumber, message: error.message }); }
+              else updated++;
+            }
             qc.invalidateQueries({ queryKey: ["procedimentos"] });
-            return { inserted, updated, skipped };
+            return { inserted, updated, skipped, errors };
           }}
         />
       </CardHeader>
