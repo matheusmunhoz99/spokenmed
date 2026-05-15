@@ -207,7 +207,9 @@ function PacientesPage() {
 function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSaved: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
+  const [cadsusLoading, setCadsusLoading] = useState(false);
   const [cpfErro, setCpfErro] = useState<string | null>(null);
+  const buscarCadSus = useServerFn(buscarPacienteCpf);
   const [form, setForm] = useState<any>(editing ?? {
     nome: "", cpf: "", cns: "", rg: "", data_nascimento: "", sexo: "",
     nome_mae: "", telefone: "", email: "",
