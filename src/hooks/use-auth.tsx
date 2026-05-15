@@ -52,9 +52,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(sess?.user ?? null);
       if (sess?.user) {
         setTimeout(() => loadUserData(sess.user.id), 0);
-        if (event === "SIGNED_IN") {
-          setTimeout(() => { import("@/lib/audit").then((m) => m.logAuth("LOGIN")); }, 0);
-        }
       } else {
         if (event === "SIGNED_OUT") {
           import("@/lib/audit").then((m) => m.logAuth("LOGOUT"));
