@@ -85,6 +85,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn: AuthContextType["signIn"] = async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error) {
+      setTimeout(() => { import("@/lib/audit").then((m) => m.logAuth("LOGIN")); }, 0);
+    }
     return { error: error?.message ?? null };
   };
 
