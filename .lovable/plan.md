@@ -1,77 +1,74 @@
 
-## Diagnóstico
+## Problema real (revisado)
 
-O bootstrap atual faz:
-1. Login no `/sis/`
-2. Espera o iframe `box-1017` aparecer (timeout 45s) → **falha aqui**
+Dois sintomas no log:
 
-O que falta: após o login, o sistema cai na **tela principal do sis.dll** com menu/desktop. O iframe `ambulatorio.dll` só é criado quando o usuário clica no item de menu "Ambulatório". Sem esse clique, `waitForAmbulatoryFrame` espera 45s em vão e dispara `iframe_ambulatorio_ausente`.
+1. **Deploy desatualizado** — o erro impresso é `"[do] ambulatório iframe não apareceu. URL: ... html:"`, formato que só existe no código antigo. Os passos novos (`[do] step=goto_sis`, `step=submit_login`, `step=wait_desktop`, `step=open_ambulatorio`) não aparecem em lugar nenhum. Conclusão: o `npx wrangler deploy` rodado anteriormente não pegou as últimas mudanças, ou ainda não foi rodado depois do último edit.
 
-Depois que o módulo abre uma vez, os requests subsequentes para `HandleEvent` funcionam só com cookies + `_S_ID` — então só precisamos resolver a inicialização.
+2. **Submit do login não está navegando** — após o "submit" a URL continua `/sis/` (página de login). Isso significa que o `submitLogin` clicou em algo errado ou em nada, e o formulário nunca foi enviado. Por isso o iframe do ambulatório nunca aparece — o usuário sequer está logado.
 
-## Mudanças em `cloudflare-worker/src/fiorilli-do.js`
+## Passo 1 — Confirmar deploy
 
-### 1. Novo passo `openAmbulatoryModule(page)` entre `submitLogin` e `waitForAmbulatoryFrame`
-
-Após o submit do login, esperar a tela principal carregar e clicar no item de menu "Ambulatório". Estratégia em camadas (mais específica → mais genérica) para não depender de id frágil:
-
-```text
-a) Esperar que o login realmente passou:
-   - URL mudou de /sis/ para /sis/sis.dll/... OU
-   - Algum elemento do desktop principal apareceu (ex: barra de menu)
-   - Timeout curto (10s) — se não passou, é credencial/rate limit
-
-b) Localizar e clicar no item "Ambulatório":
-   - page.evaluate scaneia: button, a, div, span, li, td com role/title/text
-   - Match case-insensitive em /ambulat[óo]rio/
-   - Preferência por elementos com classe ExtJS típica (.x-btn-inner, .x-menu-item-text)
-   - Fallback: duplo-clique em ícone do desktop com mesmo texto
-
-c) Se nenhum match, dump dos textos visíveis do menu pra log
-   (primeiros 50 itens com texto) e lançar erro descritivo
-   "menu_ambulatorio_nao_encontrado"
-```
-
-### 2. Tornar `waitForAmbulatoryFrame` mais tolerante
-
-- Aceitar match por `src` contendo `ambulatorio.dll` OU `/ambulatorio/` (não depender do id `box-1017`, que pode mudar entre sessões/versões)
-- Reduzir timeout para 20s nessa etapa (depois do clique, aparece em ~2-5s)
-- Em caso de timeout, logar lista de todos os iframes presentes (id + src) para diagnóstico
-
-### 3. Logs estruturados em cada etapa do bootstrap
-
-```text
-[do] step=goto_sis status=ok url=...
-[do] step=submit_login status=ok
-[do] step=wait_desktop status=ok
-[do] step=open_ambulatorio status=ok via=menu_text
-[do] step=wait_iframe status=ok src=...
-[do] step=extract_sid status=ok
-```
-
-Assim, no próximo erro a gente sabe exatamente em qual passo morreu.
-
-### 4. Persistência da sessão já está OK
-
-Não mudar `persistSession`, `SESSION_TTL_MS`, parser, `rawLookup`. O fluxo HTTP puro continua igual depois que a sessão é criada.
-
-## Validação após deploy
-
-Rodar `curl` no terminal e checar os logs em tempo real:
+Antes de qualquer mudança de código, rodar:
 
 ```bash
 cd cloudflare-worker
 npx wrangler deploy
-npx wrangler tail
 ```
 
-Em outra aba:
-```bash
-curl.exe -H "x-api-key: Xofome23@" "https://spokenmed.meyssiner.workers.dev/cpf?cpf=34691780890"
+E garantir que a saída mostra `Total Upload` com timestamp novo. Depois rodar `npx wrangler tail` e disparar o curl. A primeira linha esperada é `[do] step=goto_sis status=ok url=...`. Se aparecer `[do] /sis/ loaded:` (formato antigo), o deploy não pegou — verificar se há outro projeto/worker com mesmo nome ou se o `wrangler.toml/jsonc` está apontando pro lugar certo.
+
+## Passo 2 — Diagnosticar o submit do login
+
+Assumindo que o deploy passou e o erro persiste, preciso entender por que o submit não navega. Plano:
+
+### 2a. Adicionar dump da página de login
+
+No `submitLogin`, antes de tentar clicar, listar todos os candidatos a botão de login (id, tag, texto, type) e logar. Isso revela se `#O40` ainda é válido:
+
+```text
+[do] login_form_buttons=[
+  {tag:"button", id:"O40", text:"Entrar"},
+  {tag:"input", type:"submit", id:"O42", value:"OK"},
+  ...
+]
 ```
 
-Resultado esperado: JSON com `ok:true` e dados do paciente. Se falhar, os logs `step=...` indicam exatamente onde quebrou e ajustamos o seletor do menu.
+### 2b. Esperar navegação depois do submit
 
-## Pergunta aberta (opcional)
+Hoje o código clica e segue direto. Adicionar `Promise.all([page.waitForNavigation({waitUntil:"networkidle0", timeout:15000}), submit])` ou esperar a URL conter `sis.dll`. Se o `waitForNavigation` der timeout, sabemos que o clique não disparou nada (botão errado) — e logamos isso explicitamente como `submit_login: navegacao_nao_ocorreu`.
 
-Se você souber o texto exato do item de menu (ex: "Ambulatório", "CadSUS", "Atendimento Ambulatorial"), me diga — eu coloco como primeiro match e os fallbacks como rede de segurança. Sem isso vou usar o regex `/ambulat[óo]rio/i` que cobre a maioria dos casos.
+### 2c. Verificar se há captcha / dialog / popup
+
+Alguns ExtJS abrem dialog de boas-vindas, news, ou aviso de senha expirando. Após o submit, scanear `.x-window` / `.x-message-box` visíveis e fechar (clicar OK) antes de prosseguir.
+
+### 2d. Tentar Enter no campo de senha como fallback
+
+Se nem o `#O40` nem o scan genérico funcionarem, focar o campo de senha e `keyboard.press("Enter")` — em forms ExtJS isso geralmente dispara o submit.
+
+## Passo 3 — Validar
+
+Mesmo curl de antes. Logs esperados em sequência:
+
+```
+[do] step=goto_sis status=ok url=https://.../sis/
+[do] login_form_buttons=[{...}]      ← novo dump
+[do] step=submit_login status=ok via=#O40 navegou=true
+[do] step=wait_desktop status=ok url=https://.../sis/sis.dll/...
+[do] step=open_ambulatorio status=ok via=ext:.x-btn-inner (Ambulatório)
+[do] step=wait_iframe status=ok src=https://.../ambulatorio/ambulatorio.dll/?_S_ID=...
+[do] step=extract_sid status=ok
+[do] session ready. cookies: N
+```
+
+Se algum passo falhar, o log do passo anterior diz exatamente o que veio.
+
+## Arquivos a tocar
+
+Só `cloudflare-worker/src/fiorilli-do.js`:
+- `submitLogin(page)` — adicionar dump de candidatos, `waitForNavigation` paralelo, dismiss de dialogs pós-login, fallback Enter.
+- Nenhuma outra função muda nessa rodada — `waitForDesktop`/`openAmbulatoryModule`/`waitForAmbulatoryFrame` já estão no estado certo, só não foram deployadas.
+
+## Pergunta pra você
+
+Antes de aprovar o plano: você confirma que rodou `npx wrangler deploy` **depois** do meu último edit? Se sim, manda a última linha do output do deploy (`Uploaded spokenmed (X.XX sec)` ou similar) — me ajuda a descartar problema de cache.

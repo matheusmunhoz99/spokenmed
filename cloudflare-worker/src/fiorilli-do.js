@@ -311,30 +311,89 @@ export class FiorilliDO {
   }
 
   async submitLogin(page) {
-    const selectors = ["#O40", "[id='O40']", "button[type='submit']", "input[type='submit']"];
+    // Dump dos candidatos pra log (id, tag, text, type)
+    const dump = await page
+      .evaluate(() => {
+        const visible = (el) => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        };
+        return Array.from(document.querySelectorAll("button,input,a,.x-btn"))
+          .filter(visible)
+          .slice(0, 30)
+          .map((el) => ({
+            tag: el.tagName.toLowerCase(),
+            id: el.id || null,
+            type: el.getAttribute("type") || null,
+            text: (el.textContent || el.value || "").trim().slice(0, 40),
+            cls: (el.className || "").toString().slice(0, 80),
+          }));
+      })
+      .catch(() => []);
+    console.log("[do] login_form_candidates=", JSON.stringify(dump));
+
+    // Promise de navegação iniciado ANTES do click
+    const navPromise = page
+      .waitForFunction(() => /sis\.dll/i.test(location.href), { timeout: 15_000 })
+      .then(() => true)
+      .catch(() => false);
+
+    // Tenta seletores conhecidos
+    let viaUsed = null;
+    const selectors = ["#O40", "[id='O40']", "button[type='submit']", "input[type='submit']", ".x-btn"];
     for (const sel of selectors) {
       const el = await page.$(sel).catch(() => null);
       if (el) {
         await el.click().catch(() => null);
-        return;
+        viaUsed = sel;
+        break;
       }
     }
 
-    const clicked = await page
-      .evaluate(() => {
-        const candidates = Array.from(document.querySelectorAll("button,input,a,div,span"));
-        const target = candidates.find((el) => {
-          const text = `${el.textContent || ""} ${el.value || ""} ${el.title || ""}`.toLowerCase();
-          return /entrar|acessar|login|ok|confirmar/.test(text);
-        });
-        if (!target) return false;
-        target.click();
-        return true;
-      })
-      .catch(() => false);
+    // Scan genérico por texto
+    if (!viaUsed) {
+      const clicked = await page
+        .evaluate(() => {
+          const candidates = Array.from(document.querySelectorAll("button,input,a,div,span,.x-btn,.x-btn-inner"));
+          const target = candidates.find((el) => {
+            const text = `${el.textContent || ""} ${el.value || ""} ${el.title || ""}`.toLowerCase();
+            return /entrar|acessar|login|ok|confirmar/.test(text);
+          });
+          if (!target) return null;
+          const c = target.closest(".x-btn") || target;
+          c.click();
+          return c.id || c.className || target.tagName;
+        })
+        .catch(() => null);
+      if (clicked) viaUsed = `text-scan:${clicked}`;
+    }
 
-    if (!clicked) {
+    // Fallback: Enter no campo de senha
+    if (!viaUsed) {
+      await page.focus("#O34 input, input#O34").catch(() => null);
       await page.keyboard.press("Enter").catch(() => null);
+      viaUsed = "enter-key";
+    }
+
+    const navegou = await navPromise;
+    console.log("[do] submit_login via=", viaUsed, "navegou=", navegou, "url=", page.url());
+
+    // Dismiss eventual dialog pós-login (boas-vindas, aviso senha, news)
+    await page
+      .evaluate(() => {
+        const dialogs = Array.from(document.querySelectorAll(".x-window, .x-message-box"));
+        for (const dlg of dialogs) {
+          const r = dlg.getBoundingClientRect();
+          if (r.width === 0) continue;
+          const btn = Array.from(dlg.querySelectorAll(".x-btn, button"))
+            .find((b) => /ok|fechar|continuar|sim|close/i.test(b.textContent || ""));
+          btn?.click();
+        }
+      })
+      .catch(() => null);
+
+    if (!navegou) {
+      throw new Error("login_invalido: submit_nao_navegou (botão errado ou credencial inválida)");
     }
   }
 
