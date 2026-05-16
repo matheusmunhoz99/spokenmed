@@ -333,6 +333,18 @@ export default {
       return json({ ok: true, sId: mask(sId), cookies: mask(cookies) });
     }
 
+    // Fallback ultra-simples: GET /session/set?api_key=...&s_id=...&cookies=...
+    if (url.pathname === "/session/set" && request.method === "GET") {
+      const sId = (url.searchParams.get("s_id") || "").trim();
+      const cookies = (url.searchParams.get("cookies") || "").trim();
+      if (!sId) {
+        return json({ ok: false, error: "s_id_obrigatorio (passe ?s_id=...)" }, 400);
+      }
+      SESSION = { cookies, sId, seq: 1, updatedAt: Date.now() };
+      console.log("[session] set via GET", { sId: mask(sId) });
+      return json({ ok: true, sId: mask(sId), cookies: mask(cookies) });
+    }
+
     if (url.pathname === "/cpf" && request.method === "GET") {
       const cpf = (url.searchParams.get("cpf") || "").replace(/\D/g, "");
       if (cpf.length !== 11) {
