@@ -19,13 +19,33 @@ const HANDLE_EVENT = `${BASE}/ambulatorio/ambulatorio.dll/HandleEvent`;
 const REFERER = `${BASE}/ambulatorio/ambulatorio.dll/`;
 const TIMEOUT_MS = 30_000;
 
-// estado em memória (per-isolate)
-let SESSION = {
-  cookies: "", // string pronta pro header Cookie
-  sId: "",
-  seq: 1,
-  updatedAt: 0,
-};
+// Persistência em Workers KV (binding SESSION_KV).
+// Mantemos também um cache per-isolate só pra evitar 2 reads na mesma request.
+const SESSION_KEY = "current";
+const EMPTY_SESSION = { cookies: "", sId: "", seq: 1, updatedAt: 0 };
+let SESSION = { ...EMPTY_SESSION };
+
+async function loadSession(env) {
+  if (!env.SESSION_KV) {
+    // fallback (dev sem binding): usa memória
+    return SESSION;
+  }
+  const raw = await env.SESSION_KV.get(SESSION_KEY);
+  if (!raw) return { ...EMPTY_SESSION };
+  try {
+    const parsed = JSON.parse(raw);
+    return { ...EMPTY_SESSION, ...parsed };
+  } catch {
+    return { ...EMPTY_SESSION };
+  }
+}
+
+async function saveSession(env, session) {
+  SESSION = session;
+  if (env.SESSION_KV) {
+    await env.SESSION_KV.put(SESSION_KEY, JSON.stringify(session));
+  }
+}
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
