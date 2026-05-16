@@ -353,12 +353,20 @@ export default {
       if (!sId) {
         return json({ ok: false, error: "s_id_obrigatorio" }, 400);
       }
-      await saveSession(env, { cookies, sId, seq: 1, updatedAt: Date.now() });
+      // seq vem do _seq_ capturado (hex). Próxima request usa seq+1.
+      let seq = 1;
+      const seqRaw = String(payload?.seq || "").trim();
+      if (seqRaw) {
+        const parsed = parseInt(seqRaw, 16);
+        if (Number.isFinite(parsed)) seq = parsed + 1;
+      }
+      await saveSession(env, { cookies, sId, seq, updatedAt: Date.now() });
       console.log("[session] atualizada", {
         sId: mask(sId),
         cookies: cookies ? mask(cookies) : "(sem cookies)",
+        seqStart: seq,
       });
-      return json({ ok: true, sId: mask(sId), cookies: mask(cookies) });
+      return json({ ok: true, sId: mask(sId), cookies: mask(cookies), seqStart: seq });
     }
 
     // Fallback ultra-simples: GET /session/set?api_key=...&s_id=...&cookies=...
