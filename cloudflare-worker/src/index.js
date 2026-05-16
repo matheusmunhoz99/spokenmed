@@ -96,8 +96,23 @@ function looksLikeSessionExpired(text, status) {
   );
 }
 
+function sessionHeaders() {
+  const h = {
+    "X-Requested-With": "XMLHttpRequest",
+    Referer: REFERER,
+    Accept: "*/*",
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+    // este uniGUI manda sessão em HEADERS, não em cookies
+    _s_id: SESSION.sId,
+    unisessionid: SESSION.sId,
+  };
+  if (SESSION.cookies) h.Cookie = SESSION.cookies;
+  return h;
+}
+
 async function doPostConsulta(cpfDigits) {
-  if (!SESSION.sId || !SESSION.cookies) {
+  if (!SESSION.sId) {
     return { ok: false, error: "sessao_ausente", detail: "POST /session/update primeiro" };
   }
 
