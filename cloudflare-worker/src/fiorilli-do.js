@@ -123,12 +123,37 @@ export class FiorilliDO {
     this.seq = 0xe0;
     this.bootstrapPromise = null;
     this.lookupQueue = Promise.resolve();
+    // Carrega sessão persistida (sobrevive a evictions do DO)
+    this.state.blockConcurrencyWhile(async () => {
+      const saved = await this.state.storage.get("session");
+      if (saved && Date.now() - saved.createdAt < SESSION_TTL_MS) {
+        this.session = { ...saved, cookies: new Map(saved.cookies) };
+        console.log("[do] sessão restaurada do storage, idade:",
+          Math.round((Date.now() - saved.createdAt) / 1000), "s");
+      }
+      const savedSeq = await this.state.storage.get("seq");
+      if (typeof savedSeq === "number") this.seq = savedSeq;
+    });
   }
 
   nextSeq() {
     const s = this.seq.toString(16);
     this.seq += 1;
+    // best-effort persist (não bloqueia)
+    this.state.storage.put("seq", this.seq).catch(() => {});
     return s;
+  }
+
+  async persistSession() {
+    if (!this.session) {
+      await this.state.storage.delete("session").catch(() => {});
+      return;
+    }
+    await this.state.storage.put("session", {
+      cookies: Array.from(this.session.cookies.entries()),
+      sId: this.session.sId,
+      createdAt: this.session.createdAt,
+    }).catch((e) => console.error("[do] persist session falhou:", e));
   }
 
   async fetch(request) {
