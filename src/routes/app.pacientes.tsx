@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { useEffect, useState } from "react";
+import { haptic } from "@/hooks/use-haptics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
