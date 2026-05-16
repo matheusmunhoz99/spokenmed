@@ -33,9 +33,14 @@ export type CadSusResult =
         bairro: string | null;
         cidade: string | null;
         uf: string | null;
+        cep: string | null;
         cns: string | null;
         cns_secundario: string | null;
         telefone: string | null;
+        data_nascimento: string | null;
+        sexo: string | null;
+        nome_mae: string | null;
+        nome_pai: string | null;
       };
     }
   | { ok: false; error: ErrorCode };

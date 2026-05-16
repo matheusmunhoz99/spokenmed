@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Pencil, Loader2, Download, Eye, EyeOff, Sparkles } from "lucide-react";
+import { Plus, Search, Pencil, Loader2, Download, Eye, EyeOff, IdCard } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { formatCPF, formatCNS, formatPhone, formatCEP, onlyDigits, formatDate, isValidCPF } from "@/lib/format";
@@ -119,9 +119,15 @@ function PacientesPage() {
           >
             <Download className="mr-1 h-4 w-4" /> Exportar CSV
           </Button>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setEditing(null); }}>
             <DialogTrigger asChild><Button onClick={openNew} className="w-full sm:w-auto"><Plus className="mr-1 h-4 w-4"/>Novo paciente</Button></DialogTrigger>
-            <PacienteDialog editing={editing} onSaved={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["pacientes"] }); }} />
+            {open && (
+              <PacienteDialog
+                key={editing?.id ?? "novo"}
+                editing={editing}
+                onSaved={() => { setOpen(false); setEditing(null); qc.invalidateQueries({ queryKey: ["pacientes"] }); }}
+              />
+            )}
           </Dialog>
         </div>
       </div>
@@ -276,18 +282,29 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
         return;
       }
       const dados = r.dados;
+      // converte data dd/mm/aaaa -> yyyy-mm-dd para input type="date"
+      const parseDate = (s?: string | null) => {
+        if (!s) return "";
+        const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
+      };
       setForm((f: any) => ({
         ...f,
-        nome: f.nome?.trim() ? f.nome : (dados.nome ?? f.nome),
-        cns: f.cns?.trim() ? f.cns : (dados.cns ?? f.cns),
-        telefone: f.telefone?.trim() ? f.telefone : (dados.telefone ?? f.telefone),
-        logradouro: f.logradouro?.trim() ? f.logradouro : (dados.logradouro ?? f.logradouro),
-        numero: f.numero?.trim() ? f.numero : (dados.numero ?? f.numero),
-        bairro: f.bairro?.trim() ? f.bairro : (dados.bairro ?? f.bairro),
-        cidade: f.cidade?.trim() ? f.cidade : (dados.cidade ?? f.cidade),
-        uf: f.uf?.trim() ? f.uf : (dados.uf ?? f.uf),
+        nome: dados.nome ?? f.nome,
+        cns: dados.cns ?? f.cns,
+        telefone: dados.telefone ?? f.telefone,
+        logradouro: dados.logradouro ?? f.logradouro,
+        numero: dados.numero ?? f.numero,
+        bairro: dados.bairro ?? f.bairro,
+        cidade: dados.cidade ?? f.cidade,
+        uf: dados.uf ?? f.uf,
+        cep: dados.cep ?? f.cep,
+        data_nascimento: parseDate(dados.data_nascimento) || f.data_nascimento,
+        sexo: dados.sexo ?? f.sexo,
+        nome_mae: dados.nome_mae ?? f.nome_mae,
       }));
-      toast.success("Dados do CadSUS preenchidos.");
+      setCpfErro(null);
+      toast.success("Dados do CadSUS importados.");
     } catch (e) {
       toast.error("Falha ao consultar CadSUS.");
     } finally {
@@ -348,6 +365,7 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
           <Field label="CPF">
             <div className="flex gap-2">
               <Input
+                className="flex-1"
                 value={formatCPF(form.cpf ?? "")}
                 onChange={(e) => { set("cpf", e.target.value); if (cpfErro) setCpfErro(null); }}
                 onBlur={handleCpfBlur}
@@ -355,13 +373,14 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
               />
               <Button
                 type="button"
-                variant="outline"
-                size="icon"
-                title="Buscar dados no CadSUS"
+                variant="secondary"
+                title="Importar dados do cidadão pelo CadSUS"
                 disabled={cadsusLoading}
                 onClick={handleBuscarCadSus}
+                className="shrink-0 gap-2"
               >
-                {cadsusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {cadsusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <IdCard className="h-4 w-4" />}
+                CadSUS
               </Button>
             </div>
             {cpfErro && <p className="text-xs text-destructive mt-1">{cpfErro}</p>}
