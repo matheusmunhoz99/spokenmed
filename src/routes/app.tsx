@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { ShortcutsProvider, useShortcutsHelp } from "@/hooks/use-shortcuts";
 import { ShortcutsHelp } from "@/components/shortcuts-help";
+import { PageTransition } from "@/components/page-transition";
 import { Button } from "@/components/ui/button";
 import { Keyboard, Loader2 } from "lucide-react";
 
