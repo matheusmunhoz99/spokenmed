@@ -363,3 +363,129 @@ export default {
     return json({ ok: false, error: "not_found" }, 404);
   },
 };
+
+// ============================================================
+// Página HTML para captura da sessão sem precisar de terminal.
+// ============================================================
+const CAPTURE_HTML = `<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Atualizar sessão — spokenmed</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 760px; margin: 32px auto; padding: 0 16px; line-height: 1.5; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.sub { color: #666; margin-top: 0; }
+  label { display: block; font-weight: 600; margin-top: 16px; }
+  input, textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; border: 1px solid #999; border-radius: 6px; background: transparent; color: inherit; }
+  textarea { min-height: 220px; }
+  button { margin-top: 16px; padding: 10px 16px; font-size: 14px; border-radius: 6px; border: 0; background: #2563eb; color: #fff; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: progress; }
+  pre { background: rgba(127,127,127,.12); padding: 12px; border-radius: 6px; white-space: pre-wrap; word-break: break-word; }
+  .ok { color: #15803d; } .err { color: #b91c1c; }
+  ol li { margin: 4px 0; }
+  details { margin-top: 24px; }
+</style>
+</head>
+<body>
+<h1>Atualizar sessão do Fiorilli</h1>
+<p class="sub">Cole o <b>Copy as cURL</b> do DevTools, informe a API key e clique em atualizar. Sem terminal, sem Node.</p>
+
+<ol>
+  <li>Entre no sistema da prefeitura pelo Chrome (faça login normalmente).</li>
+  <li>Abra DevTools (F12) → aba <b>Network</b>.</li>
+  <li>Faça qualquer ação que dispare uma requisição <code>HandleEvent</code>.</li>
+  <li>Clique com o botão direito nessa request → <b>Copy</b> → <b>Copy as cURL (cmd)</b>.</li>
+  <li>Cole abaixo e clique em <b>Atualizar sessão</b>.</li>
+</ol>
+
+<label>API key</label>
+<input id="apiKey" type="password" placeholder="sua API_KEY do worker" autocomplete="off" />
+
+<label>cURL completo</label>
+<textarea id="curl" placeholder='curl "https://saudeteresopolis.oppcloud.com.br/..." -H "_s_id: ..." ...'></textarea>
+
+<button id="go">Atualizar sessão</button>
+
+<h3>Resultado</h3>
+<pre id="out">(aguardando)</pre>
+
+<details>
+  <summary>Modo manual (se o cURL não funcionar)</summary>
+  <p>Pegue só o valor do header <code>_s_id</code> ou <code>unisessionid</code> no DevTools e abra esta URL no navegador:</p>
+  <pre>/session/set?api_key=SUA_KEY&s_id=COLE_AQUI</pre>
+</details>
+
+<script>
+const $ = (id) => document.getElementById(id);
+try { $('apiKey').value = localStorage.getItem('spokenmed_api_key') || ''; } catch(_) {}
+
+function parseCurl(raw) {
+  // Normaliza cURL do Windows cmd e bash
+  let s = raw
+    .replace(/\\^\\r?\\n/g, ' ')
+    .replace(/\\^"/g, '"')
+    .replace(/\\^\\^/g, '^')
+    .replace(/\\\\\\r?\\n/g, ' ');
+  const pickHeader = (name) => {
+    const re = new RegExp('-H\\\\s+[\\'"]' + name + ':\\\\s*([^\\'"\\\\r\\\\n]+)[\\'"]', 'i');
+    const m = s.match(re); return m ? m[1].trim() : '';
+  };
+  const pickBody = () => {
+    const m = s.match(/--data-raw\\s+['"]([^'"]+)['"]/) ||
+              s.match(/--data\\s+['"]([^'"]+)['"]/) ||
+              s.match(/\\s-d\\s+['"]([^'"]+)['"]/);
+    return m ? m[1] : '';
+  };
+  const cookies = pickHeader('cookie') ||
+                  ((s.match(/-b\\s+['"]([^'"]+)['"]/) || [,''])[1]) || '';
+  let sId = pickHeader('_s_id') || pickHeader('unisessionid') || '';
+  if (!sId) {
+    const m = pickBody().match(/_S_ID=([^&]+)/);
+    if (m) sId = decodeURIComponent(m[1]);
+  }
+  return { sId, cookies };
+}
+
+$('go').addEventListener('click', async () => {
+  const out = $('out');
+  const apiKey = $('apiKey').value.trim();
+  const raw = $('curl').value;
+  if (!apiKey) { out.innerHTML = '<span class=err>Informe a API key.</span>'; return; }
+  if (!raw.trim()) { out.innerHTML = '<span class=err>Cole o cURL.</span>'; return; }
+  try { localStorage.setItem('spokenmed_api_key', apiKey); } catch(_) {}
+
+  const { sId, cookies } = parseCurl(raw);
+  if (!sId) {
+    out.innerHTML = '<span class=err>Não encontrei _s_id / unisessionid no cURL.</span>\\n' +
+      'Verifique se você copiou exatamente a request <b>HandleEvent</b> com <b>Copy as cURL (cmd)</b>.';
+    return;
+  }
+
+  $('go').disabled = true;
+  out.textContent = 'Enviando...';
+  try {
+    const r = await fetch('/session/update?api_key=' + encodeURIComponent(apiKey), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ s_id: sId, cookies })
+    });
+    const txt = await r.text();
+    if (r.ok) {
+      out.innerHTML = '<span class=ok>✓ Sessão atualizada (status ' + r.status + ')</span>\\n' + txt +
+        '\\n\\nTeste agora: <a href="/session?api_key=' + encodeURIComponent(apiKey) + '" target="_blank">/session</a>';
+    } else {
+      out.innerHTML = '<span class=err>Falhou (status ' + r.status + ')</span>\\n' + txt;
+    }
+  } catch (e) {
+    out.innerHTML = '<span class=err>Erro de rede: ' + (e && e.message || e) + '</span>';
+  } finally {
+    $('go').disabled = false;
+  }
+});
+</script>
+</body>
+</html>`;
+
