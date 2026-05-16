@@ -232,11 +232,12 @@ function PacientesPage() {
   );
 }
 
-function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSaved: () => void }) {
+function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Paciente | null; onSaved: () => void; onOpenExisting?: (p: Paciente) => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [cadsusLoading, setCadsusLoading] = useState(false);
   const [cpfErro, setCpfErro] = useState<string | null>(null);
+  const [dup, setDup] = useState<{ paciente: Paciente; reason: string; origem: "save" | "cadsus" } | null>(null);
   const buscarCadSus = useServerFn(buscarPacienteCpf);
   const [form, setForm] = useState<any>(editing ?? {
     nome: "", cpf: "", cns: "", rg: "", data_nascimento: "", sexo: "",
@@ -244,6 +245,37 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
     cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "",
     observacoes: "",
   });
+
+  // procura paciente já cadastrado. Retorna o primeiro match (CPF tem prioridade).
+  const findDuplicate = async (opts: { cpfDigits?: string; nome?: string; data?: string }): Promise<{ paciente: Paciente; reason: string } | null> => {
+    if (opts.cpfDigits && opts.cpfDigits.length === 11) {
+      const { data } = await supabase.from("pacientes").select("id, nome, cpf, data_nascimento").eq("cpf", opts.cpfDigits).limit(1);
+      if (data && data.length > 0) {
+        const p = data[0];
+        if (!editing || p.id !== editing.id) {
+          return { paciente: p, reason: `O CPF informado já está cadastrado em ${p.nome}.` };
+        }
+      }
+    }
+    if (opts.nome && opts.data) {
+      const nomeTrim = opts.nome.trim();
+      if (nomeTrim.length >= 3) {
+        const { data } = await supabase
+          .from("pacientes")
+          .select("id, nome, cpf, data_nascimento")
+          .ilike("nome", nomeTrim)
+          .eq("data_nascimento", opts.data)
+          .limit(1);
+        if (data && data.length > 0) {
+          const p = data[0];
+          if (!editing || p.id !== editing.id) {
+            return { paciente: p, reason: `Já existe ${p.nome} com a mesma data de nascimento.` };
+          }
+        }
+      }
+    }
+    return null;
+  };
 
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
 
