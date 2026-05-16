@@ -676,6 +676,9 @@ export class FiorilliDO {
     ingestSetCookies(res, this.session.cookies);
     const text = await res.text();
     console.log("[do] lookup", { status: res.status, seq, bodyLen: text.length });
+    if (text.length < 500) {
+      console.log("[do] lookup body=", text.slice(0, 500));
+    }
     return text;
   }
 }
