@@ -1,43 +1,38 @@
-## Problema
+## Status
 
-A sessão (`_s_id`) hoje fica numa variável em memória no Worker (`let SESSION = {...}`). Cloudflare Workers rodam em "isolates" que podem ser reciclados a qualquer momento — e quando isso acontece, a variável zera. Por isso seu `/session` mostrou `hasSession:true` logo depois do capture, mas o `/cpf` (alguns segundos/minutos depois) já caiu em isolate novo e respondeu `sessao_ausente`.
+Integração ponta-a-ponta já tá montada. Não precisa de mudança de código pro teste.
 
-## Solução: salvar em Workers KV
+- **Worker** (`spokenmed.meyssiner.workers.dev`): sessão persistida em KV, `/cpf` retornou JSON completo no último teste
+- **App** (rota `/app/pacientes`): já existe o botão ✨ ao lado do campo CPF que chama o Worker via `buscarPacienteCpf` (server function em `src/lib/cadsus.functions.ts` → `src/lib/opp-client.server.ts`)
+- **Secrets** já configurados: `CADSUS_WORKER_URL` e `CADSUS_WORKER_API_KEY`
 
-Workers KV é um storage chave/valor nativo do Cloudflare, grátis pra esse volume, persiste pra sempre (ou até você sobrescrever). Trocar memória → KV são ~15 linhas.
+## Como testar no app agora
 
-## Mudanças
+1. Abrir o app (`https://spokenmed.lovable.app` ou preview), fazer login
+2. Menu → **Pacientes** → botão **Novo paciente**
+3. Digitar o CPF no campo CPF
+4. Clicar no botão ✨ (sparkles) ao lado do campo
+5. Aparece o spinner; em ~2-5s os campos preenchem sozinhos: **nome, CNS, telefone, logradouro, número, bairro, cidade, UF**
 
-**1. `cloudflare-worker/wrangler.jsonc`** — adicionar binding KV:
-```jsonc
-"kv_namespaces": [
-  { "binding": "SESSION_KV", "id": "<id-criado-no-passo-2>" }
-]
-```
+## Comportamento esperado
 
-**2. Criar o namespace KV** (você roda 1x no terminal, dentro de `cloudflare-worker/`):
-```
-wrangler kv namespace create SESSION_KV
-```
-Ele devolve o `id` — você cola no `wrangler.jsonc`.
+- Campos vazios → preenchidos com o que veio do worker
+- Campos já digitados → **preservados** (a lógica atual não sobrescreve nada que você já tenha mexido)
+- CPF inexistente → toast "CPF não encontrado no CadSUS"
+- Sessão do Fiorilli expirou → toast "CadSUS indisponível" (aí volta no `/capture` do worker e cola um cURL novo)
 
-**3. `cloudflare-worker/src/index.js`** — trocar a variável `SESSION` por leitura/escrita no KV:
-- `/session/update` e `/session/set` → `env.SESSION_KV.put("current", JSON.stringify({cookies, sId, seq, updatedAt}))`
-- `/session` e `/cpf` → `const SESSION = JSON.parse(await env.SESSION_KV.get("current")) ?? {...vazio}`
-- Incrementar `seq` também passa a ser persistido no KV a cada consulta
+## Coisas que NÃO estão no preenchimento atual
 
-**4. Deploy** — `wrangler deploy`
+Mesmo que o worker devolva, o form hoje **não preenche**:
+- `data_nascimento`
+- `sexo`
+- `nome_mae`
+- `cpf` formatado de volta (mantém o que você digitou)
 
-## Como fica o fluxo depois
+Se quiser que esses também entrem no autofill, me avisa e eu adiciono em 1 linha cada (precisa ajustar o tipo `CadSusResult` em `opp-client.server.ts` que hoje só lista os campos atuais).
 
-1. Você faz capture uma vez em `/capture` → salvo no KV
-2. Consulta CPF quantas vezes quiser, em qualquer momento, de qualquer isolate → funciona
-3. Só repete o capture quando a sessão do uniGUI expirar de verdade (erro `sessao_expirada` do próprio Fiorilli, não mais `sessao_ausente`)
+## Próximo passo
 
-## Alternativa (se você não quiser mexer no wrangler.jsonc agora)
-
-Usar Durable Object — mas é mais complexo de configurar e você já tem o binding KV "gratuito". KV é o caminho mais simples.
-
----
-
-**Confirma que posso implementar?** Vou precisar que você rode o comando do passo 2 (`wrangler kv namespace create SESSION_KV`) e me cole o `id` que ele devolver, ou pode me autorizar a inventar um placeholder e você troca depois.
+Você roda o teste e me conta:
+- (a) Preencheu certo? Quais campos vieram em branco?
+- (b) Quer que eu adicione os campos faltantes (nascimento/sexo/mãe) no autofill?
