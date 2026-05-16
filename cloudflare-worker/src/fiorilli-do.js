@@ -534,6 +534,7 @@ export class FiorilliDO {
   }
 
   async waitForAmbulatoryFrame(page) {
+    // 1) Espera o elemento <iframe> com src de ambulatório aparecer
     const frameHandle = await page
       .waitForFunction(
         () => {
@@ -543,7 +544,7 @@ export class FiorilliDO {
             return /ambulatorio\.dll|\/ambulatorio\//i.test(src);
           }) || null;
         },
-        { timeout: 20_000 },
+        { timeout: 25_000 },
       )
       .catch(() => null);
 
@@ -561,8 +562,29 @@ export class FiorilliDO {
 
     const element = await frameHandle.asElement();
     const frame = element ? await element.contentFrame() : null;
-    if (frame) {
-      await frame.waitForFunction(() => document.readyState === "complete", { timeout: 20_000 }).catch(() => null);
+    if (!frame) {
+      throw new Error("login_invalido: iframe_sem_contentFrame");
+    }
+
+    // 2) Espera o frame DE FATO navegar pra ambulatorio.dll e o documento ficar pronto
+    const navigated = await frame
+      .waitForFunction(
+        () => /ambulatorio\.dll/i.test(location.href) && document.readyState === "complete",
+        { timeout: 25_000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+
+    if (!navigated) {
+      const info = await frame
+        .evaluate(() => ({
+          href: location.href,
+          ready: document.readyState,
+          bodyLen: document.body?.innerHTML?.length || 0,
+        }))
+        .catch(() => ({}));
+      console.error("[do] frame ambulatório não navegou. info=", JSON.stringify(info));
+      throw new Error("login_invalido: iframe_nao_carregou");
     }
     return frame;
   }
