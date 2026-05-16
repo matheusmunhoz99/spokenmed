@@ -119,9 +119,15 @@ function PacientesPage() {
           >
             <Download className="mr-1 h-4 w-4" /> Exportar CSV
           </Button>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setEditing(null); }}>
             <DialogTrigger asChild><Button onClick={openNew} className="w-full sm:w-auto"><Plus className="mr-1 h-4 w-4"/>Novo paciente</Button></DialogTrigger>
-            <PacienteDialog editing={editing} onSaved={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["pacientes"] }); }} />
+            {open && (
+              <PacienteDialog
+                key={editing?.id ?? "novo"}
+                editing={editing}
+                onSaved={() => { setOpen(false); setEditing(null); qc.invalidateQueries({ queryKey: ["pacientes"] }); }}
+              />
+            )}
           </Dialog>
         </div>
       </div>
