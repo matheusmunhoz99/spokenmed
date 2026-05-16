@@ -206,9 +206,16 @@ export class FiorilliDO {
     this.lookupQueue = prev.then(() => next);
     await prev;
     try {
+      const freshlyBootstrapped = !this.session;
       await this.ensureSession();
+      const justBootstrapped = freshlyBootstrapped;
       let js = await this.rawLookup(cpf);
       if (looksLikeSessionExpired(js)) {
+        if (justBootstrapped) {
+          // Acabou de logar e já voltou redirect → não relogar (evita 429 do Browser Rendering).
+          console.error("[do] lookup redirecionou logo após bootstrap. cookies=", this.session?.cookies?.size, "sIdLen=", this.session?.sId?.length, "body=", js.slice(0, 300));
+          return { ok: false, error: "sessao_invalida_apos_login", detail: "cookies ou _S_ID insuficientes; body=" + js.slice(0, 200) };
+        }
         console.log("[do] sessão expirada, refazendo login");
         this.session = null;
         await this.persistSession();
