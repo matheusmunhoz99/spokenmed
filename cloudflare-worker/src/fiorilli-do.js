@@ -372,9 +372,9 @@ export class FiorilliDO {
     if (fromPageUrl) return fromPageUrl;
 
     const patternsSource = [
-      "_S_ID[\\"']?\\s*[:=]\\s*[\\"']([^\\"']+)[\\"']",
-      "name=[\\"']_S_ID[\\"']\\s+value=[\\"']([^\\"']+)[\\"']",
-      "[?&]_S_ID=([A-Za-z0-9._-]+)",
+      /_S_ID["']?\s*[:=]\s*["']([^"']+)["']/.source,
+      /name=["']_S_ID["']\s+value=["']([^"']+)["']/.source,
+      /[?&]_S_ID=([A-Za-z0-9._-]+)/.source,
     ];
 
     const scan = async (ctx) =>
