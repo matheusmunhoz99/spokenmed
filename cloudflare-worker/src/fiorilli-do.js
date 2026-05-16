@@ -256,7 +256,7 @@ export class FiorilliDO {
   }
 
   async bootstrap() {
-    console.log("[do] bootstrap build=fiorilli-debug-v4");
+    console.log("[do] bootstrap build=fiorilli-debug-v5");
     const baseUrl = (this.env.OPP_BASE_URL || "").replace(/\/+$/, "");
     const user = this.env.OPP_USERNAME;
     const pass = this.env.OPP_PASSWORD;
