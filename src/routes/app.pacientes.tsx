@@ -230,6 +230,7 @@ function PacientesPage() {
         </>
       )}
     </div>
+    </PullToRefresh>
   );
 }
 
