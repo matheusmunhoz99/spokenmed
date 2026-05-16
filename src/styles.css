@@ -43,9 +43,9 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* Civic Clarity — institutional teal/slate */
+/* Clínico Sereno — institutional teal/slate, calm and confident */
 :root {
-  --radius: 0.5rem;
+  --radius: 0.75rem;
   --background: oklch(0.985 0.005 220);
   --foreground: oklch(0.21 0.034 264);
   --card: oklch(1 0 0);
