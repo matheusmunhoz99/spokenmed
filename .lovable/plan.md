@@ -1,33 +1,52 @@
-## Plano
+## Diagnóstico
 
-### 1. Parar de perseguir o erro antigo
-- O log publicado ainda mostra a mensagem antiga (`[do] /sis/ loaded`), enquanto o arquivo atual já deveria mostrar logs `step=goto_sis`, `login_form_candidates`, `submit_login via=...`.
-- Isso indica que o Worker publicado não está usando a versão local mais recente, então qualquer teste agora está repetindo o mesmo código antigo.
+O log mostra que **o login funcionou** (`submit_login via=text-exact:O40_id navegou=true`). O problema agora é que `waitForDesktop` retorna cedo demais: ele aceita qualquer `.x-btn` como sinal de desktop, mas os botões `Entrar` / `Sair` da tela de login ainda estão no DOM enquanto o splash **"Acessando SIS 9.0"** está rodando. Por isso o dump do `openAmbulatoryModule` só mostra:
 
-### 2. Garantir deploy correto do Worker
-- Ajustar a pasta/comando de deploy para garantir que o `cloudflare-worker/wrangler.jsonc` certo seja usado.
-- Adicionar um identificador simples de versão no log/health, por exemplo `build: "fiorilli-debug-v2"`, para confirmar no tail que a versão nova entrou no ar.
-- Depois do deploy, limpar/forçar renovação da sessão do Durable Object se necessário, porque ele pode manter estado antigo em memória/storage.
+```
+Entrar, Sair, Acesso Público, Acessando SIS 9.0
+```
 
-### 3. Validar com logs novos
-- Rodar uma consulta e esperar estes logs:
-  - `step=goto_sis`
-  - `login_form_candidates=[...]`
-  - `submit_login via=... navegou=...`
-  - `step=wait_desktop`
-  - `step=open_ambulatorio`
-  - `step=wait_iframe`
-- Se esses logs não aparecerem, o problema ainda é deploy/Worker errado, não login ou iframe.
+O desktop com o menu "Ambulatório" ainda nem renderizou. Você já confirmou antes que o menu é **clássico ExtJS (menubar no topo)** — então depois que o splash sumir, talvez ainda seja necessário clicar no menubar pra ele abrir.
 
-### 4. Se o login automático continuar difícil, criar um modo de captura manual assistida
-- Criar um endpoint/página temporária de diagnóstico no Worker, protegida por `API_KEY`, para abrir/instrumentar o fluxo.
-- O usuário faz login manualmente no site oficial em uma aba controlada pelo fluxo de diagnóstico.
-- A instrumentação registra com segurança os dados técnicos necessários: requests para `HandleEvent`, ids `Obj`, `_S_ID`, cookies de sessão, frame correto e payloads relevantes.
-- Não usar isso como solução final com senha/cookies expostos no frontend; usar apenas para descobrir o fluxo real e depois integrar no backend.
+## Mudanças no `cloudflare-worker/src/fiorilli-do.js`
 
-### 5. Integrar a descoberta no fluxo final
-- Com os ids/payloads confirmados, atualizar o Durable Object para inicializar o ambulatório e consultar CPF diretamente via `/ambulatorio/ambulatorio.dll/HandleEvent`.
-- Remover ou desabilitar o modo de diagnóstico depois que a integração estiver funcionando.
+### 1. `waitForDesktop` — esperar splash sumir, não só `.x-btn`
 
-## Observação importante
-A ideia do “frontend para eu logar manualmente e interceptar tudo” é viável como ferramenta de diagnóstico, mas não é melhor como produto final: por segurança e por limitações de iframe/CORS, o caminho correto é usar isso só para capturar o fluxo uma vez e manter a automação final no backend.
+Critério novo de sucesso (todos devem ser verdade):
+- Texto `"Acessando SIS 9.0"` NÃO está mais visível.
+- Inputs de login (`input[type="password"]` visível) sumiram.
+- Existe `.x-menubar`, `.x-toolbar`, `.x-desktop` OU um `.x-btn` cujo texto contenha "Ambulatório|Cadastros|Configurações|Sair" (itens reais do menu).
+- Timeout maior (25s) e log `step=wait_desktop` com a lista de botões visíveis quando estourar, pra confirmarmos.
+
+### 2. `openAmbulatoryModule` — abrir menubar antes de procurar
+
+Antes do scan atual, fazer:
+1. Procurar elemento de menubar (`.x-menubar .x-btn`, `.x-toolbar .x-btn`) cujo texto seja exatamente `"Ambulatório"` e clicar.
+2. Se não achar, abrir cada `.x-btn` visível do `.x-menubar` / `.x-toolbar` com `mouseover` + `click` (ExtJS abre dropdown no click), aguardar 200ms, e procurar `.x-menu-item-text` com "Ambulatório" dentro dos `.x-menu` recém-abertos.
+3. Manter os fallbacks atuais (ext-selectors, generic).
+4. Aumentar o filtro do dump: incluir `.x-menubar` / `.x-toolbar` / `.x-menu-item-text` separadamente pra debug.
+
+### 3. Bump `build = "fiorilli-debug-v5"` em `index.js` (health) e log de bootstrap em `fiorilli-do.js`.
+
+## Como validar
+
+```bash
+cd cloudflare-worker
+npx wrangler deploy
+curl "https://spokenmed.meyssiner.workers.dev/health"          # esperar build v5
+curl "https://spokenmed.meyssiner.workers.dev/reset?api_key=Xofome23@"
+npx wrangler tail spokenmed
+# noutro terminal:
+curl "https://spokenmed.meyssiner.workers.dev/cpf?cpf=34691780890&api_key=Xofome23@"
+```
+
+Resultado esperado no log:
+- `step=wait_desktop status=ok` **depois** do splash sumir
+- novo dump com botões do menubar (Ambulatório, Cadastros, etc.)
+- `step=open_ambulatorio status=ok` e em seguida `step=wait_iframe`
+
+Se o menubar tiver outro nome (ex.: "Atendimento" em vez de "Ambulatório"), o dump vai mostrar e ajustamos a regex.
+
+## Entrega
+
+Como você está rodando o worker fora do sandbox, depois das mudanças vou copiar `cloudflare-worker/src/fiorilli-do.js` e `cloudflare-worker/src/index.js` atualizados pra `/mnt/documents/` pra você substituir e `wrangler deploy`.

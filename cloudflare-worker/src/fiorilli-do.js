@@ -415,77 +415,113 @@ export class FiorilliDO {
   }
 
   async waitForDesktop(page) {
-    // Espera login realmente passar: URL muda de /sis/ pra /sis/sis.dll/...
-    // ou um elemento típico do desktop ExtJS aparece.
+    // Espera o splash "Acessando SIS 9.0" sumir E o login sumir E aparecer menubar/desktop real
     await page
       .waitForFunction(
         () => {
-          if (/sis\.dll/i.test(location.href)) return true;
-          // ExtJS desktop / barra de menus
-          if (document.querySelector(".x-desktop, .x-taskbar, .x-menubar, .x-btn")) return true;
-          return false;
+          const visible = (el) => {
+            const r = el.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+          };
+          // Splash visível? ainda carregando
+          const splash = Array.from(document.querySelectorAll("body *"))
+            .filter(visible)
+            .find((el) => /Acessando SIS/i.test((el.textContent || "").trim()) && (el.textContent || "").trim().length < 60);
+          if (splash) return false;
+          // Login ainda visível?
+          const pwd = Array.from(document.querySelectorAll('input[type="password"]')).find(visible);
+          if (pwd) return false;
+          // Tem menubar/toolbar/desktop?
+          if (document.querySelector(".x-menubar, .x-desktop, .x-taskbar")) return true;
+          // Ou um botão de menu real (Ambulatório/Cadastros/etc)
+          const btns = Array.from(document.querySelectorAll(".x-btn, .x-btn-inner")).filter(visible);
+          return btns.some((b) => /ambulat[óo]rio|cadastros|configura[çc][õo]es|relat[óo]rios|atendimento/i.test(b.textContent || ""));
         },
-        { timeout: 15_000 },
+        { timeout: 25_000 },
       )
-      .catch(() => {
-        throw new Error("login_invalido: desktop_nao_carregou (credencial errada ou rate limit)");
+      .catch(async () => {
+        // Dump pra diagnosticar
+        const dump = await page
+          .evaluate(() => {
+            const visible = (el) => {
+              const r = el.getBoundingClientRect();
+              return r.width > 0 && r.height > 0;
+            };
+            return Array.from(document.querySelectorAll(".x-btn, .x-btn-inner, .x-menubar, .x-toolbar"))
+              .filter(visible)
+              .slice(0, 30)
+              .map((el) => (el.textContent || "").trim().slice(0, 40));
+          })
+          .catch(() => []);
+        console.error("[do] desktop timeout. dump=", JSON.stringify(dump));
+        throw new Error("login_invalido: desktop_nao_carregou (splash não terminou)");
       });
   }
 
   async openAmbulatoryModule(page) {
-    // Tenta clicar no item de menu "Ambulatório". Múltiplas estratégias.
+    // Helper sleep dentro do evaluate
     const result = await page
-      .evaluate(() => {
+      .evaluate(async () => {
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         const visible = (el) => {
           const r = el.getBoundingClientRect();
           return r.width > 0 && r.height > 0;
         };
-        const matchText = (el) => {
-          const text = `${el.textContent || ""} ${el.title || ""} ${el.getAttribute("data-qtip") || ""}`;
-          return /ambulat[óo]rio/i.test(text);
-        };
+        const isAmb = (txt) => /ambulat[óo]rio/i.test(txt || "");
 
-        // 1) Itens ExtJS típicos: botões, menu items, ícones do desktop
+        // 1) Botão direto no menubar/toolbar com texto "Ambulatório"
+        const menubarBtns = Array.from(
+          document.querySelectorAll(".x-menubar .x-btn, .x-toolbar .x-btn, .x-menubar a.x-btn, .x-toolbar a.x-btn"),
+        ).filter(visible);
+        let hit = menubarBtns.find((b) => isAmb(b.textContent));
+        if (hit) {
+          hit.click();
+          await sleep(150);
+          // Se abriu menu dropdown, tenta clicar no primeiro item Ambulatório
+          const sub = Array.from(document.querySelectorAll(".x-menu .x-menu-item")).filter(visible).find((m) => isAmb(m.textContent));
+          if (sub) sub.click();
+          return { via: "menubar-direct", text: (hit.textContent || "").trim().slice(0, 60) };
+        }
+
+        // 2) Abre cada botão da menubar e procura subitem "Ambulatório"
+        for (const b of menubarBtns) {
+          try {
+            b.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+            b.click();
+          } catch {}
+          await sleep(180);
+          const sub = Array.from(document.querySelectorAll(".x-menu .x-menu-item, .x-menu-item-text"))
+            .filter(visible)
+            .find((m) => isAmb(m.textContent));
+          if (sub) {
+            const clickable = sub.closest(".x-menu-item") || sub;
+            clickable.click();
+            return { via: "menubar-submenu", parent: (b.textContent || "").trim().slice(0, 40), text: (sub.textContent || "").trim().slice(0, 60) };
+          }
+        }
+
+        // 3) Selectors ExtJS clássicos
         const extSelectors = [
           ".x-btn-inner", ".x-menu-item-text", ".x-tree-node-text",
           ".x-desktop-shortcut-text", ".x-tab-inner", ".x-grid-cell-inner",
         ];
         for (const sel of extSelectors) {
           const els = Array.from(document.querySelectorAll(sel)).filter(visible);
-          const hit = els.find(matchText);
-          if (hit) {
-            // sobe pro container clicável
-            const clickable = hit.closest(".x-btn, .x-menu-item, .x-tree-node, .x-desktop-shortcut, .x-tab") || hit;
+          const h = els.find((el) => isAmb(el.textContent) || isAmb(el.getAttribute("data-qtip")));
+          if (h) {
+            const clickable = h.closest(".x-btn, .x-menu-item, .x-tree-node, .x-desktop-shortcut, .x-tab") || h;
             clickable.click();
-            // alguns desktop-shortcuts requerem dblclick
-            try {
-              const evt = new MouseEvent("dblclick", { bubbles: true, cancelable: true });
-              clickable.dispatchEvent(evt);
-            } catch {}
-            return { via: `ext:${sel}`, text: hit.textContent?.trim().slice(0, 60) };
+            try { clickable.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true })); } catch {}
+            return { via: `ext:${sel}`, text: (h.textContent || "").trim().slice(0, 60) };
           }
         }
 
-        // 2) Genérico — qualquer elemento visível com texto Ambulatório
-        const generic = Array.from(document.querySelectorAll("button,a,div,span,li,td"))
-          .filter(visible)
-          .filter(matchText)
-          // exclui containers gigantes
-          .filter((el) => (el.textContent || "").trim().length < 60);
-        if (generic[0]) {
-          generic[0].click();
-          try {
-            generic[0].dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
-          } catch {}
-          return { via: "generic", text: generic[0].textContent?.trim().slice(0, 60) };
-        }
-
-        // 3) Dump pra diagnóstico
-        const dump = Array.from(document.querySelectorAll("button,a,div,span,li"))
-          .filter(visible)
-          .map((el) => (el.textContent || "").trim())
-          .filter((t) => t && t.length < 40)
-          .slice(0, 50);
+        // 4) Dump diagnóstico
+        const dump = {
+          menubar: menubarBtns.map((b) => (b.textContent || "").trim().slice(0, 40)),
+          allBtns: Array.from(document.querySelectorAll(".x-btn")).filter(visible).slice(0, 30).map((b) => (b.textContent || "").trim().slice(0, 40)),
+          menuItems: Array.from(document.querySelectorAll(".x-menu-item-text")).filter(visible).slice(0, 30).map((b) => (b.textContent || "").trim().slice(0, 40)),
+        };
         return { via: null, dump };
       })
       .catch((e) => ({ via: null, error: String(e) }));
