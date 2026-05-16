@@ -39,6 +39,11 @@ type Paciente = any;
 function PacientesPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Paciente | null>(null);
   const [reveal, setReveal] = useState(false);
@@ -52,18 +57,18 @@ function PacientesPage() {
   const showCNS = (p: any) => reveal ? (p.cns ? formatCNS(p.cns) : "—") : maskCNS(p.cns);
   const showPhone = (p: any) => reveal ? (p.telefone ? formatPhone(p.telefone) : "—") : maskPhone(p.telefone);
 
+  const hasSearch = debouncedSearch.length >= 2;
+
   const { data, isLoading } = useQuery({
-    queryKey: ["pacientes", search],
+    queryKey: ["pacientes", debouncedSearch],
+    enabled: hasSearch,
     queryFn: async () => {
-      let q = supabase.from("pacientes").select("*").order("nome").limit(200);
-      if (search) {
-        const term = search.trim();
-        const digits = onlyDigits(term);
-        if (digits.length >= 3) {
-          q = q.or(`cpf.ilike.%${digits}%,cns.ilike.%${digits}%,telefone.ilike.%${digits}%`);
-        } else {
-          q = q.ilike("nome", `%${term}%`);
-        }
+      let q = supabase.from("pacientes").select("*").order("nome").limit(50);
+      const digits = onlyDigits(debouncedSearch);
+      if (digits.length >= 3) {
+        q = q.or(`cpf.ilike.%${digits}%,cns.ilike.%${digits}%,telefone.ilike.%${digits}%`);
+      } else {
+        q = q.ilike("nome", `%${debouncedSearch}%`);
       }
       const { data } = await q;
       return data ?? [];
