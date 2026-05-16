@@ -131,6 +131,7 @@ function PacientesPage() {
               <PacienteDialog
                 key={editing?.id ?? "novo"}
                 editing={editing}
+                onOpenExisting={(p) => { setOpen(false); setTimeout(() => openEdit(p), 50); }}
                 onSaved={() => { setOpen(false); setEditing(null); qc.invalidateQueries({ queryKey: ["pacientes"] }); }}
               />
             )}
