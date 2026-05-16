@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2, Download, Trash2, Megaphone, CalendarClock, History, Zap, Plus, Paperclip, ListOrdered } from "lucide-react";
+import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2, Download, Trash2, Megaphone, CalendarClock, History, Zap, Plus, Paperclip, ListOrdered, Stethoscope } from "lucide-react";
+import { ConsultorioDialog } from "@/components/consultorio/consultorio-dialog";
 import { LoadingState } from "@/components/loading-state";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { EmptyState } from "@/components/empty-state";
@@ -59,6 +60,9 @@ function AgendaDiaPage() {
   const [historico, setHistorico] = useState<any>(null);
   const [encaixeOpen, setEncaixeOpen] = useState(false);
   const [anexos, setAnexos] = useState<any>(null);
+  const [consultorio, setConsultorio] = useState<any>(null);
+  const [atendidosSim, setAtendidosSim] = useState<Record<string, string>>({});
+  const isMedicoSimulado = user?.email === "admin@opportunity.com";
 
   const { data: unidades } = useAllowedUnidades();
   const allowedIds = useMemo(() => (unidades ?? []).map((u: any) => u.id), [unidades]);
@@ -263,6 +267,17 @@ function AgendaDiaPage() {
                   <div className="flex items-center justify-between gap-2 md:contents">
                     <StatusBadge status={a.status} />
                     <div className="flex flex-wrap gap-1">
+                      {isMedicoSimulado && (
+                        atendidosSim[a.id] ? (
+                          <Badge variant="outline" className="h-9 gap-1 border-emerald-300 bg-emerald-50 px-2 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300" title={`Enviado ao eSUS PEC · ${atendidosSim[a.id]}`}>
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Atendido
+                          </Badge>
+                        ) : (
+                          <Button size="sm" className="h-9 gap-1 px-2.5" title="Atender (consultório)" onClick={() => setConsultorio(a)}>
+                            <Stethoscope className="h-4 w-4" /> Atender
+                          </Button>
+                        )
+                      )}
                       {a.unidade_id && (
                         <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-primary" title="Chamar paciente" onClick={() => setChamar(a)}><Megaphone className="h-4 w-4" /></Button>
                       )}
@@ -382,6 +397,13 @@ function AgendaDiaPage() {
         open={!!anexos}
         onOpenChange={(v) => !v && setAnexos(null)}
         agendamento={anexos}
+      />
+
+      <ConsultorioDialog
+        open={!!consultorio}
+        onOpenChange={(v) => !v && setConsultorio(null)}
+        agendamento={consultorio}
+        onFinalizado={(id, protocolo) => setAtendidosSim((prev) => ({ ...prev, [id]: protocolo }))}
       />
     </div>
     </PullToRefresh>
