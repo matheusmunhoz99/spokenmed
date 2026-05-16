@@ -1,47 +1,79 @@
-## Pacientes: busca preguiçosa + prevenção de duplicados
+# Plano — Fase 1: feel de app nativo + refresh visual
 
-Arquivo: `src/routes/app.pacientes.tsx`
+Foco em **mobile** (iPhone/Android). Desktop ganha só o ajuste de paleta e fonte, sem mexer em layouts.
 
-### 1. Não listar todos os pacientes ao abrir
-- Mudar a query para **só rodar quando houver termo de busca** (≥ 2 caracteres). Usar `enabled: search.trim().length >= 2` no `useQuery`.
-- Manter o debounce simples (300ms) no input para evitar disparar a cada tecla.
-- Estado inicial da tela (sem busca): mostrar um `EmptyState` simpático com ícone `Search`, título "Comece a buscar" e descrição "Digite nome, CPF, CNS ou telefone para localizar um paciente." + botão "Novo paciente" do lado.
-- Buscar continua igual: `nome` (ilike) ou `cpf/cns/telefone` (digits ilike). Limite 50 resultados (em vez de 200) já que é busca direcionada.
+## 1. Identidade visual (leve, em todo o app)
 
-### 2. Prevenção de duplicados ao salvar (novo paciente)
-Antes de fazer o `insert`, rodar duas verificações em paralelo no Supabase:
+**Paleta "Clínico Sereno"** — atualizar tokens em `src/styles.css`:
+- Background `#fafbfc`, surface `#ffffff`, borda `#e8ecf1`
+- Primary teal `#2d8a9e` (claro) / `#5cbdb9` (escuro)
+- Texto principal `#0c2340`, secundário slate-500
+- Sombras mais suaves (`shadow-sm`/`shadow-md` redefinidos com blur maior e opacidade menor)
+- `--radius` de `0.5rem` → `0.75rem` (mais cara de iOS)
 
-- **CPF igual**: `select id, nome from pacientes where cpf = :cpf_digits limit 1` (só se CPF preenchido).
-- **Nome + Nascimento iguais**: `select id, nome from pacientes where lower(unaccent(nome)) = lower(unaccent(:nome)) and data_nascimento = :data limit 1` (só se ambos preenchidos).
+**Tipografia Sora + Manrope** — adicionar via `<link>` no `__root.tsx`, definir no `body` (`font-family: Manrope`) e em headings (`font-family: Sora`). Tracking levemente negativo nos títulos. Tamanho-base 15px no desktop, 16px mobile (já tem regra).
 
-Se qualquer um retornar match → abrir um `AlertDialog` com:
-- Título: "Paciente já cadastrado"
-- Mensagem: explicando o que bateu ("CPF já consta em **NOME EXISTENTE**" ou "Já existe **NOME** com a mesma data de nascimento").
-- Ações: **"Editar existente"** (fecha o dialog de novo, abre o de edição com o paciente encontrado) e **"Cancelar"**.
+**Por que não vai "parecer IA":** paleta sóbria de um tom só, tipografia humanista (não a Inter de todo template), espaçamento generoso, zero gradientes coloridos, zero emojis, microcópia em PT-BR natural ("Tudo certo por aqui", "Nada por enquanto" em vez de "No data available").
 
-Implementação: como `unaccent` requer extensão, fazer normalização no client (lowercase + trim) e comparar com `ilike` exato: `nome.ilike.NOME_NORMALIZADO`. Aceitável para esse caso. Sem migration.
+## 2. Cara de app nativo (mobile)
 
-Pular essa checagem quando `editing` está definido (já é edição).
+### 2.1 Transições de página + haptics
+- Criar `src/hooks/use-haptics.ts` usando `navigator.vibrate` (Android) com fallback silencioso (iOS PWA não suporta, mas não quebra). Disparar em: salvar, deletar, chamar paciente, erro.
+- Wrapper `<PageTransition>` no `<Outlet />` do `app.tsx`: detecta mobile e aplica `animate-in slide-in-from-right-4 fade-in` em entrada de rota nova, `slide-in-from-left-4` ao voltar. Desktop: só fade leve.
 
-### 3. Prevenção de duplicados ao buscar no CadSUS
-No `handleBuscarCadSus`, **antes de chamar o server function**, consultar `pacientes where cpf = :cpf_digits`. Se já existir:
-- Mostrar `AlertDialog`: "Paciente já cadastrado no sistema — **NOME**. Deseja abrir o cadastro existente para editar?"
-- Ações: **"Abrir existente"** (fecha o dialog atual, abre o de edição com o paciente encontrado) e **"Cancelar"**.
-- Se cancelar, não chama o CadSUS (evita gastar consulta no Fiorilli e evita sobrescrever).
+### 2.2 Bottom sheets em vez de dialogs (mobile)
+- Criar `src/components/ui/responsive-dialog.tsx`: componente único que renderiza `<Dialog>` no desktop e `<Drawer>` (vaul, já instalado) no mobile via `useIsMobile()`. API igual ao Dialog (`<ResponsiveDialog>`, `Trigger`, `Content`, `Header`, `Title`, `Footer`).
+- Migrar usos críticos: `PacienteDialog` (em `app.pacientes.tsx`), `chamar-dialog`, `encaixe-dialog`, `reagendar-dialog`, `historico-dialog`, `anexos-dialog`, `permissions-dialog`. Não trocar nada da lógica interna — só o invólucro.
+- Drawer com `snapPoints` permitindo arrastar pra fechar; handle visual no topo.
 
-### 4. UX / polimento
-- Estado de loading do botão "Salvar" mostra spinner durante a checagem de duplicados também.
-- Mensagens de toast claras.
-- Manter o reset do form ao fechar (já implementado).
-- Acessibilidade: `AlertDialog` do shadcn com foco no botão primário ("Editar existente").
+### 2.3 Pull-to-refresh
+- Criar `src/components/pull-to-refresh.tsx`: usa `touchstart/touchmove` no scroll container, mostra spinner discreto no topo quando puxa >60px. Só mobile.
+- Aplicar em: `app.agenda-dia.tsx`, `app.fila.tsx`, `app.pacientes.tsx` (quando há resultado), `app.index.tsx`. `onRefresh` chama `queryClient.invalidateQueries` da query da página + haptic leve.
 
-### Estrutura técnica
-- Adicionar `useDebouncedValue` (hook local simples com `useEffect` + `setTimeout`) ou usar `useState` + `setTimeout` direto. Sem nova dependência.
-- Novo state `duplicateModal`: `{ open: boolean; mode: 'save' | 'cadsus'; paciente: { id, nome }; reason: string }`.
-- Função utilitária `checkDuplicates(form)` que retorna o paciente conflitante ou null.
-- Ao clicar "Editar existente": fechar o dialog atual, chamar `openEdit(paciente)` no componente pai (precisa expor via prop `onOpenExisting`).
+### 2.4 Swipe-actions nas listas
+- Criar `src/components/swipe-row.tsx`: wrapper com gesture (CSS transform + touch handlers, sem libs novas). Arrastar pra esquerda revela 1–2 botões de ação.
+- Aplicar em:
+  - Fila: swipe → "Chamar" + "Adiar"
+  - Pacientes: swipe → "Editar" + "Histórico"
+  - Agenda do dia: swipe → "Reagendar" + "Faltou"
+- Desktop: ações continuam nos botões/menu existentes (componente vira no-op).
 
-### Fora de escopo
-- Sem alterações no banco / migrations.
-- Sem mexer no worker Cloudflare.
-- Sem mudar a lógica de CSV / lista (a tabela continua existindo, só não carrega de cara).
+### 2.5 Skeleton loaders
+- Criar 3 skeletons reutilizáveis em `src/components/skeletons/`: `list-skeleton.tsx`, `card-skeleton.tsx`, `table-skeleton.tsx` (usam `<Skeleton>` shadcn já presente).
+- Substituir `<Loader2 className="animate-spin" />` em: Agenda, Fila, Pacientes, Painel, Profissionais. Spinner só fica em ações pontuais (botão "Salvar").
+
+### 2.6 Splash + status bar polidos (PWA)
+- `manifest.webmanifest`: trocar `background_color`/`theme_color` para `#fafbfc` (claro) e adicionar `theme_color` escuro via `<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0c2340">` no `__root.tsx`.
+- Adicionar `<meta name="apple-mobile-web-app-status-bar-style" content="default">` e `<meta name="apple-mobile-web-app-capable" content="yes">`.
+- Verificar que `apple-touch-icon` aponta pra `/icons/icon-512.png`.
+
+### 2.7 Bottom nav polida
+- Aumentar tap targets pra 48px, adicionar leve "spring" no item ativo (scale 1.08 + cor primary), badge de contagem na Fila quando houver pendências.
+- Indicador ativo: barrinha de 3px no topo do item ativo em vez de só mudar cor.
+
+## 3. O que NÃO entra nessa fase
+- Reescrita de layouts desktop, novas telas, mudança em backend, em CSV/PDF, em CadSUS, em permissões.
+
+## Técnico
+
+**Arquivos novos:**
+- `src/hooks/use-haptics.ts`
+- `src/components/ui/responsive-dialog.tsx`
+- `src/components/pull-to-refresh.tsx`
+- `src/components/swipe-row.tsx`
+- `src/components/page-transition.tsx`
+- `src/components/skeletons/{list,card,table}-skeleton.tsx`
+
+**Arquivos editados:**
+- `src/styles.css` (paleta + radius + sombras + fonts)
+- `src/routes/__root.tsx` (links de fonte, metas iOS, theme-color)
+- `src/routes/app.tsx` (PageTransition no Outlet)
+- `src/components/mobile-bottom-nav.tsx` (indicador + tap target)
+- `public/manifest.webmanifest` (cores)
+- Rotas que viram bottom sheet: `app.pacientes.tsx` + 5 dialogs
+- Rotas com pull-to-refresh + skeletons: `app.agenda-dia.tsx`, `app.fila.tsx`, `app.pacientes.tsx`, `app.index.tsx`
+
+**Sem novas dependências** (vaul, lucide, radix já presentes).
+
+## Entrega
+Implemento tudo em um único passo (são alterações coordenadas). Depois você testa no celular instalado como PWA e me diz o que ajustar.
