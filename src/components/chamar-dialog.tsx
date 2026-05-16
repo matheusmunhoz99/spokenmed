@@ -46,6 +46,7 @@ export function ChamarDialog({ open, onOpenChange, agendamento, userId }: Props)
     } as any);
     setSubmitting(false);
     if (error) return toast.error(error.message);
+    haptic("success");
     toast.success("Paciente chamado no painel");
     onOpenChange(false);
   };
