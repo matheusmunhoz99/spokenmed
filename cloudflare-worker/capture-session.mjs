@@ -1,17 +1,10 @@
 #!/usr/bin/env node
-// Extrai cookies + _S_ID de um "Copy as cURL" do DevTools e envia
-// pro endpoint /session/update do Worker.
+// Extrai _S_ID (e cookies, se houver) de um "Copy as cURL" do DevTools
+// (bash OU Windows cmd) e envia pro /session/update do Worker.
 //
 // Uso:
-//   1. No DevTools (Network), ache QUALQUER POST pra HandleEvent.
-//   2. Botão direito → Copy → "Copy as cURL (bash)".
-//   3. Cole num arquivo, ex: /tmp/req.sh
-//   4. Rode:
-//        API_KEY=SUA_KEY node capture-session.mjs /tmp/req.sh
-//
-//   Ou cole direto via stdin:
-//        API_KEY=SUA_KEY pbpaste | node capture-session.mjs -
-//        (Linux: use `xclip -o -selection clipboard` em vez de pbpaste)
+//   API_KEY=SUA_KEY node capture-session.mjs /tmp/req.sh
+//   API_KEY=SUA_KEY node capture-session.mjs -        # cola via stdin
 
 import { readFileSync } from "node:fs";
 
@@ -20,41 +13,59 @@ const apiKey = process.env.API_KEY;
 const workerUrl = (process.env.WORKER_URL || "https://spokenmed.meyssiner.workers.dev").replace(/\/+$/, "");
 
 if (!file || !apiKey) {
-  console.error("Uso: API_KEY=xxx node capture-session.mjs <arquivo-curl.sh | ->");
+  console.error("Uso: API_KEY=xxx node capture-session.mjs <arquivo-curl | ->");
   process.exit(1);
 }
 
-const curl = file === "-" ? readFileSync(0, "utf8") : readFileSync(file, "utf8");
+let curl = file === "-" ? readFileSync(0, "utf8") : readFileSync(file, "utf8");
 
-function pick(re) {
+// Normaliza cURL do Windows cmd: tira ^ continuações e ^" → "
+curl = curl
+  .replace(/\^\r?\n/g, " ")    // ^ no fim de linha = continuação
+  .replace(/\^"/g, '"')        // ^" = "
+  .replace(/\^\^/g, "^")
+  .replace(/\\\r?\n/g, " ");   // \ continuação (bash)
+
+function pickHeader(name) {
+  const re = new RegExp(`-H\\s+['"]${name}:\\s*([^'"\\r\\n]+)['"]`, "i");
   const m = curl.match(re);
+  return m ? m[1].trim() : "";
+}
+
+function pickBody() {
+  const m =
+    curl.match(/--data-raw\s+['"]([^'"]+)['"]/) ||
+    curl.match(/--data\s+['"]([^'"]+)['"]/) ||
+    curl.match(/\s-d\s+['"]([^'"]+)['"]/);
   return m ? m[1] : "";
 }
 
-// Cookies: tanto -H 'cookie: ...' quanto -b '...'
+// 1) cookies (qualquer um dos formatos)
 const cookies =
-  pick(/-H\s+['"]cookie:\s*([^'"]+)['"]/i) ||
-  pick(/-b\s+['"]([^'"]+)['"]/);
+  pickHeader("cookie") ||
+  (curl.match(/-b\s+['"]([^'"]+)['"]/) || [, ""])[1] ||
+  "";
 
-// Body do POST (--data, --data-raw, --data-urlencode, -d)
-const data =
-  pick(/--data-raw\s+['"]([^'"]+)['"]/) ||
-  pick(/--data\s+['"]([^'"]+)['"]/) ||
-  pick(/\s-d\s+['"]([^'"]+)['"]/);
+// 2) _S_ID — em header (_s_id ou unisessionid) OU no body
+let sId =
+  pickHeader("_s_id") ||
+  pickHeader("unisessionid") ||
+  "";
 
-const sidRaw = (data.match(/_S_ID=([^&]+)/) || [])[1] || "";
-const sId = sidRaw ? decodeURIComponent(sidRaw) : "";
+if (!sId) {
+  const body = pickBody();
+  const m = body.match(/_S_ID=([^&]+)/);
+  if (m) sId = decodeURIComponent(m[1]);
+}
 
-if (!cookies || !sId) {
-  console.error("❌ Não consegui extrair cookies ou _S_ID do cURL.");
-  console.error("   cookies encontrados:", cookies ? cookies.slice(0, 60) + "..." : "(vazio)");
-  console.error("   _S_ID encontrado   :", sId || "(vazio)");
-  console.error("   Confira se você copiou um POST do HandleEvent.");
+if (!sId) {
+  console.error("❌ Não achei _S_ID no cURL (procurei nos headers _s_id, unisessionid e no body).");
   process.exit(2);
 }
 
-console.log("✅ cookies :", cookies.slice(0, 80) + (cookies.length > 80 ? "..." : ""));
 console.log("✅ _S_ID   :", sId);
+console.log(cookies ? "✅ cookies : " + cookies.slice(0, 80) + (cookies.length > 80 ? "..." : "")
+                    : "ℹ️  cookies : (não encontrados — este uniGUI usa só headers)");
 console.log("→ POST", `${workerUrl}/session/update`);
 
 const res = await fetch(`${workerUrl}/session/update?api_key=${encodeURIComponent(apiKey)}`, {
