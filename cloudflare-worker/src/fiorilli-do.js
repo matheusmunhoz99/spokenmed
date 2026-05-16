@@ -392,14 +392,6 @@ export class FiorilliDO {
       await page.keyboard.press("Enter").catch(() => null);
       viaUsed = "enter-key";
     }
-
-    // Fallback: Enter no campo de senha
-    if (!viaUsed) {
-      await page.focus("#O34 input, input#O34").catch(() => null);
-      await page.keyboard.press("Enter").catch(() => null);
-      viaUsed = "enter-key";
-    }
-
     const navegou = await navPromise;
     console.log("[do] submit_login via=", viaUsed, "navegou=", navegou, "url=", page.url());
 
