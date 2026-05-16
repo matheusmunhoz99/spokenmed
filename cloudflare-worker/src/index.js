@@ -116,7 +116,7 @@ function looksLikeSessionExpired(text, status) {
   );
 }
 
-function sessionHeaders() {
+function sessionHeaders(session) {
   const h = {
     "X-Requested-With": "XMLHttpRequest",
     Referer: REFERER,
@@ -124,20 +124,23 @@ function sessionHeaders() {
     "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
     // este uniGUI manda sessão em HEADERS, não em cookies
-    _s_id: SESSION.sId,
-    unisessionid: SESSION.sId,
+    _s_id: session.sId,
+    unisessionid: session.sId,
   };
-  if (SESSION.cookies) h.Cookie = SESSION.cookies;
+  if (session.cookies) h.Cookie = session.cookies;
   return h;
 }
 
-async function doPostConsulta(cpfDigits) {
-  if (!SESSION.sId) {
+async function doPostConsulta(cpfDigits, env) {
+  const session = await loadSession(env);
+  if (!session.sId) {
     return { ok: false, error: "sessao_ausente", detail: "POST /session/update primeiro" };
   }
 
   const cpfFmt = formatCpf(cpfDigits);
-  const seq = SESSION.seq++;
+  const seq = session.seq++;
+  // persiste o seq incrementado pra próxima request
+  await saveSession(env, session);
 
   // Body EXATO conforme spec do usuário.
   // O11162 valor: %021%02%02CPF_FORMATADO
