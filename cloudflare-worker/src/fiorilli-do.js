@@ -4,7 +4,7 @@
 
 import puppeteer from "@cloudflare/puppeteer";
 
-const SESSION_TTL_MS = 10 * 60 * 1000;
+const SESSION_TTL_MS = 25 * 60 * 1000;
 const PUPPETEER_TIMEOUT_MS = 45_000;
 const HTTP_TIMEOUT_MS = 15_000;
 
