@@ -47,7 +47,22 @@ export default {
     }
 
     if (url.pathname === "/health") {
-      return json({ ok: true, ts: Date.now() });
+      return json({ ok: true, ts: Date.now(), build: "fiorilli-debug-v3" });
+    }
+
+    if (url.pathname === "/reset") {
+      const provided =
+        request.headers.get("x-api-key") || url.searchParams.get("api_key") || "";
+      if (!env.API_KEY || provided !== env.API_KEY) {
+        return json({ ok: false, error: "unauthorized" }, 401);
+      }
+      const id = env.FIORILLI_DO.idFromName("global");
+      const stub = env.FIORILLI_DO.get(id);
+      const res = await stub.fetch(new Request("https://do/reset", { method: "POST" }));
+      return new Response(await res.text(), {
+        status: res.status,
+        headers: { "content-type": "application/json; charset=utf-8" },
+      });
     }
 
     if (url.pathname === "/cpf") {
