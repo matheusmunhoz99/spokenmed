@@ -1,55 +1,59 @@
-## Plano
+## Objetivo
+Capturar TUDO que acontece entre o navegador e `saudeteresopolis.oppcloud.com.br/sis/` durante login + busca de CPF, pra eu conseguir reproduzir esse fluxo com `fetch` puro no Worker (sem Puppeteer, sem Browser Rendering, 100% grátis).
 
-Você cola 2 arquivos no Worker do Cloudflare, configura 4 secrets lá, e eu adapto o app pra chamar `https://spokenmed.meyssiner.workers.dev/` via HTTP — sem Puppeteer no Lovable.
+## Como vai funcionar
 
-## Parte 1 — Código que eu vou te entregar pra colar no Worker
+1. Você abre `https://saudeteresopolis.oppcloud.com.br/sis/` no Chrome
+2. Abre o DevTools (F12) → aba **Console**
+3. Cola o script que eu vou te entregar e aperta Enter
+4. **Faz o login normalmente** (usuário + senha)
+5. **Busca um CPF** como faria normalmente
+6. Volta no console e digita `__dump()` → ele baixa um arquivo `.json` com tudo capturado
+7. Você me envia esse `.json` (anexa aqui no chat)
 
-### `src/index.js` (entrypoint do Worker)
-- Endpoint `GET /cpf?cpf=XXXXXXXXXXX` protegido por header `x-api-key`.
-- Valida CPF (11 dígitos), valida api key contra `env.API_KEY`.
-- Encaminha pra Durable Object `FIORILLI_DO` (singleton) via `idFromName("global")` — garante 1 sessão Puppeteer reaproveitada, sem corrida de seq.
-- Retorna JSON `{ ok, dados: { nome, logradouro, numero, bairro, cidade, uf, cns, cns_secundario, telefone } }` ou `{ ok:false, error }`.
-- Endpoint `GET /health` sem auth pra teste rápido.
+## O que o script vai capturar
 
-### `src/fiorilli-do.js` (Durable Object)
-- Classe `FiorilliDO` exportada.
-- Mantém em memória: `cookies`, `_S_ID`, `createdAt`, contador hex `seq`.
-- `bootstrap()`: usa `@cloudflare/puppeteer` + `env.BROWSER` → abre `/sis/`, preenche `#O30/#O34`, clica `#O40`, espera `/ambulatorio/`, extrai `_S_ID` e cookies, fecha o browser.
-- `lookup(cpf)`: POST puro `fetch` em `/ambulatorio/ambulatorio.dll/HandleEvent` com `fp=%26O1162%3D%25024%2502%2502<cpf-formatado>`, seq hex incremental, cookies em jar.
-- Se resposta não tiver `.setText(`, considera sessão expirada → rebootstrap e tenta de novo (1x).
-- Parser regex extrai `O11CB` (logradouro), `O11CF` (número), `O11D3` (bairro), `O11DB` (cidade-UF), `O11E3` (CNS), `O11E7` (CNS sec), + heurística pra nome (UPPERCASE com espaços) e telefone.
-- TTL de sessão 10min.
+Pra cada requisição (fetch + XHR + form submit):
+- URL completa, método, status
+- **Headers de request** (cookies, content-type, x-requested-with, etc)
+- **Headers de response** (Set-Cookie, redirects)
+- **Body de request** (payload do login, do HandleEvent, viewstate, etc)
+- **Body de response** (HTML retornado, JSON, etc — limitado a 200KB por resposta pra não explodir)
+- Timestamps e ordem
 
-### `wrangler.jsonc` do Worker (referência)
-- Binding `BROWSER` (Browser Rendering) → você já habilitou.
-- Binding `FIORILLI_DO` apontando pra classe `FiorilliDO` + migration `new_sqlite_classes`.
+Não captura: senha em texto será mascarada antes de salvar (te pergunto o campo). Aliás — melhor: o script **não** mascara nada, e antes de me mandar você abre o JSON e troca sua senha por `***`. Mais seguro.
 
-## Parte 2 — Secrets no Worker (Cloudflare dashboard)
+## Por que isso resolve
 
-Você adiciona em Workers → spokenmed → Settings → Variables and Secrets:
-- `OPP_BASE_URL` = `https://oppcloud.com.br` (ou a base correta do Fiorilli)
-- `OPP_USERNAME` = seu usuário
-- `OPP_PASSWORD` = sua senha
-- `API_KEY` = uma string aleatória que você cria (eu te passo um exemplo) — vai ser a mesma que o Lovable envia
+Com o JSON em mãos, eu consigo ver exatamente:
+- Qual URL recebe o POST do login e com que campos
+- Qual cookie/token é setado e onde ele aparece nas próximas requests
+- Qual endpoint busca o CPF, com que payload e que JSON/HTML volta
+- Se tem CSRF token, viewstate (ASP.NET), challenge, etc
 
-## Parte 3 — Mudanças no app Lovable
+Aí reescrevo o `opp-client.server.ts` usando só `fetch` nativo do Worker — sem browser, sem rate limit, sem custo.
 
-1. **Remover Puppeteer**: deletar `@cloudflare/puppeteer` do `package.json` e do `src/lib/opp-client.server.ts`.
-2. **Reescrever `src/lib/opp-client.server.ts`** como cliente HTTP fino:
-   - Chama `fetch("https://spokenmed.meyssiner.workers.dev/cpf?cpf=...")` com header `x-api-key: process.env.CADSUS_WORKER_API_KEY`.
-   - Mantém a mesma assinatura `buscarPacienteCpf` / `buscarPacienteCpfWithTrace` → zero mudança nos consumidores (`src/lib/cadsus.functions.ts`, `src/routes/app.pacientes.tsx`).
-   - Trace passa a registrar status HTTP + preview da resposta JSON.
-3. **Limpar `src/server.ts`**: remover `logEnvOnce` e `__CF_ENV` (não precisamos mais do binding BROWSER no app).
-4. **Limpar `wrangler.jsonc`**: remover `"browser": { "binding": "BROWSER" }`.
-5. **Secrets no Lovable** (eu vou pedir via tool):
-   - `CADSUS_WORKER_URL` = `https://spokenmed.meyssiner.workers.dev`
-   - `CADSUS_WORKER_API_KEY` = mesma string que você botou no Worker
+## Plano de implementação
 
-## Ordem de execução quando você aprovar
+1. Eu te entrego o script de captura (pra colar no console)
+2. Você roda, faz login + busca CPF, gera o dump, me manda
+3. Eu analiso o JSON e reescrevo `src/lib/opp-client.server.ts` com fetch puro
+4. Removo as dependências de Puppeteer/Browser Rendering do `wrangler.jsonc`
+5. Removo o Durable Object `FIORILLI_DO` (não precisa mais cachear sessão de browser; vou cachear só os cookies HTTP, que é leve)
+6. Você roda `npx wrangler deploy` e testa o endpoint `/cpf?cpf=...` de novo
 
-1. Te mostro o conteúdo de `src/index.js`, `src/fiorilli-do.js` e `wrangler.jsonc` do Worker (pra você colar e fazer `wrangler deploy`).
-2. Peço os 2 secrets no Lovable (`CADSUS_WORKER_URL`, `CADSUS_WORKER_API_KEY`).
-3. Reescrevo `opp-client.server.ts`, limpo `server.ts` e `wrangler.jsonc`, removo dependência puppeteer.
-4. Você publica o app e testa o botão de CPF. Se der erro, o trace agora mostra exatamente o que o Worker respondeu.
+## Detalhes técnicos
 
-Quer que eu siga assim?
+- Script usa monkey-patch em `window.fetch` e `XMLHttpRequest.prototype.open/send` pra capturar tudo
+- Também intercepta `HTMLFormElement.prototype.submit` e o evento `submit` pra pegar logins via form tradicional
+- Armazena tudo em `window.__captured = []`
+- `__dump()` faz `JSON.stringify` e dispara download via `<a download>`
+- Resposta de cada request é clonada (`.clone()`) pra ler o body sem quebrar a página
+
+## Riscos / limitações
+
+- Se o site usar **WebSocket** ou **Server-Sent Events** pro login, o script padrão não pega — me avisa que adiciono interceptor
+- Se a senha aparecer no body de request, ela vai estar no JSON — **edita antes de me mandar**
+- Bodies acima de 200KB ficam truncados (raramente importa, mas avisa se for o caso)
+
+Aprova que eu te mando o script?
