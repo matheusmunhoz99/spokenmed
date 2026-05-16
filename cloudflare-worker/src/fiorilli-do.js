@@ -305,8 +305,8 @@ export class FiorilliDO {
       }
       console.log("[do] step=extract_sid status=ok");
 
-      // Cookies: pega de todas as URLs visitadas + contexto inteiro do browser
-      const urls = Array.from(new Set([page.url(), frameUrl, baseUrl, `${baseUrl}/sis/`, `${baseUrl}/ambulatorio/`].filter(Boolean)));
+      // Cookies: pega de todas as URLs visitadas + contexto inteiro do browser + document.cookie do iframe
+      const urls = Array.from(new Set([page.url(), frameUrl, baseUrl, `${baseUrl}/sis/`, `${baseUrl}/ambulatorio/`, `${baseUrl}/ambulatorio/ambulatorio.dll/`].filter(Boolean)));
       let cookies = [];
       try { cookies = await page.cookies(...urls); } catch {}
       try {
@@ -320,7 +320,24 @@ export class FiorilliDO {
       const jar = new Map();
       for (const c of cookies) jar.set(c.name, c.value);
 
-      console.log("[do] session ready. cookies:", jar.size, "names=", JSON.stringify(Array.from(jar.keys())));
+      // Também extrai document.cookie do iframe (cookies de domínio diferente que page.cookies pode não pegar)
+      try {
+        const frameCookieStr = await ambulatoryFrame.evaluate(() => document.cookie || "");
+        const pageCookieStr = await page.evaluate(() => document.cookie || "");
+        for (const src of [frameCookieStr, pageCookieStr]) {
+          if (!src) continue;
+          for (const pair of src.split(";")) {
+            const [k, ...rest] = pair.trim().split("=");
+            if (k && !jar.has(k)) jar.set(k, rest.join("="));
+          }
+        }
+        console.log("[do] frame document.cookie len=", frameCookieStr.length, "page document.cookie len=", pageCookieStr.length);
+      } catch (e) {
+        console.log("[do] document.cookie extract falhou:", String(e?.message || e));
+      }
+
+      const sIdMasked = sId ? `${sId.slice(0, 4)}...${sId.slice(-4)}(len=${sId.length})` : "null";
+      console.log("[do] session ready. cookies:", jar.size, "names=", JSON.stringify(Array.from(jar.keys())), "sId=", sIdMasked);
       return { cookies: jar, sId, createdAt: Date.now() };
     } finally {
       try {
