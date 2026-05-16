@@ -13,7 +13,7 @@
 // Persistência: módulo em memória do isolate (volátil). Se o isolate reciclar,
 // basta re-postar /session/update com os valores atualizados.
 
-const BUILD = "fiorilli-http-v1";
+const BUILD = "fiorilli-http-v2";
 const BASE = "https://saudeteresopolis.oppcloud.com.br";
 const HANDLE_EVENT = `${BASE}/ambulatorio/ambulatorio.dll/HandleEvent`;
 const REFERER = `${BASE}/ambulatorio/ambulatorio.dll/`;
@@ -96,8 +96,23 @@ function looksLikeSessionExpired(text, status) {
   );
 }
 
+function sessionHeaders() {
+  const h = {
+    "X-Requested-With": "XMLHttpRequest",
+    Referer: REFERER,
+    Accept: "*/*",
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+    // este uniGUI manda sessão em HEADERS, não em cookies
+    _s_id: SESSION.sId,
+    unisessionid: SESSION.sId,
+  };
+  if (SESSION.cookies) h.Cookie = SESSION.cookies;
+  return h;
+}
+
 async function doPostConsulta(cpfDigits) {
-  if (!SESSION.sId || !SESSION.cookies) {
+  if (!SESSION.sId) {
     return { ok: false, error: "sessao_ausente", detail: "POST /session/update primeiro" };
   }
 
@@ -126,13 +141,8 @@ async function doPostConsulta(cpfDigits) {
       method: "POST",
       signal,
       headers: {
+        ...sessionHeaders(),
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "X-Requested-With": "XMLHttpRequest",
-        Cookie: SESSION.cookies,
-        Referer: REFERER,
-        Accept: "*/*",
-        "User-Agent":
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
       },
       body,
     });
@@ -166,14 +176,7 @@ async function doPostConsulta(cpfDigits) {
     gridRes = await fetch(gridUrl, {
       method: "GET",
       signal: s2,
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        Cookie: SESSION.cookies,
-        Referer: REFERER,
-        Accept: "*/*",
-        "User-Agent":
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
-      },
+      headers: sessionHeaders(),
     });
     gridText = await gridRes.text();
   } catch (err) {
@@ -297,7 +300,7 @@ export default {
         cookies: mask(SESSION.cookies),
         seq: SESSION.seq,
         updatedAt: SESSION.updatedAt,
-        hasSession: !!(SESSION.sId && SESSION.cookies),
+        hasSession: !!SESSION.sId,
       });
     }
 
@@ -310,13 +313,13 @@ export default {
       }
       const cookies = String(payload?.cookies || "").trim();
       const sId = String(payload?.s_id || payload?.sId || "").trim();
-      if (!cookies || !sId) {
-        return json({ ok: false, error: "cookies_e_s_id_obrigatorios" }, 400);
+      if (!sId) {
+        return json({ ok: false, error: "s_id_obrigatorio" }, 400);
       }
       SESSION = { cookies, sId, seq: 1, updatedAt: Date.now() };
       console.log("[session] atualizada", {
         sId: mask(sId),
-        cookies: mask(cookies),
+        cookies: cookies ? mask(cookies) : "(sem cookies)",
       });
       return json({ ok: true, sId: mask(sId), cookies: mask(cookies) });
     }
