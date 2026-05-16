@@ -304,12 +304,22 @@ export class FiorilliDO {
       }
       console.log("[do] step=extract_sid status=ok");
 
-      const cookieUrls = [page.url(), frameUrl].filter(Boolean);
-      const cookies = cookieUrls.length ? await page.cookies(...cookieUrls) : await page.cookies();
+      // Cookies: pega de todas as URLs visitadas + contexto inteiro do browser
+      const urls = Array.from(new Set([page.url(), frameUrl, baseUrl, `${baseUrl}/sis/`, `${baseUrl}/ambulatorio/`].filter(Boolean)));
+      let cookies = [];
+      try { cookies = await page.cookies(...urls); } catch {}
+      try {
+        const all = await browser.defaultBrowserContext().cookies();
+        const seen = new Set(cookies.map((c) => `${c.name}@${c.domain}`));
+        for (const c of all) {
+          const k = `${c.name}@${c.domain}`;
+          if (!seen.has(k)) { cookies.push(c); seen.add(k); }
+        }
+      } catch {}
       const jar = new Map();
       for (const c of cookies) jar.set(c.name, c.value);
 
-      console.log("[do] session ready. cookies:", jar.size);
+      console.log("[do] session ready. cookies:", jar.size, "names=", JSON.stringify(Array.from(jar.keys())));
       return { cookies: jar, sId, createdAt: Date.now() };
     } finally {
       try {
