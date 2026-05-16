@@ -435,6 +435,7 @@ function FilaPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </PullToRefresh>
   );
 }
 
