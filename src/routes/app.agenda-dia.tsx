@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2, Download, Trash2, Megaphone, CalendarClock, History, Zap, Plus, Paperclip, ListOrdered } from "lucide-react";
 import { LoadingState } from "@/components/loading-state";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { EmptyState } from "@/components/empty-state";
 import { format } from "date-fns";
 import { toast } from "sonner";
