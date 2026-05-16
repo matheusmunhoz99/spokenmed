@@ -201,6 +201,7 @@ export class FiorilliDO {
       if (looksLikeSessionExpired(js)) {
         console.log("[do] sessão expirada, refazendo login");
         this.session = null;
+        await this.persistSession();
         await this.ensureSession();
         js = await this.rawLookup(cpf);
       }
