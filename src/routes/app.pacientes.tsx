@@ -408,6 +408,7 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
   };
 
   return (
+    <>
     <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{editing ? "Editar paciente" : "Novo paciente"}</DialogTitle>
