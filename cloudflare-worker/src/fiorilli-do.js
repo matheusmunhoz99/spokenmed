@@ -206,9 +206,16 @@ export class FiorilliDO {
     this.lookupQueue = prev.then(() => next);
     await prev;
     try {
+      const freshlyBootstrapped = !this.session;
       await this.ensureSession();
+      const justBootstrapped = freshlyBootstrapped;
       let js = await this.rawLookup(cpf);
       if (looksLikeSessionExpired(js)) {
+        if (justBootstrapped) {
+          // Acabou de logar e já voltou redirect → não relogar (evita 429 do Browser Rendering).
+          console.error("[do] lookup redirecionou logo após bootstrap. cookies=", this.session?.cookies?.size, "sIdLen=", this.session?.sId?.length, "body=", js.slice(0, 300));
+          return { ok: false, error: "sessao_invalida_apos_login", detail: "cookies ou _S_ID insuficientes; body=" + js.slice(0, 200) };
+        }
         console.log("[do] sessão expirada, refazendo login");
         this.session = null;
         await this.persistSession();
@@ -257,7 +264,7 @@ export class FiorilliDO {
   }
 
   async bootstrap() {
-    console.log("[do] bootstrap build=fiorilli-debug-v6");
+    console.log("[do] bootstrap build=fiorilli-debug-v7");
     const baseUrl = (this.env.OPP_BASE_URL || "").replace(/\/+$/, "");
     const user = this.env.OPP_USERNAME;
     const pass = this.env.OPP_PASSWORD;
@@ -305,8 +312,8 @@ export class FiorilliDO {
       }
       console.log("[do] step=extract_sid status=ok");
 
-      // Cookies: pega de todas as URLs visitadas + contexto inteiro do browser
-      const urls = Array.from(new Set([page.url(), frameUrl, baseUrl, `${baseUrl}/sis/`, `${baseUrl}/ambulatorio/`].filter(Boolean)));
+      // Cookies: pega de todas as URLs visitadas + contexto inteiro do browser + document.cookie do iframe
+      const urls = Array.from(new Set([page.url(), frameUrl, baseUrl, `${baseUrl}/sis/`, `${baseUrl}/ambulatorio/`, `${baseUrl}/ambulatorio/ambulatorio.dll/`].filter(Boolean)));
       let cookies = [];
       try { cookies = await page.cookies(...urls); } catch {}
       try {
@@ -320,7 +327,24 @@ export class FiorilliDO {
       const jar = new Map();
       for (const c of cookies) jar.set(c.name, c.value);
 
-      console.log("[do] session ready. cookies:", jar.size, "names=", JSON.stringify(Array.from(jar.keys())));
+      // Também extrai document.cookie do iframe (cookies de domínio diferente que page.cookies pode não pegar)
+      try {
+        const frameCookieStr = await ambulatoryFrame.evaluate(() => document.cookie || "");
+        const pageCookieStr = await page.evaluate(() => document.cookie || "");
+        for (const src of [frameCookieStr, pageCookieStr]) {
+          if (!src) continue;
+          for (const pair of src.split(";")) {
+            const [k, ...rest] = pair.trim().split("=");
+            if (k && !jar.has(k)) jar.set(k, rest.join("="));
+          }
+        }
+        console.log("[do] frame document.cookie len=", frameCookieStr.length, "page document.cookie len=", pageCookieStr.length);
+      } catch (e) {
+        console.log("[do] document.cookie extract falhou:", String(e?.message || e));
+      }
+
+      const sIdMasked = sId ? `${sId.slice(0, 4)}...${sId.slice(-4)}(len=${sId.length})` : "null";
+      console.log("[do] session ready. cookies:", jar.size, "names=", JSON.stringify(Array.from(jar.keys())), "sId=", sIdMasked);
       return { cookies: jar, sId, createdAt: Date.now() };
     } finally {
       try {
@@ -675,7 +699,8 @@ export class FiorilliDO {
     }
     ingestSetCookies(res, this.session.cookies);
     const text = await res.text();
-    console.log("[do] lookup", { status: res.status, seq, bodyLen: text.length });
+    const cookieHeader = jarToHeader(this.session.cookies);
+    console.log("[do] lookup", { status: res.status, seq, bodyLen: text.length, cookieHeaderLen: cookieHeader.length, cookieCount: this.session.cookies.size, url, referer });
     if (text.length < 500) {
       console.log("[do] lookup body=", text.slice(0, 500));
     }

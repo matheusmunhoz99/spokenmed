@@ -47,7 +47,7 @@ export default {
     }
 
     if (url.pathname === "/health") {
-      return json({ ok: true, ts: Date.now(), build: "fiorilli-debug-v6" });
+      return json({ ok: true, ts: Date.now(), build: "fiorilli-debug-v7" });
     }
 
     if (url.pathname === "/reset") {
