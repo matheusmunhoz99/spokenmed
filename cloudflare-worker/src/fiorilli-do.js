@@ -338,30 +338,119 @@ export class FiorilliDO {
     }
   }
 
+  async waitForDesktop(page) {
+    // Espera login realmente passar: URL muda de /sis/ pra /sis/sis.dll/...
+    // ou um elemento típico do desktop ExtJS aparece.
+    await page
+      .waitForFunction(
+        () => {
+          if (/sis\.dll/i.test(location.href)) return true;
+          // ExtJS desktop / barra de menus
+          if (document.querySelector(".x-desktop, .x-taskbar, .x-menubar, .x-btn")) return true;
+          return false;
+        },
+        { timeout: 15_000 },
+      )
+      .catch(() => {
+        throw new Error("login_invalido: desktop_nao_carregou (credencial errada ou rate limit)");
+      });
+  }
+
+  async openAmbulatoryModule(page) {
+    // Tenta clicar no item de menu "Ambulatório". Múltiplas estratégias.
+    const result = await page
+      .evaluate(() => {
+        const visible = (el) => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        };
+        const matchText = (el) => {
+          const text = `${el.textContent || ""} ${el.title || ""} ${el.getAttribute("data-qtip") || ""}`;
+          return /ambulat[óo]rio/i.test(text);
+        };
+
+        // 1) Itens ExtJS típicos: botões, menu items, ícones do desktop
+        const extSelectors = [
+          ".x-btn-inner", ".x-menu-item-text", ".x-tree-node-text",
+          ".x-desktop-shortcut-text", ".x-tab-inner", ".x-grid-cell-inner",
+        ];
+        for (const sel of extSelectors) {
+          const els = Array.from(document.querySelectorAll(sel)).filter(visible);
+          const hit = els.find(matchText);
+          if (hit) {
+            // sobe pro container clicável
+            const clickable = hit.closest(".x-btn, .x-menu-item, .x-tree-node, .x-desktop-shortcut, .x-tab") || hit;
+            clickable.click();
+            // alguns desktop-shortcuts requerem dblclick
+            try {
+              const evt = new MouseEvent("dblclick", { bubbles: true, cancelable: true });
+              clickable.dispatchEvent(evt);
+            } catch {}
+            return { via: `ext:${sel}`, text: hit.textContent?.trim().slice(0, 60) };
+          }
+        }
+
+        // 2) Genérico — qualquer elemento visível com texto Ambulatório
+        const generic = Array.from(document.querySelectorAll("button,a,div,span,li,td"))
+          .filter(visible)
+          .filter(matchText)
+          // exclui containers gigantes
+          .filter((el) => (el.textContent || "").trim().length < 60);
+        if (generic[0]) {
+          generic[0].click();
+          try {
+            generic[0].dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
+          } catch {}
+          return { via: "generic", text: generic[0].textContent?.trim().slice(0, 60) };
+        }
+
+        // 3) Dump pra diagnóstico
+        const dump = Array.from(document.querySelectorAll("button,a,div,span,li"))
+          .filter(visible)
+          .map((el) => (el.textContent || "").trim())
+          .filter((t) => t && t.length < 40)
+          .slice(0, 50);
+        return { via: null, dump };
+      })
+      .catch((e) => ({ via: null, error: String(e) }));
+
+    if (!result?.via) {
+      console.error("[do] menu Ambulatório não encontrado. dump=", JSON.stringify(result));
+      throw new Error("login_invalido: menu_ambulatorio_nao_encontrado");
+    }
+    return `${result.via} (${result.text || ""})`;
+  }
+
   async waitForAmbulatoryFrame(page) {
     const frameHandle = await page
       .waitForFunction(
         () => {
           const frames = Array.from(document.querySelectorAll("iframe"));
           return frames.find((frame) => {
-            const src = frame.getAttribute("src") || "";
-            return frame.id === "box-1017" || /ambulatorio\.dll|\/ambulatorio\//i.test(src);
+            const src = frame.getAttribute("src") || frame.src || "";
+            return /ambulatorio\.dll|\/ambulatorio\//i.test(src);
           }) || null;
         },
-        { timeout: PUPPETEER_TIMEOUT_MS },
+        { timeout: 20_000 },
       )
       .catch(() => null);
 
     if (!frameHandle) {
-      const snippet = (await page.content()).slice(0, 1200);
-      console.error("[do] ambulatório iframe não apareceu. URL:", page.url(), "html:", snippet);
+      const iframes = await page
+        .evaluate(() =>
+          Array.from(document.querySelectorAll("iframe")).map((f) => ({
+            id: f.id, src: f.getAttribute("src") || f.src || "",
+          })),
+        )
+        .catch(() => []);
+      console.error("[do] iframe ambulatório não apareceu. iframes=", JSON.stringify(iframes), "url=", page.url());
       throw new Error("login_invalido: iframe_ambulatorio_ausente");
     }
 
     const element = await frameHandle.asElement();
     const frame = element ? await element.contentFrame() : null;
     if (frame) {
-      await frame.waitForFunction(() => document.readyState === "complete", { timeout: PUPPETEER_TIMEOUT_MS }).catch(() => null);
+      await frame.waitForFunction(() => document.readyState === "complete", { timeout: 20_000 }).catch(() => null);
     }
     return frame;
   }
