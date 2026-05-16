@@ -383,5 +383,6 @@ function AgendaDiaPage() {
         agendamento={anexos}
       />
     </div>
+    </PullToRefresh>
   );
 }
