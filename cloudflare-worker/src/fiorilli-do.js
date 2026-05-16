@@ -273,48 +273,21 @@ export class FiorilliDO {
       await page.click(passSel, { clickCount: 3 });
       await page.type(passSel, pass, { delay: 30 });
 
-      const loginBtnSel = "#O40, [id='O40']";
-      await page.waitForSelector(loginBtnSel);
+      await this.submitLogin(page);
 
-      const navPromise = page
-        .waitForFunction(() => /\/ambulatorio\//i.test(window.location.pathname), {
-          timeout: PUPPETEER_TIMEOUT_MS,
-        })
-        .catch(() => null);
+      const ambulatoryFrame = await this.waitForAmbulatoryFrame(page);
+      const frameUrl = ambulatoryFrame?.url?.() || "";
+      console.log("[do] ambulatório iframe:", frameUrl || "sem-url");
 
-      await page.click(loginBtnSel);
-      const navOk = await navPromise;
-
-      if (!navOk) {
+      const sId = await this.extractSessionId(page, ambulatoryFrame);
+      if (!sId) {
         const snippet = (await page.content()).slice(0, 1200);
-        console.error("[do] login não redirecionou. URL:", page.url(), "html:", snippet);
-        throw new Error("login_invalido");
+        console.error("[do] _S_ID ausente. URL:", page.url(), "iframe:", frameUrl, "html:", snippet);
+        throw new Error("login_invalido: _S_ID ausente");
       }
 
-      await page
-        .waitForNavigation({ waitUntil: "networkidle0", timeout: PUPPETEER_TIMEOUT_MS })
-        .catch(() => null);
-      await page.waitForFunction(() => document.readyState === "complete").catch(() => null);
-
-      const sId = await page
-        .evaluate(() => {
-          const html = document.documentElement.outerHTML;
-          const patterns = [
-            /_S_ID["']?\s*[:=]\s*["']([^"']+)["']/i,
-            /name=["']_S_ID["']\s+value=["']([^"']+)["']/i,
-            /[?&]_S_ID=([A-Za-z0-9._-]+)/i,
-          ];
-          for (const re of patterns) {
-            const m = html.match(re);
-            if (m?.[1]) return m[1];
-          }
-          return null;
-        })
-        .catch(() => null);
-
-      if (!sId) throw new Error("login_invalido: _S_ID ausente");
-
-      const cookies = await page.cookies();
+      const cookieUrls = [page.url(), frameUrl].filter(Boolean);
+      const cookies = cookieUrls.length ? await page.cookies(...cookieUrls) : await page.cookies();
       const jar = new Map();
       for (const c of cookies) jar.set(c.name, c.value);
 
@@ -327,6 +300,96 @@ export class FiorilliDO {
         /* ignore */
       }
     }
+  }
+
+  async submitLogin(page) {
+    const selectors = ["#O40", "[id='O40']", "button[type='submit']", "input[type='submit']"];
+    for (const sel of selectors) {
+      const el = await page.$(sel).catch(() => null);
+      if (el) {
+        await el.click().catch(() => null);
+        return;
+      }
+    }
+
+    const clicked = await page
+      .evaluate(() => {
+        const candidates = Array.from(document.querySelectorAll("button,input,a,div,span"));
+        const target = candidates.find((el) => {
+          const text = `${el.textContent || ""} ${el.value || ""} ${el.title || ""}`.toLowerCase();
+          return /entrar|acessar|login|ok|confirmar/.test(text);
+        });
+        if (!target) return false;
+        target.click();
+        return true;
+      })
+      .catch(() => false);
+
+    if (!clicked) {
+      await page.keyboard.press("Enter").catch(() => null);
+    }
+  }
+
+  async waitForAmbulatoryFrame(page) {
+    const frameHandle = await page
+      .waitForFunction(
+        () => {
+          const frames = Array.from(document.querySelectorAll("iframe"));
+          return frames.find((frame) => {
+            const src = frame.getAttribute("src") || "";
+            return frame.id === "box-1017" || /ambulatorio\.dll|\/ambulatorio\//i.test(src);
+          }) || null;
+        },
+        { timeout: PUPPETEER_TIMEOUT_MS },
+      )
+      .catch(() => null);
+
+    if (!frameHandle) {
+      const snippet = (await page.content()).slice(0, 1200);
+      console.error("[do] ambulatório iframe não apareceu. URL:", page.url(), "html:", snippet);
+      throw new Error("login_invalido: iframe_ambulatorio_ausente");
+    }
+
+    const element = await frameHandle.asElement();
+    const frame = element ? await element.contentFrame() : null;
+    if (frame) {
+      await frame.waitForFunction(() => document.readyState === "complete", { timeout: PUPPETEER_TIMEOUT_MS }).catch(() => null);
+    }
+    return frame;
+  }
+
+  async extractSessionId(page, frame) {
+    const fromUrl = (value) => {
+      if (!value) return null;
+      const match = value.match(/[?&]_S_ID=([A-Za-z0-9._-]+)/i);
+      return match?.[1] || null;
+    };
+
+    const fromFrameUrl = fromUrl(frame?.url?.());
+    if (fromFrameUrl) return fromFrameUrl;
+
+    const fromPageUrl = fromUrl(page.url());
+    if (fromPageUrl) return fromPageUrl;
+
+    const patternsSource = [
+      /_S_ID["']?\s*[:=]\s*["']([^"']+)["']/.source,
+      /name=["']_S_ID["']\s+value=["']([^"']+)["']/.source,
+      /[?&]_S_ID=([A-Za-z0-9._-]+)/.source,
+    ];
+
+    const scan = async (ctx) =>
+      ctx
+        .evaluate((sources) => {
+          const html = document.documentElement.outerHTML;
+          for (const source of sources) {
+            const match = html.match(new RegExp(source, "i"));
+            if (match?.[1]) return match[1];
+          }
+          return null;
+        }, patternsSource)
+        .catch(() => null);
+
+    return (frame && (await scan(frame))) || (await scan(page));
   }
 
   async rawLookup(cpf) {
