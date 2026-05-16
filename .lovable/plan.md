@@ -1,36 +1,47 @@
-## Ajustes na tela de Pacientes + busca CadSUS
+## Pacientes: busca preguiçosa + prevenção de duplicados
 
 Arquivo: `src/routes/app.pacientes.tsx`
 
-### 1. Trazer mais campos do retorno CadSUS
-O server function já retorna `data_nascimento`, `nome_mae`, `sexo`, `cns_secundario`, etc., mas o `setForm` em `handleBuscarCadSus` ignora vários. Incluir:
-- `data_nascimento` (converter de `dd/mm/aaaa` para `yyyy-mm-dd` para o `<input type="date">`)
-- `nome_mae`
-- `sexo` (já vem `M`/`F`)
-- `cep` (quando vier)
+### 1. Não listar todos os pacientes ao abrir
+- Mudar a query para **só rodar quando houver termo de busca** (≥ 2 caracteres). Usar `enabled: search.trim().length >= 2` no `useQuery`.
+- Manter o debounce simples (300ms) no input para evitar disparar a cada tecla.
+- Estado inicial da tela (sem busca): mostrar um `EmptyState` simpático com ícone `Search`, título "Comece a buscar" e descrição "Digite nome, CPF, CNS ou telefone para localizar um paciente." + botão "Novo paciente" do lado.
+- Buscar continua igual: `nome` (ilike) ou `cpf/cns/telefone` (digits ilike). Limite 50 resultados (em vez de 200) já que é busca direcionada.
 
-### 2. Sobrescrever campos ao buscar novo CPF
-Hoje o código preserva o valor digitado (`f.nome?.trim() ? f.nome : dados.nome`). Mudar a regra: **quando o usuário clica em "Buscar CadSUS", os dados retornados substituem todos os campos correspondentes** (nome, cns, telefone, endereço completo, nascimento, sexo, nome_mae). Assim, buscar um CPF e depois outro troca os dados corretamente. CPF digitado e observações ficam intactos.
+### 2. Prevenção de duplicados ao salvar (novo paciente)
+Antes de fazer o `insert`, rodar duas verificações em paralelo no Supabase:
 
-### 3. Limpar formulário ao fechar o dialog sem salvar
-O state `form` no `PacienteDialog` persiste porque o componente não desmonta entre aberturas (Radix mantém em árvore). Soluções combinadas:
-- Adicionar `key` no `<PacienteDialog>` baseado em `editing?.id ?? "novo-" + open` para forçar remount a cada abertura.
-- Alternativa mais limpa: no `<Dialog onOpenChange>`, ao fechar, zerar `editing` e usar `key={open ? (editing?.id ?? "novo") : "closed"}` para garantir reset.
+- **CPF igual**: `select id, nome from pacientes where cpf = :cpf_digits limit 1` (só se CPF preenchido).
+- **Nome + Nascimento iguais**: `select id, nome from pacientes where lower(unaccent(nome)) = lower(unaccent(:nome)) and data_nascimento = :data limit 1` (só se ambos preenchidos).
 
-### 4. Botão "Buscar CadSUS" mais profissional
-Hoje é um `Button variant="outline" size="icon"` com ícone `Sparkles` (parece template Lovable). Substituir por:
-- Botão com largura automática, variante `default` (primary) ou `secondary`, ícone `IdCard` ou `UserSearch` do lucide + texto curto **"CadSUS"**.
-- Estado loading mantém spinner.
-- Tooltip já existente (`title`) preservado, com microcopy "Importar dados do cidadão pelo CadSUS".
-- Ajustar layout do campo CPF para `flex gap-2` ficar visualmente equilibrado (input flex-1 + botão fixo).
+Se qualquer um retornar match → abrir um `AlertDialog` com:
+- Título: "Paciente já cadastrado"
+- Mensagem: explicando o que bateu ("CPF já consta em **NOME EXISTENTE**" ou "Já existe **NOME** com a mesma data de nascimento").
+- Ações: **"Editar existente"** (fecha o dialog de novo, abre o de edição com o paciente encontrado) e **"Cancelar"**.
 
-### 5. Polimento profissional adicional (escopo mínimo)
-- Após sucesso do CadSUS, manter o toast "Dados do CadSUS importados" (mais claro que "preenchidos").
-- Garantir que `cpfErro` é limpo após import bem-sucedido.
+Implementação: como `unaccent` requer extensão, fazer normalização no client (lowercase + trim) e comparar com `ilike` exato: `nome.ilike.NOME_NORMALIZADO`. Aceitável para esse caso. Sem migration.
+
+Pular essa checagem quando `editing` está definido (já é edição).
+
+### 3. Prevenção de duplicados ao buscar no CadSUS
+No `handleBuscarCadSus`, **antes de chamar o server function**, consultar `pacientes where cpf = :cpf_digits`. Se já existir:
+- Mostrar `AlertDialog`: "Paciente já cadastrado no sistema — **NOME**. Deseja abrir o cadastro existente para editar?"
+- Ações: **"Abrir existente"** (fecha o dialog atual, abre o de edição com o paciente encontrado) e **"Cancelar"**.
+- Se cancelar, não chama o CadSUS (evita gastar consulta no Fiorilli e evita sobrescrever).
+
+### 4. UX / polimento
+- Estado de loading do botão "Salvar" mostra spinner durante a checagem de duplicados também.
+- Mensagens de toast claras.
+- Manter o reset do form ao fechar (já implementado).
+- Acessibilidade: `AlertDialog` do shadcn com foco no botão primário ("Editar existente").
+
+### Estrutura técnica
+- Adicionar `useDebouncedValue` (hook local simples com `useEffect` + `setTimeout`) ou usar `useState` + `setTimeout` direto. Sem nova dependência.
+- Novo state `duplicateModal`: `{ open: boolean; mode: 'save' | 'cadsus'; paciente: { id, nome }; reason: string }`.
+- Função utilitária `checkDuplicates(form)` que retorna o paciente conflitante ou null.
+- Ao clicar "Editar existente": fechar o dialog atual, chamar `openEdit(paciente)` no componente pai (precisa expor via prop `onOpenExisting`).
 
 ### Fora de escopo
-- Não mexer no worker Cloudflare (já está funcionando).
-- Não alterar schema do banco.
-- Sem mudanças no fluxo de salvar/edit.
-
-Posso seguir e implementar?
+- Sem alterações no banco / migrations.
+- Sem mexer no worker Cloudflare.
+- Sem mudar a lógica de CSV / lista (a tabela continua existindo, só não carrega de cara).

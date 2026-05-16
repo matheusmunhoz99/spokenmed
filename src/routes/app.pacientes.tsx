@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, Pencil, Loader2, Download, Eye, EyeOff, IdCard } from "lucide-react";
@@ -38,6 +39,11 @@ type Paciente = any;
 function PacientesPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Paciente | null>(null);
   const [reveal, setReveal] = useState(false);
@@ -51,18 +57,18 @@ function PacientesPage() {
   const showCNS = (p: any) => reveal ? (p.cns ? formatCNS(p.cns) : "—") : maskCNS(p.cns);
   const showPhone = (p: any) => reveal ? (p.telefone ? formatPhone(p.telefone) : "—") : maskPhone(p.telefone);
 
+  const hasSearch = debouncedSearch.length >= 2;
+
   const { data, isLoading } = useQuery({
-    queryKey: ["pacientes", search],
+    queryKey: ["pacientes", debouncedSearch],
+    enabled: hasSearch,
     queryFn: async () => {
-      let q = supabase.from("pacientes").select("*").order("nome").limit(200);
-      if (search) {
-        const term = search.trim();
-        const digits = onlyDigits(term);
-        if (digits.length >= 3) {
-          q = q.or(`cpf.ilike.%${digits}%,cns.ilike.%${digits}%,telefone.ilike.%${digits}%`);
-        } else {
-          q = q.ilike("nome", `%${term}%`);
-        }
+      let q = supabase.from("pacientes").select("*").order("nome").limit(50);
+      const digits = onlyDigits(debouncedSearch);
+      if (digits.length >= 3) {
+        q = q.or(`cpf.ilike.%${digits}%,cns.ilike.%${digits}%,telefone.ilike.%${digits}%`);
+      } else {
+        q = q.ilike("nome", `%${debouncedSearch}%`);
       }
       const { data } = await q;
       return data ?? [];
@@ -125,6 +131,7 @@ function PacientesPage() {
               <PacienteDialog
                 key={editing?.id ?? "novo"}
                 editing={editing}
+                onOpenExisting={(p) => { setOpen(false); setTimeout(() => openEdit(p), 50); }}
                 onSaved={() => { setOpen(false); setEditing(null); qc.invalidateQueries({ queryKey: ["pacientes"] }); }}
               />
             )}
@@ -132,89 +139,105 @@ function PacientesPage() {
         </div>
       </div>
 
-      {/* Mobile: cards */}
-      <div className="grid gap-2 md:hidden">
-        {isLoading && <LoadingState variant="list" rows={4} />}
-        {!isLoading && data?.length === 0 && (
-          <EmptyState icon={Users} title="Nenhum paciente encontrado" description={search ? "Tente outros termos de busca." : "Cadastre o primeiro paciente para começar."} action={{ label: "Novo paciente", onClick: () => { setEditing(null); setOpen(true); }, icon: Plus }} />
-        )}
-        {data?.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => openEdit(p)}
-            className="flex items-start gap-3 rounded-lg border bg-card p-3 text-left transition active:scale-[0.99]"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-              {(p.nome ?? "?").trim().charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold">{p.nome}</div>
-              <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                {p.cpf ? `CPF ${showCPF(p)}` : p.cns ? `CNS ${showCNS(p)}` : "—"}
-              </div>
-              <div className="truncate text-xs text-muted-foreground">
-                {p.telefone ? showPhone(p) : "Sem telefone"}
-                {p.cidade ? ` · ${p.cidade}/${p.uf ?? ""}` : ""}
-              </div>
-            </div>
-            <Pencil className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
-          </button>
-        ))}
-      </div>
+      {!hasSearch ? (
+        <Card>
+          <CardContent className="p-8">
+            <EmptyState
+              icon={Search}
+              title="Comece a buscar"
+              description="Digite ao menos 2 caracteres do nome, CPF, CNS ou telefone para localizar um paciente. Nenhum cadastro é carregado automaticamente para manter a tela rápida."
+              action={{ label: "Novo paciente", onClick: () => { setEditing(null); setOpen(true); }, icon: Plus }}
+            />
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Mobile: cards */}
+          <div className="grid gap-2 md:hidden">
+            {isLoading && <LoadingState variant="list" rows={4} />}
+            {!isLoading && data?.length === 0 && (
+              <EmptyState icon={Users} title="Nenhum paciente encontrado" description="Tente outros termos de busca." action={{ label: "Novo paciente", onClick: () => { setEditing(null); setOpen(true); }, icon: Plus }} />
+            )}
+            {data?.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => openEdit(p)}
+                className="flex items-start gap-3 rounded-lg border bg-card p-3 text-left transition active:scale-[0.99]"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                  {(p.nome ?? "?").trim().charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold">{p.nome}</div>
+                  <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {p.cpf ? `CPF ${showCPF(p)}` : p.cns ? `CNS ${showCNS(p)}` : "—"}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {p.telefone ? showPhone(p) : "Sem telefone"}
+                    {p.cidade ? ` · ${p.cidade}/${p.uf ?? ""}` : ""}
+                  </div>
+                </div>
+                <Pencil className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+              </button>
+            ))}
+          </div>
 
-      {/* Desktop: table */}
-      <Card className="hidden md:block">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>CPF</TableHead>
-                <TableHead>Cartão SUS</TableHead>
-                <TableHead>Nascimento</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Cidade</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && (
-                <TableRow><TableCell colSpan={7} className="p-3">
-                  <LoadingState variant="table" rows={5} />
-                </TableCell></TableRow>
-              )}
-              {!isLoading && data?.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="p-3">
-                  <EmptyState icon={Users} title="Nenhum paciente encontrado" description={search ? "Ajuste os filtros e tente novamente." : "Cadastre o primeiro paciente."} compact />
-                </TableCell></TableRow>
-              )}
-              {data?.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.nome}</TableCell>
-                  <TableCell>{showCPF(p)}</TableCell>
-                  <TableCell>{showCNS(p)}</TableCell>
-                  <TableCell>{formatDate(p.data_nascimento)}</TableCell>
-                  <TableCell>{showPhone(p)}</TableCell>
-                  <TableCell>{p.cidade ? `${p.cidade}/${p.uf ?? ""}` : "—"}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+          {/* Desktop: table */}
+          <Card className="hidden md:block">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>CPF</TableHead>
+                    <TableHead>Cartão SUS</TableHead>
+                    <TableHead>Nascimento</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Cidade</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading && (
+                    <TableRow><TableCell colSpan={7} className="p-3">
+                      <LoadingState variant="table" rows={5} />
+                    </TableCell></TableRow>
+                  )}
+                  {!isLoading && data?.length === 0 && (
+                    <TableRow><TableCell colSpan={7} className="p-3">
+                      <EmptyState icon={Users} title="Nenhum paciente encontrado" description="Ajuste os termos e tente novamente." compact />
+                    </TableCell></TableRow>
+                  )}
+                  {data?.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">{p.nome}</TableCell>
+                      <TableCell>{showCPF(p)}</TableCell>
+                      <TableCell>{showCNS(p)}</TableCell>
+                      <TableCell>{formatDate(p.data_nascimento)}</TableCell>
+                      <TableCell>{showPhone(p)}</TableCell>
+                      <TableCell>{p.cidade ? `${p.cidade}/${p.uf ?? ""}` : "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
 
-function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSaved: () => void }) {
+function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Paciente | null; onSaved: () => void; onOpenExisting?: (p: Paciente) => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [cadsusLoading, setCadsusLoading] = useState(false);
   const [cpfErro, setCpfErro] = useState<string | null>(null);
+  const [dup, setDup] = useState<{ paciente: Paciente; reason: string; origem: "save" | "cadsus" } | null>(null);
   const buscarCadSus = useServerFn(buscarPacienteCpf);
   const [form, setForm] = useState<any>(editing ?? {
     nome: "", cpf: "", cns: "", rg: "", data_nascimento: "", sexo: "",
@@ -222,6 +245,37 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
     cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "",
     observacoes: "",
   });
+
+  // procura paciente já cadastrado. Retorna o primeiro match (CPF tem prioridade).
+  const findDuplicate = async (opts: { cpfDigits?: string; nome?: string; data?: string }): Promise<{ paciente: Paciente; reason: string } | null> => {
+    if (opts.cpfDigits && opts.cpfDigits.length === 11) {
+      const { data } = await supabase.from("pacientes").select("id, nome, cpf, data_nascimento").eq("cpf", opts.cpfDigits).limit(1);
+      if (data && data.length > 0) {
+        const p = data[0];
+        if (!editing || p.id !== editing.id) {
+          return { paciente: p, reason: `O CPF informado já está cadastrado em ${p.nome}.` };
+        }
+      }
+    }
+    if (opts.nome && opts.data) {
+      const nomeTrim = opts.nome.trim();
+      if (nomeTrim.length >= 3) {
+        const { data } = await supabase
+          .from("pacientes")
+          .select("id, nome, cpf, data_nascimento")
+          .ilike("nome", nomeTrim)
+          .eq("data_nascimento", opts.data)
+          .limit(1);
+        if (data && data.length > 0) {
+          const p = data[0];
+          if (!editing || p.id !== editing.id) {
+            return { paciente: p, reason: `Já existe ${p.nome} com a mesma data de nascimento.` };
+          }
+        }
+      }
+    }
+    return null;
+  };
 
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
 
@@ -260,6 +314,12 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
     }
     setCadsusLoading(true);
     try {
+      // verifica duplicado ANTES de gastar consulta no Fiorilli
+      const found = await findDuplicate({ cpfDigits: d });
+      if (found) {
+        setDup({ ...found, origem: "cadsus" });
+        return;
+      }
       const r = await buscarCadSus({ data: { cpf: d } });
       if (!r.ok) {
         console.warn("[cadsus] erro:", r.error);
@@ -315,9 +375,21 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    const cpfDigits = form.cpf ? onlyDigits(form.cpf) : "";
+    // checa duplicados antes de inserir/atualizar
+    const found = await findDuplicate({
+      cpfDigits: cpfDigits || undefined,
+      nome: form.nome,
+      data: form.data_nascimento || undefined,
+    });
+    if (found) {
+      setSubmitting(false);
+      setDup({ ...found, origem: "save" });
+      return;
+    }
     const payload = {
       ...form,
-      cpf: form.cpf ? onlyDigits(form.cpf) : null,
+      cpf: cpfDigits || null,
       cns: form.cns ? onlyDigits(form.cns) : null,
       telefone: form.telefone ? onlyDigits(form.telefone) : null,
       cep: form.cep ? onlyDigits(form.cep) : null,
@@ -336,6 +408,7 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
   };
 
   return (
+    <>
     <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{editing ? "Editar paciente" : "Novo paciente"}</DialogTitle>
@@ -426,6 +499,30 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
         </DialogFooter>
       </form>
     </DialogContent>
+    <AlertDialog open={!!dup} onOpenChange={(o) => { if (!o) setDup(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Paciente já cadastrado</AlertDialogTitle>
+          <AlertDialogDescription>
+            {dup?.reason} Deseja abrir o cadastro existente para editar
+            {dup?.origem === "cadsus" ? " (a consulta ao CadSUS não será feita)" : ""}?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setDup(null)}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              const p = dup?.paciente;
+              setDup(null);
+              if (p && onOpenExisting) onOpenExisting(p);
+            }}
+          >
+            Editar existente
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
