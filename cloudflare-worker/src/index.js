@@ -19,13 +19,33 @@ const HANDLE_EVENT = `${BASE}/ambulatorio/ambulatorio.dll/HandleEvent`;
 const REFERER = `${BASE}/ambulatorio/ambulatorio.dll/`;
 const TIMEOUT_MS = 30_000;
 
-// estado em memória (per-isolate)
-let SESSION = {
-  cookies: "", // string pronta pro header Cookie
-  sId: "",
-  seq: 1,
-  updatedAt: 0,
-};
+// Persistência em Workers KV (binding SESSION_KV).
+// Mantemos também um cache per-isolate só pra evitar 2 reads na mesma request.
+const SESSION_KEY = "current";
+const EMPTY_SESSION = { cookies: "", sId: "", seq: 1, updatedAt: 0 };
+let SESSION = { ...EMPTY_SESSION };
+
+async function loadSession(env) {
+  if (!env.SESSION_KV) {
+    // fallback (dev sem binding): usa memória
+    return SESSION;
+  }
+  const raw = await env.SESSION_KV.get(SESSION_KEY);
+  if (!raw) return { ...EMPTY_SESSION };
+  try {
+    const parsed = JSON.parse(raw);
+    return { ...EMPTY_SESSION, ...parsed };
+  } catch {
+    return { ...EMPTY_SESSION };
+  }
+}
+
+async function saveSession(env, session) {
+  SESSION = session;
+  if (env.SESSION_KV) {
+    await env.SESSION_KV.put(SESSION_KEY, JSON.stringify(session));
+  }
+}
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -96,7 +116,7 @@ function looksLikeSessionExpired(text, status) {
   );
 }
 
-function sessionHeaders() {
+function sessionHeaders(session) {
   const h = {
     "X-Requested-With": "XMLHttpRequest",
     Referer: REFERER,
@@ -104,20 +124,23 @@ function sessionHeaders() {
     "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
     // este uniGUI manda sessão em HEADERS, não em cookies
-    _s_id: SESSION.sId,
-    unisessionid: SESSION.sId,
+    _s_id: session.sId,
+    unisessionid: session.sId,
   };
-  if (SESSION.cookies) h.Cookie = SESSION.cookies;
+  if (session.cookies) h.Cookie = session.cookies;
   return h;
 }
 
-async function doPostConsulta(cpfDigits) {
-  if (!SESSION.sId) {
+async function doPostConsulta(cpfDigits, env) {
+  const session = await loadSession(env);
+  if (!session.sId) {
     return { ok: false, error: "sessao_ausente", detail: "POST /session/update primeiro" };
   }
 
   const cpfFmt = formatCpf(cpfDigits);
-  const seq = SESSION.seq++;
+  const seq = session.seq++;
+  // persiste o seq incrementado pra próxima request
+  await saveSession(env, session);
 
   // Body EXATO conforme spec do usuário.
   // O11162 valor: %021%02%02CPF_FORMATADO
@@ -128,7 +151,7 @@ async function doPostConsulta(cpfDigits) {
     `&Obj=O117A` +
     `&Evt=click` +
     `&this=O117A` +
-    `&_S_ID=${encodeURIComponent(SESSION.sId)}` +
+    `&_S_ID=${encodeURIComponent(session.sId)}` +
     `&_fp_=` +
     `&O1162=${o1162}` +
     `&_seq_=${seq}` +
@@ -141,7 +164,7 @@ async function doPostConsulta(cpfDigits) {
       method: "POST",
       signal,
       headers: {
-        ...sessionHeaders(),
+        ...sessionHeaders(session),
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
       },
       body,
@@ -176,7 +199,7 @@ async function doPostConsulta(cpfDigits) {
     gridRes = await fetch(gridUrl, {
       method: "GET",
       signal: s2,
-      headers: sessionHeaders(),
+      headers: sessionHeaders(session),
     });
     gridText = await gridRes.text();
   } catch (err) {
@@ -303,13 +326,15 @@ export default {
     }
 
     if (url.pathname === "/session" && request.method === "GET") {
+      const s = await loadSession(env);
       return json({
         ok: true,
-        sId: mask(SESSION.sId),
-        cookies: mask(SESSION.cookies),
-        seq: SESSION.seq,
-        updatedAt: SESSION.updatedAt,
-        hasSession: !!SESSION.sId,
+        sId: mask(s.sId),
+        cookies: mask(s.cookies),
+        seq: s.seq,
+        updatedAt: s.updatedAt,
+        hasSession: !!s.sId,
+        kv: !!env.SESSION_KV,
       });
     }
 
@@ -325,7 +350,7 @@ export default {
       if (!sId) {
         return json({ ok: false, error: "s_id_obrigatorio" }, 400);
       }
-      SESSION = { cookies, sId, seq: 1, updatedAt: Date.now() };
+      await saveSession(env, { cookies, sId, seq: 1, updatedAt: Date.now() });
       console.log("[session] atualizada", {
         sId: mask(sId),
         cookies: cookies ? mask(cookies) : "(sem cookies)",
@@ -340,7 +365,7 @@ export default {
       if (!sId) {
         return json({ ok: false, error: "s_id_obrigatorio (passe ?s_id=...)" }, 400);
       }
-      SESSION = { cookies, sId, seq: 1, updatedAt: Date.now() };
+      await saveSession(env, { cookies, sId, seq: 1, updatedAt: Date.now() });
       console.log("[session] set via GET", { sId: mask(sId) });
       return json({ ok: true, sId: mask(sId), cookies: mask(cookies) });
     }
@@ -351,7 +376,7 @@ export default {
         return json({ ok: false, error: "cpf_invalido" }, 400);
       }
       try {
-        const result = await doPostConsulta(cpf);
+        const result = await doPostConsulta(cpf, env);
         const status = result.ok ? 200 : result.error === "sessao_ausente" || result.error === "sessao_expirada" ? 401 : 200;
         return json(result, status);
       } catch (err) {
