@@ -202,6 +202,7 @@ function FilaPage() {
   const unidadeNome = unidadesAllowed?.find((u: any) => u.id === unidadeId)?.nome ?? "";
 
   return (
+    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: ["fila", unidadeId] })}>
     <div className="space-y-4">
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
