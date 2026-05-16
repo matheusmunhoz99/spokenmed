@@ -76,7 +76,9 @@ function AppLayout() {
               className="min-w-0 flex-1 p-4 pb-24 sm:p-5 md:p-6 md:pb-6"
               style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5.5rem)" }}
             >
-              <Outlet />
+              <PageTransition>
+                <Outlet />
+              </PageTransition>
             </main>
           </div>
           <MobileBottomNav />
