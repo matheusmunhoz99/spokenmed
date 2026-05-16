@@ -342,40 +342,55 @@ export class FiorilliDO {
       .catch(() => []);
     console.log("[do] login_form_candidates=", JSON.stringify(dump));
 
-    // Promise de navegação iniciado ANTES do click
+    // Sucesso = URL mudou pra sis.dll OU formulário de login sumiu OU desktop apareceu
     const navPromise = page
-      .waitForFunction(() => /sis\.dll/i.test(location.href), { timeout: 15_000 })
+      .waitForFunction(
+        () => {
+          if (/sis\.dll/i.test(location.href)) return true;
+          if (document.querySelector(".x-desktop, .x-taskbar, .x-menubar")) return true;
+          // Login sumiu? procura inputs de password visíveis
+          const pwd = Array.from(document.querySelectorAll('input[type="password"]'))
+            .find((el) => {
+              const r = el.getBoundingClientRect();
+              return r.width > 0 && r.height > 0;
+            });
+          return !pwd;
+        },
+        { timeout: 15_000 }
+      )
       .then(() => true)
       .catch(() => false);
 
-    // Tenta seletores conhecidos
+    // Clica EXATAMENTE no botão "Entrar" (ExtJS .x-btn com textContent === "Entrar")
     let viaUsed = null;
-    const selectors = ["#O40", "[id='O40']", "button[type='submit']", "input[type='submit']", ".x-btn"];
-    for (const sel of selectors) {
-      const el = await page.$(sel).catch(() => null);
-      if (el) {
-        await el.click().catch(() => null);
-        viaUsed = sel;
-        break;
-      }
-    }
-
-    // Scan genérico por texto
-    if (!viaUsed) {
-      const clicked = await page
-        .evaluate(() => {
-          const candidates = Array.from(document.querySelectorAll("button,input,a,div,span,.x-btn,.x-btn-inner"));
-          const target = candidates.find((el) => {
-            const text = `${el.textContent || ""} ${el.value || ""} ${el.title || ""}`.toLowerCase();
-            return /entrar|acessar|login|ok|confirmar/.test(text);
+    const clicked = await page
+      .evaluate(() => {
+        const visible = (el) => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        };
+        // 1) Match exato em .x-btn por texto "Entrar"
+        const btns = Array.from(document.querySelectorAll(".x-btn")).filter(visible);
+        let target = btns.find((b) => (b.textContent || "").trim().toLowerCase() === "entrar");
+        // 2) Fallback: contém "entrar" mas NÃO "sair"/"acesso público"
+        if (!target) {
+          target = btns.find((b) => {
+            const t = (b.textContent || "").trim().toLowerCase();
+            return /entrar|acessar|^login$|^ok$/.test(t) && !/sair|acesso\s+p[uú]blico/.test(t);
           });
-          if (!target) return null;
-          const c = target.closest(".x-btn") || target;
-          c.click();
-          return c.id || c.className || target.tagName;
-        })
-        .catch(() => null);
-      if (clicked) viaUsed = `text-scan:${clicked}`;
+        }
+        if (!target) return null;
+        target.click();
+        return target.id || target.className.slice(0, 60);
+      })
+      .catch(() => null);
+    if (clicked) viaUsed = `text-exact:${clicked}`;
+
+    // Fallback: Enter no campo de senha
+    if (!viaUsed) {
+      await page.focus('input[type="password"]').catch(() => null);
+      await page.keyboard.press("Enter").catch(() => null);
+      viaUsed = "enter-key";
     }
 
     // Fallback: Enter no campo de senha
