@@ -151,7 +151,7 @@ async function doPostConsulta(cpfDigits, env) {
     `&Obj=O117A` +
     `&Evt=click` +
     `&this=O117A` +
-    `&_S_ID=${encodeURIComponent(SESSION.sId)}` +
+    `&_S_ID=${encodeURIComponent(session.sId)}` +
     `&_fp_=` +
     `&O1162=${o1162}` +
     `&_seq_=${seq}` +
