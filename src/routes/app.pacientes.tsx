@@ -139,80 +139,95 @@ function PacientesPage() {
         </div>
       </div>
 
-      {/* Mobile: cards */}
-      <div className="grid gap-2 md:hidden">
-        {isLoading && <LoadingState variant="list" rows={4} />}
-        {!isLoading && data?.length === 0 && (
-          <EmptyState icon={Users} title="Nenhum paciente encontrado" description={search ? "Tente outros termos de busca." : "Cadastre o primeiro paciente para começar."} action={{ label: "Novo paciente", onClick: () => { setEditing(null); setOpen(true); }, icon: Plus }} />
-        )}
-        {data?.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => openEdit(p)}
-            className="flex items-start gap-3 rounded-lg border bg-card p-3 text-left transition active:scale-[0.99]"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-              {(p.nome ?? "?").trim().charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold">{p.nome}</div>
-              <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                {p.cpf ? `CPF ${showCPF(p)}` : p.cns ? `CNS ${showCNS(p)}` : "—"}
-              </div>
-              <div className="truncate text-xs text-muted-foreground">
-                {p.telefone ? showPhone(p) : "Sem telefone"}
-                {p.cidade ? ` · ${p.cidade}/${p.uf ?? ""}` : ""}
-              </div>
-            </div>
-            <Pencil className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
-          </button>
-        ))}
-      </div>
+      {!hasSearch ? (
+        <Card>
+          <CardContent className="p-8">
+            <EmptyState
+              icon={Search}
+              title="Comece a buscar"
+              description="Digite ao menos 2 caracteres do nome, CPF, CNS ou telefone para localizar um paciente. Nenhum cadastro é carregado automaticamente para manter a tela rápida."
+              action={{ label: "Novo paciente", onClick: () => { setEditing(null); setOpen(true); }, icon: Plus }}
+            />
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Mobile: cards */}
+          <div className="grid gap-2 md:hidden">
+            {isLoading && <LoadingState variant="list" rows={4} />}
+            {!isLoading && data?.length === 0 && (
+              <EmptyState icon={Users} title="Nenhum paciente encontrado" description="Tente outros termos de busca." action={{ label: "Novo paciente", onClick: () => { setEditing(null); setOpen(true); }, icon: Plus }} />
+            )}
+            {data?.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => openEdit(p)}
+                className="flex items-start gap-3 rounded-lg border bg-card p-3 text-left transition active:scale-[0.99]"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                  {(p.nome ?? "?").trim().charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold">{p.nome}</div>
+                  <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {p.cpf ? `CPF ${showCPF(p)}` : p.cns ? `CNS ${showCNS(p)}` : "—"}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {p.telefone ? showPhone(p) : "Sem telefone"}
+                    {p.cidade ? ` · ${p.cidade}/${p.uf ?? ""}` : ""}
+                  </div>
+                </div>
+                <Pencil className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+              </button>
+            ))}
+          </div>
 
-      {/* Desktop: table */}
-      <Card className="hidden md:block">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>CPF</TableHead>
-                <TableHead>Cartão SUS</TableHead>
-                <TableHead>Nascimento</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Cidade</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && (
-                <TableRow><TableCell colSpan={7} className="p-3">
-                  <LoadingState variant="table" rows={5} />
-                </TableCell></TableRow>
-              )}
-              {!isLoading && data?.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="p-3">
-                  <EmptyState icon={Users} title="Nenhum paciente encontrado" description={search ? "Ajuste os filtros e tente novamente." : "Cadastre o primeiro paciente."} compact />
-                </TableCell></TableRow>
-              )}
-              {data?.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.nome}</TableCell>
-                  <TableCell>{showCPF(p)}</TableCell>
-                  <TableCell>{showCNS(p)}</TableCell>
-                  <TableCell>{formatDate(p.data_nascimento)}</TableCell>
-                  <TableCell>{showPhone(p)}</TableCell>
-                  <TableCell>{p.cidade ? `${p.cidade}/${p.uf ?? ""}` : "—"}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+          {/* Desktop: table */}
+          <Card className="hidden md:block">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>CPF</TableHead>
+                    <TableHead>Cartão SUS</TableHead>
+                    <TableHead>Nascimento</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Cidade</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading && (
+                    <TableRow><TableCell colSpan={7} className="p-3">
+                      <LoadingState variant="table" rows={5} />
+                    </TableCell></TableRow>
+                  )}
+                  {!isLoading && data?.length === 0 && (
+                    <TableRow><TableCell colSpan={7} className="p-3">
+                      <EmptyState icon={Users} title="Nenhum paciente encontrado" description="Ajuste os termos e tente novamente." compact />
+                    </TableCell></TableRow>
+                  )}
+                  {data?.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">{p.nome}</TableCell>
+                      <TableCell>{showCPF(p)}</TableCell>
+                      <TableCell>{showCNS(p)}</TableCell>
+                      <TableCell>{formatDate(p.data_nascimento)}</TableCell>
+                      <TableCell>{showPhone(p)}</TableCell>
+                      <TableCell>{p.cidade ? `${p.cidade}/${p.uf ?? ""}` : "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
