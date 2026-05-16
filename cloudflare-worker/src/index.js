@@ -141,13 +141,8 @@ async function doPostConsulta(cpfDigits) {
       method: "POST",
       signal,
       headers: {
+        ...sessionHeaders(),
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "X-Requested-With": "XMLHttpRequest",
-        Cookie: SESSION.cookies,
-        Referer: REFERER,
-        Accept: "*/*",
-        "User-Agent":
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
       },
       body,
     });
