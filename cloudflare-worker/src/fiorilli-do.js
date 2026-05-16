@@ -103,8 +103,8 @@ function parseUniguiResponse(js) {
     bairro: raw["O11D3"] ?? null,
     cidade,
     uf,
-    cns: raw["O11E3"] ?? null,
-    cns_secundario: raw["O11E7"] ?? null,
+    cns: raw["O11E7"] ?? null,
+    cns_secundario: raw["O11E3"] ?? null,
     nome,
     telefone,
   };
