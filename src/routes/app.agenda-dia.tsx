@@ -167,6 +167,7 @@ function AgendaDiaPage() {
   };
 
   return (
+    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: ["agenda-dia"] })}>
     <div className="space-y-4">
       <Card>
         <CardContent className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
