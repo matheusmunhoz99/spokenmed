@@ -18,7 +18,9 @@ export type ErrorCode =
   | "cpf_nao_encontrado"
   | "timeout"
   | "rede"
-  | "unauthorized";
+  | "unauthorized"
+  | "sessao_ausente"
+  | "sessao_expirada";
 
 export type CadSusResult =
   | {
