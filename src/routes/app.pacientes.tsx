@@ -268,6 +268,7 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
           sessao_ausente: "Sessão do CadSUS não configurada. Avise o administrador para renovar em /capture.",
           sessao_expirada: "Sessão do CadSUS expirou. Avise o administrador para renovar em /capture.",
           unauthorized: "Acesso ao CadSUS negado. Verifique a API key.",
+          grid_invalida: "CadSUS devolveu resposta inesperada. Tente outro CPF ou renove a sessão.",
         };
         const msg = msgs[r.error] ?? `CadSUS indisponível (${r.error}).`;
         if (r.error === "cpf_nao_encontrado") toast.info(msg);

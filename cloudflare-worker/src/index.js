@@ -218,12 +218,13 @@ async function doPostConsulta(cpfDigits, env) {
     return { ok: false, error: "sessao_expirada" };
   }
 
-  // parse grid JSON
-  let grid;
+  // parse grid JSON — tolerante a respostas vazias/malformadas do uniGUI
+  // (ex: "{[]}" quando não acha o CPF). Tratamos como grid sem linhas.
+  let grid = { rows: [] };
   try {
     grid = JSON.parse(gridText);
   } catch {
-    return { ok: false, error: "grid_invalida", detail: gridText.slice(0, 300) };
+    console.log("[cpf] grid não-JSON, tratando como vazio:", gridText.slice(0, 100));
   }
 
   const row = grid?.rows?.[0] || {};

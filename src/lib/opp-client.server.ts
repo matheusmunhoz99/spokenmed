@@ -20,7 +20,8 @@ export type ErrorCode =
   | "rede"
   | "unauthorized"
   | "sessao_ausente"
-  | "sessao_expirada";
+  | "sessao_expirada"
+  | "grid_invalida";
 
 export type CadSusResult =
   | {
