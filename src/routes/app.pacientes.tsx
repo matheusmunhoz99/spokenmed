@@ -406,6 +406,7 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
       : await supabase.from("pacientes").insert(payload);
     setSubmitting(false);
     if (error) return toast.error(error.message);
+    haptic("success");
     toast.success(editing ? "Paciente atualizado" : "Paciente cadastrado");
     onSaved();
   };
