@@ -238,6 +238,7 @@ export class FiorilliDO {
     this.bootstrapPromise = (async () => {
       try {
         this.session = await this.bootstrap();
+        await this.persistSession();
       } finally {
         this.bootstrapPromise = null;
       }
