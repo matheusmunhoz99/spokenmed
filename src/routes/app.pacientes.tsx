@@ -365,6 +365,7 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
           <Field label="CPF">
             <div className="flex gap-2">
               <Input
+                className="flex-1"
                 value={formatCPF(form.cpf ?? "")}
                 onChange={(e) => { set("cpf", e.target.value); if (cpfErro) setCpfErro(null); }}
                 onBlur={handleCpfBlur}
@@ -372,13 +373,14 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
               />
               <Button
                 type="button"
-                variant="outline"
-                size="icon"
-                title="Buscar dados no CadSUS"
+                variant="secondary"
+                title="Importar dados do cidadão pelo CadSUS"
                 disabled={cadsusLoading}
                 onClick={handleBuscarCadSus}
+                className="shrink-0 gap-2"
               >
-                {cadsusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {cadsusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <IdCard className="h-4 w-4" />}
+                CadSUS
               </Button>
             </div>
             {cpfErro && <p className="text-xs text-destructive mt-1">{cpfErro}</p>}
