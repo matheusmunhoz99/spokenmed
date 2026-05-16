@@ -326,13 +326,15 @@ export default {
     }
 
     if (url.pathname === "/session" && request.method === "GET") {
+      const s = await loadSession(env);
       return json({
         ok: true,
-        sId: mask(SESSION.sId),
-        cookies: mask(SESSION.cookies),
-        seq: SESSION.seq,
-        updatedAt: SESSION.updatedAt,
-        hasSession: !!SESSION.sId,
+        sId: mask(s.sId),
+        cookies: mask(s.cookies),
+        seq: s.seq,
+        updatedAt: s.updatedAt,
+        hasSession: !!s.sId,
+        kv: !!env.SESSION_KV,
       });
     }
 
@@ -348,7 +350,7 @@ export default {
       if (!sId) {
         return json({ ok: false, error: "s_id_obrigatorio" }, 400);
       }
-      SESSION = { cookies, sId, seq: 1, updatedAt: Date.now() };
+      await saveSession(env, { cookies, sId, seq: 1, updatedAt: Date.now() });
       console.log("[session] atualizada", {
         sId: mask(sId),
         cookies: cookies ? mask(cookies) : "(sem cookies)",
@@ -363,7 +365,7 @@ export default {
       if (!sId) {
         return json({ ok: false, error: "s_id_obrigatorio (passe ?s_id=...)" }, 400);
       }
-      SESSION = { cookies, sId, seq: 1, updatedAt: Date.now() };
+      await saveSession(env, { cookies, sId, seq: 1, updatedAt: Date.now() });
       console.log("[session] set via GET", { sId: mask(sId) });
       return json({ ok: true, sId: mask(sId), cookies: mask(cookies) });
     }
@@ -374,7 +376,7 @@ export default {
         return json({ ok: false, error: "cpf_invalido" }, 400);
       }
       try {
-        const result = await doPostConsulta(cpf);
+        const result = await doPostConsulta(cpf, env);
         const status = result.ok ? 200 : result.error === "sessao_ausente" || result.error === "sessao_expirada" ? 401 : 200;
         return json(result, status);
       } catch (err) {
