@@ -199,7 +199,7 @@ async function doPostConsulta(cpfDigits, env) {
     gridRes = await fetch(gridUrl, {
       method: "GET",
       signal: s2,
-      headers: sessionHeaders(),
+      headers: sessionHeaders(session),
     });
     gridText = await gridRes.text();
   } catch (err) {
