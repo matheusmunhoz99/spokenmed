@@ -478,11 +478,15 @@ function parseCurl(raw) {
   const cookies = pickHeader('cookie') ||
                   ((s.match(/-b\\s+['"]([^'"]+)['"]/) || [,''])[1]) || '';
   let sId = pickHeader('_s_id') || pickHeader('unisessionid') || '';
+  const body = pickBody();
   if (!sId) {
-    const m = pickBody().match(/_S_ID=([^&]+)/);
+    const m = body.match(/_S_ID=([^&]+)/);
     if (m) sId = decodeURIComponent(m[1]);
   }
-  return { sId, cookies };
+  let seq = '';
+  const sm = body.match(/_seq_=([^&]+)/);
+  if (sm) seq = decodeURIComponent(sm[1]);
+  return { sId, cookies, seq };
 }
 
 $('go').addEventListener('click', async () => {
@@ -493,7 +497,7 @@ $('go').addEventListener('click', async () => {
   if (!raw.trim()) { out.innerHTML = '<span class=err>Cole o cURL.</span>'; return; }
   try { localStorage.setItem('spokenmed_api_key', apiKey); } catch(_) {}
 
-  const { sId, cookies } = parseCurl(raw);
+  const { sId, cookies, seq } = parseCurl(raw);
   if (!sId) {
     out.innerHTML = '<span class=err>Não encontrei _s_id / unisessionid no cURL.</span>\\n' +
       'Verifique se você copiou exatamente a request <b>HandleEvent</b> com <b>Copy as cURL (cmd)</b>.';
@@ -506,7 +510,7 @@ $('go').addEventListener('click', async () => {
     const r = await fetch('/session/update?api_key=' + encodeURIComponent(apiKey), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ s_id: sId, cookies })
+      body: JSON.stringify({ s_id: sId, cookies, seq })
     });
     const txt = await r.text();
     if (r.ok) {
