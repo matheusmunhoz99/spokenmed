@@ -289,6 +289,15 @@ export default {
       return json({ ok: true, build: BUILD, ts: Date.now() });
     }
 
+    // Página HTML pública para colar o cURL e atualizar a sessão sem terminal.
+    // A API key é digitada na própria página e enviada como ?api_key=...
+    if (url.pathname === "/capture" && request.method === "GET") {
+      return new Response(CAPTURE_HTML, {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
+
     if (!authOk(request, url, env)) {
       return json({ ok: false, error: "unauthorized" }, 401);
     }
