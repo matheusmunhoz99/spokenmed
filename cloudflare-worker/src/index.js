@@ -164,7 +164,7 @@ async function doPostConsulta(cpfDigits, env) {
       method: "POST",
       signal,
       headers: {
-        ...sessionHeaders(),
+        ...sessionHeaders(session),
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
       },
       body,
