@@ -398,6 +398,13 @@ function AgendaDiaPage() {
         onOpenChange={(v) => !v && setAnexos(null)}
         agendamento={anexos}
       />
+
+      <ConsultorioDialog
+        open={!!consultorio}
+        onOpenChange={(v) => !v && setConsultorio(null)}
+        agendamento={consultorio}
+        onFinalizado={(id, protocolo) => setAtendidosSim((prev) => ({ ...prev, [id]: protocolo }))}
+      />
     </div>
     </PullToRefresh>
   );
