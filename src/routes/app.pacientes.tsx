@@ -375,9 +375,21 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    const cpfDigits = form.cpf ? onlyDigits(form.cpf) : "";
+    // checa duplicados antes de inserir/atualizar
+    const found = await findDuplicate({
+      cpfDigits: cpfDigits || undefined,
+      nome: form.nome,
+      data: form.data_nascimento || undefined,
+    });
+    if (found) {
+      setSubmitting(false);
+      setDup({ ...found, origem: "save" });
+      return;
+    }
     const payload = {
       ...form,
-      cpf: form.cpf ? onlyDigits(form.cpf) : null,
+      cpf: cpfDigits || null,
       cns: form.cns ? onlyDigits(form.cns) : null,
       telefone: form.telefone ? onlyDigits(form.telefone) : null,
       cep: form.cep ? onlyDigits(form.cep) : null,
