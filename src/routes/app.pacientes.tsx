@@ -282,18 +282,29 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
         return;
       }
       const dados = r.dados;
+      // converte data dd/mm/aaaa -> yyyy-mm-dd para input type="date"
+      const parseDate = (s?: string) => {
+        if (!s) return "";
+        const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
+      };
       setForm((f: any) => ({
         ...f,
-        nome: f.nome?.trim() ? f.nome : (dados.nome ?? f.nome),
-        cns: f.cns?.trim() ? f.cns : (dados.cns ?? f.cns),
-        telefone: f.telefone?.trim() ? f.telefone : (dados.telefone ?? f.telefone),
-        logradouro: f.logradouro?.trim() ? f.logradouro : (dados.logradouro ?? f.logradouro),
-        numero: f.numero?.trim() ? f.numero : (dados.numero ?? f.numero),
-        bairro: f.bairro?.trim() ? f.bairro : (dados.bairro ?? f.bairro),
-        cidade: f.cidade?.trim() ? f.cidade : (dados.cidade ?? f.cidade),
-        uf: f.uf?.trim() ? f.uf : (dados.uf ?? f.uf),
+        nome: dados.nome ?? f.nome,
+        cns: dados.cns ?? f.cns,
+        telefone: dados.telefone ?? f.telefone,
+        logradouro: dados.logradouro ?? f.logradouro,
+        numero: dados.numero ?? f.numero,
+        bairro: dados.bairro ?? f.bairro,
+        cidade: dados.cidade ?? f.cidade,
+        uf: dados.uf ?? f.uf,
+        cep: dados.cep ?? f.cep,
+        data_nascimento: parseDate(dados.data_nascimento) || f.data_nascimento,
+        sexo: dados.sexo ?? f.sexo,
+        nome_mae: dados.nome_mae ?? f.nome_mae,
       }));
-      toast.success("Dados do CadSUS preenchidos.");
+      setCpfErro(null);
+      toast.success("Dados do CadSUS importados.");
     } catch (e) {
       toast.error("Falha ao consultar CadSUS.");
     } finally {
