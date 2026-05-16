@@ -176,14 +176,7 @@ async function doPostConsulta(cpfDigits) {
     gridRes = await fetch(gridUrl, {
       method: "GET",
       signal: s2,
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        Cookie: SESSION.cookies,
-        Referer: REFERER,
-        Accept: "*/*",
-        "User-Agent":
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
-      },
+      headers: sessionHeaders(),
     });
     gridText = await gridRes.text();
   } catch (err) {
