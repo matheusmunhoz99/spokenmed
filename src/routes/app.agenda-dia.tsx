@@ -267,6 +267,17 @@ function AgendaDiaPage() {
                   <div className="flex items-center justify-between gap-2 md:contents">
                     <StatusBadge status={a.status} />
                     <div className="flex flex-wrap gap-1">
+                      {isMedicoSimulado && (
+                        atendidosSim[a.id] ? (
+                          <Badge variant="outline" className="h-9 gap-1 border-emerald-300 bg-emerald-50 px-2 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300" title={`Enviado ao eSUS PEC · ${atendidosSim[a.id]}`}>
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Atendido
+                          </Badge>
+                        ) : (
+                          <Button size="sm" className="h-9 gap-1 px-2.5" title="Atender (consultório)" onClick={() => setConsultorio(a)}>
+                            <Stethoscope className="h-4 w-4" /> Atender
+                          </Button>
+                        )
+                      )}
                       {a.unidade_id && (
                         <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-primary" title="Chamar paciente" onClick={() => setChamar(a)}><Megaphone className="h-4 w-4" /></Button>
                       )}
