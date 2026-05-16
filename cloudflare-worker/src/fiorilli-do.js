@@ -260,7 +260,7 @@ export class FiorilliDO {
       page.setDefaultNavigationTimeout(PUPPETEER_TIMEOUT_MS);
 
       await page.goto(sisIndex, { waitUntil: "networkidle0" });
-      console.log("[do] /sis/ loaded:", page.url());
+      console.log("[do] step=goto_sis status=ok url=", page.url());
 
       const userSel = "#O30 input, input#O30, input[name='O30']";
       const passSel = "#O34 input, input#O34, input[name='O34']";
@@ -274,10 +274,17 @@ export class FiorilliDO {
       await page.type(passSel, pass, { delay: 30 });
 
       await this.submitLogin(page);
+      console.log("[do] step=submit_login status=ok");
+
+      await this.waitForDesktop(page);
+      console.log("[do] step=wait_desktop status=ok url=", page.url());
+
+      const opened = await this.openAmbulatoryModule(page);
+      console.log("[do] step=open_ambulatorio status=ok via=", opened);
 
       const ambulatoryFrame = await this.waitForAmbulatoryFrame(page);
       const frameUrl = ambulatoryFrame?.url?.() || "";
-      console.log("[do] ambulatório iframe:", frameUrl || "sem-url");
+      console.log("[do] step=wait_iframe status=ok src=", frameUrl || "sem-url");
 
       const sId = await this.extractSessionId(page, ambulatoryFrame);
       if (!sId) {
@@ -285,6 +292,7 @@ export class FiorilliDO {
         console.error("[do] _S_ID ausente. URL:", page.url(), "iframe:", frameUrl, "html:", snippet);
         throw new Error("login_invalido: _S_ID ausente");
       }
+      console.log("[do] step=extract_sid status=ok");
 
       const cookieUrls = [page.url(), frameUrl].filter(Boolean);
       const cookies = cookieUrls.length ? await page.cookies(...cookieUrls) : await page.cookies();
