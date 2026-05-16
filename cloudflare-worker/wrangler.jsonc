@@ -9,6 +9,6 @@
     { "tag": "v2", "deleted_classes": ["FiorilliDO"] }
   ],
   "kv_namespaces": [
-    { "binding": "SESSION_KV", "id": "COLE_O_ID_AQUI" }
+    { "binding": "SESSION_KV", "id": "224cf03e9803463c9a1c3e33ca22518d" }
   ]
 }
