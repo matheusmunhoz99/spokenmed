@@ -1,39 +1,69 @@
-## O que tá acontecendo
+# Corrigir o POST de consulta no worker (CPF não encontrado)
 
-Worker retornou **401** na consulta. Isso é um de dois cenários:
+## Diagnóstico
 
-- **(a) A sessão sumiu do KV** — significa que a persistência KV não tá funcionando (id errado no `wrangler.jsonc`, ou o deploy não pegou o binding)
-- **(b) A sessão expirou no Fiorilli** — uniGUI invalida `_s_id` depois de alguns minutos de inatividade. Aí precisa repetir o `/capture`
+Comparando o `Ajax=1...` real do sistema com o que o worker está enviando hoje (`cloudflare-worker/src/index.js`, função `doPostConsulta`, linhas 145–158), há 3 diferenças que fazem o Fiorilli devolver tela vazia (e o worker classificar como `cpf_nao_encontrado`):
 
-Pra descobrir qual é, preciso que você abra no navegador:
+| Campo | Sistema real (funciona) | Worker hoje (falha) |
+|---|---|---|
+| `_fp_` | `%26O1162%3D%25020%2502%2502346.917.808-90` (carrega o CPF dentro) | vazio |
+| `O1162` (separado) | **não existe** — vai dentro do `_fp_` | enviado como parâmetro próprio com prefixo `%021%02%02` |
+| Prefixo do valor | `%020%02%02` (zero) — depois de um decode | `%021%02%02` (um) |
+| `_seq_` | hexadecimal (`3f`) | decimal (`63`) |
+| CPF | enviado **formatado com pontos e traço** literal | passa por `encodeURIComponent` |
 
+Ou seja, o uniGUI espera o CPF empacotado dentro do `_fp_` como um "form payload" duplo-encodado, com `%020` (não `%021`) na frente, e o `_seq_` em hex. Hoje a request chega "vazia" pro componente O1162 → ele responde sem dados → `cpf_nao_encontrado`.
+
+## Alterações em `cloudflare-worker/src/index.js`
+
+### 1. Montar o `_fp_` corretamente (linhas 145–158)
+
+Substituir:
+```js
+const o1162 = `%021%02%02${encodeURIComponent(cpfFmt)}`;
+const body =
+  `Ajax=1&IsEvent=1&Obj=O117A&Evt=click&this=O117A` +
+  `&_S_ID=${encodeURIComponent(session.sId)}` +
+  `&_fp_=` +
+  `&O1162=${o1162}` +
+  `&_seq_=${seq}` +
+  `&_uo_=O112A`;
 ```
-https://spokenmed.meyssiner.workers.dev/session?api_key=Xofome23@
+por:
+```js
+// O _fp_ é o "form payload" do uniGUI: já vem URL-encodado uma vez,
+// e o valor de O1162 dentro dele é encodado de novo.
+// Real: _fp_=%26O1162%3D%25020%2502%2502<CPF com pontos e traço>
+const fp = `%26O1162%3D%25020%2502%2502${cpfFmt}`; // SEM encodeURIComponent no CPF
+const seqHex = seq.toString(16);
+const body =
+  `Ajax=1&IsEvent=1&Obj=O117A&Evt=click&this=O117A` +
+  `&_S_ID=${encodeURIComponent(session.sId)}` +
+  `&_fp_=${fp}` +
+  `&_seq_=${seqHex}` +
+  `&_uo_=O112A`;
 ```
 
-E me mande o JSON que aparecer. Se `hasSession: true` e `kv: true` → é cenário (b), só refazer capture. Se `hasSession: false` ou `kv: false` → é (a), KV não tá persistindo.
+### 2. (Opcional) Manter o parse do grid, mas não exigir `nome`
 
-## Independente disso, vou melhorar o tratamento de erro no app
+O response do POST que você colou agora já traz endereço + CNS via `setText`. O `nome / sexo / nascimento / mãe / pai` vinham da chamada de grid (`O11B2`). Manter o GET de grid como está — se vier vazio, seguimos só com os `setText`. A condição `hasAnything` (linha 284) já cobre isso. Nenhuma mudança aqui.
 
-O toast "CadSUS indisponível no momento" é inútil — não diz o que fazer. Vou:
+### 3. Log do body enviado (debug temporário)
 
-### 1. Adicionar os códigos `sessao_ausente`, `sessao_expirada` e `unauthorized` no tipo `ErrorCode`
+Logo antes do `fetch(HANDLE_EVENT, ...)` em ~linha 163, adicionar:
+```js
+console.log("[cpf] POST body", body);
+```
+para a gente conferir no `wrangler tail` que o body bate byte-a-byte com o real.
 
-Em `src/lib/opp-client.server.ts` — incluir esses 3 códigos que o worker já devolve mas o tipo TS não conhece.
+## Como você testa depois do deploy
 
-### 2. Adicionar mensagens claras no `handleBuscarCadSus`
+1. `cd cloudflare-worker && wrangler deploy`
+2. Confirmar sessão: `GET /session?api_key=Xofome23@` → `hasSession:true`
+3. `GET https://spokenmed.meyssiner.workers.dev/cpf?cpf=34691780890&api_key=Xofome23@`
+   - Esperado: `{ ok:true, dados:{ logradouro:"RUA RIO NEGRO", numero:"183", bairro:"COHAB", cidade:"VOTUPORANGA", uf:"SP", cns:"705008830546157", ... } }`
+4. Se ainda voltar vazio, rodar `wrangler tail` em paralelo, repetir o request e me mandar o `[cpf] POST body` + `[cpf] POST consulta preview`.
 
-Em `src/routes/app.pacientes.tsx`, expandir o mapa `msgs`:
-- `sessao_ausente` → "Sessão do CadSUS não configurada. Avise o administrador."
-- `sessao_expirada` → "Sessão do CadSUS expirou. Avise o administrador para renovar."
-- `unauthorized` → "Acesso ao CadSUS negado. Verifique a configuração."
+## Pendência confirmada com você
 
-### 3. Logar o `error` retornado no console do navegador
-
-Pra eu (e você) ver com clareza qual código veio quando o toast aparecer, sem precisar dos logs do servidor.
-
----
-
-## Próximo passo
-
-Me cola o JSON do `/session?api_key=Xofome23@` que eu já implemento as melhorias acima e te falo se precisa refazer o capture ou se o problema é no KV.
+Não vou mexer no app Lovable — só no worker. Posso aplicar essas alterações?
