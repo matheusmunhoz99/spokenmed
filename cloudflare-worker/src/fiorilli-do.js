@@ -158,6 +158,15 @@ export class FiorilliDO {
 
   async fetch(request) {
     const url = new URL(request.url);
+    if (url.pathname === "/reset") {
+      this.session = null;
+      await this.persistSession();
+      console.log("[do] sessão resetada via /reset");
+      return new Response(JSON.stringify({ ok: true, reset: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
     if (url.pathname !== "/lookup") {
       return new Response(JSON.stringify({ ok: false, error: "not_found" }), {
         status: 404,
@@ -247,6 +256,7 @@ export class FiorilliDO {
   }
 
   async bootstrap() {
+    console.log("[do] bootstrap build=fiorilli-debug-v3");
     const baseUrl = (this.env.OPP_BASE_URL || "").replace(/\/+$/, "");
     const user = this.env.OPP_USERNAME;
     const pass = this.env.OPP_PASSWORD;
