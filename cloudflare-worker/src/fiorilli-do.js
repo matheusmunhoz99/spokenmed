@@ -112,7 +112,8 @@ function parseUniguiResponse(js) {
 
 function looksLikeSessionExpired(js) {
   if (/\.setText\(/i.test(js)) return false;
-  return /login|sess[aã]o|expirad|invalid|_S_ID/i.test(js) || js.length < 50;
+  if (js.length < 20) return true;
+  return /ajaxRedirect|loginForm|sess[aã]o\s+(expirad|invalid)|_S_ID\s*=\s*['"]?\s*['"]?\s*[;)]|window\.location|redirect/i.test(js);
 }
 
 export class FiorilliDO {
@@ -256,7 +257,7 @@ export class FiorilliDO {
   }
 
   async bootstrap() {
-    console.log("[do] bootstrap build=fiorilli-debug-v5");
+    console.log("[do] bootstrap build=fiorilli-debug-v6");
     const baseUrl = (this.env.OPP_BASE_URL || "").replace(/\/+$/, "");
     const user = this.env.OPP_USERNAME;
     const pass = this.env.OPP_PASSWORD;
@@ -304,12 +305,22 @@ export class FiorilliDO {
       }
       console.log("[do] step=extract_sid status=ok");
 
-      const cookieUrls = [page.url(), frameUrl].filter(Boolean);
-      const cookies = cookieUrls.length ? await page.cookies(...cookieUrls) : await page.cookies();
+      // Cookies: pega de todas as URLs visitadas + contexto inteiro do browser
+      const urls = Array.from(new Set([page.url(), frameUrl, baseUrl, `${baseUrl}/sis/`, `${baseUrl}/ambulatorio/`].filter(Boolean)));
+      let cookies = [];
+      try { cookies = await page.cookies(...urls); } catch {}
+      try {
+        const all = await browser.defaultBrowserContext().cookies();
+        const seen = new Set(cookies.map((c) => `${c.name}@${c.domain}`));
+        for (const c of all) {
+          const k = `${c.name}@${c.domain}`;
+          if (!seen.has(k)) { cookies.push(c); seen.add(k); }
+        }
+      } catch {}
       const jar = new Map();
       for (const c of cookies) jar.set(c.name, c.value);
 
-      console.log("[do] session ready. cookies:", jar.size);
+      console.log("[do] session ready. cookies:", jar.size, "names=", JSON.stringify(Array.from(jar.keys())));
       return { cookies: jar, sId, createdAt: Date.now() };
     } finally {
       try {
@@ -534,6 +545,7 @@ export class FiorilliDO {
   }
 
   async waitForAmbulatoryFrame(page) {
+    // 1) Espera o elemento <iframe> com src de ambulatório aparecer
     const frameHandle = await page
       .waitForFunction(
         () => {
@@ -543,7 +555,7 @@ export class FiorilliDO {
             return /ambulatorio\.dll|\/ambulatorio\//i.test(src);
           }) || null;
         },
-        { timeout: 20_000 },
+        { timeout: 25_000 },
       )
       .catch(() => null);
 
@@ -561,8 +573,29 @@ export class FiorilliDO {
 
     const element = await frameHandle.asElement();
     const frame = element ? await element.contentFrame() : null;
-    if (frame) {
-      await frame.waitForFunction(() => document.readyState === "complete", { timeout: 20_000 }).catch(() => null);
+    if (!frame) {
+      throw new Error("login_invalido: iframe_sem_contentFrame");
+    }
+
+    // 2) Espera o frame DE FATO navegar pra ambulatorio.dll e o documento ficar pronto
+    const navigated = await frame
+      .waitForFunction(
+        () => /ambulatorio\.dll/i.test(location.href) && document.readyState === "complete",
+        { timeout: 25_000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+
+    if (!navigated) {
+      const info = await frame
+        .evaluate(() => ({
+          href: location.href,
+          ready: document.readyState,
+          bodyLen: document.body?.innerHTML?.length || 0,
+        }))
+        .catch(() => ({}));
+      console.error("[do] frame ambulatório não navegou. info=", JSON.stringify(info));
+      throw new Error("login_invalido: iframe_nao_carregou");
     }
     return frame;
   }
@@ -643,6 +676,9 @@ export class FiorilliDO {
     ingestSetCookies(res, this.session.cookies);
     const text = await res.text();
     console.log("[do] lookup", { status: res.status, seq, bodyLen: text.length });
+    if (text.length < 500) {
+      console.log("[do] lookup body=", text.slice(0, 500));
+    }
     return text;
   }
 }
