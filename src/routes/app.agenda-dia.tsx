@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2, Download, Trash2, Megaphone, CalendarClock, History, Zap, Plus, Paperclip, ListOrdered } from "lucide-react";
 import { LoadingState } from "@/components/loading-state";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { EmptyState } from "@/components/empty-state";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -167,6 +168,7 @@ function AgendaDiaPage() {
   };
 
   return (
+    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: ["agenda-dia"] })}>
     <div className="space-y-4">
       <Card>
         <CardContent className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
@@ -382,5 +384,6 @@ function AgendaDiaPage() {
         agendamento={anexos}
       />
     </div>
+    </PullToRefresh>
   );
 }

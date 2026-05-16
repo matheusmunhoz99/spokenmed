@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -202,6 +203,7 @@ function FilaPage() {
   const unidadeNome = unidadesAllowed?.find((u: any) => u.id === unidadeId)?.nome ?? "";
 
   return (
+    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: ["fila", unidadeId] })}>
     <div className="space-y-4">
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -434,6 +436,7 @@ function FilaPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </PullToRefresh>
   );
 }
 

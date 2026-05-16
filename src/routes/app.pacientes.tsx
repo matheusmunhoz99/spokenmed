@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { useEffect, useState } from "react";
+import { haptic } from "@/hooks/use-haptics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,6 +85,7 @@ function PacientesPage() {
   };
 
   return (
+    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: ["pacientes"] })}>
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 sm:max-w-md">
@@ -229,6 +232,7 @@ function PacientesPage() {
         </>
       )}
     </div>
+    </PullToRefresh>
   );
 }
 
@@ -403,6 +407,7 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
       : await supabase.from("pacientes").insert(payload);
     setSubmitting(false);
     if (error) return toast.error(error.message);
+    haptic("success");
     toast.success(editing ? "Paciente atualizado" : "Paciente cadastrado");
     onSaved();
   };
