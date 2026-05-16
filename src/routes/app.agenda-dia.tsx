@@ -60,6 +60,9 @@ function AgendaDiaPage() {
   const [historico, setHistorico] = useState<any>(null);
   const [encaixeOpen, setEncaixeOpen] = useState(false);
   const [anexos, setAnexos] = useState<any>(null);
+  const [consultorio, setConsultorio] = useState<any>(null);
+  const [atendidosSim, setAtendidosSim] = useState<Record<string, string>>({});
+  const isMedicoSimulado = user?.email === "admin@opportunity.com";
 
   const { data: unidades } = useAllowedUnidades();
   const allowedIds = useMemo(() => (unidades ?? []).map((u: any) => u.id), [unidades]);
