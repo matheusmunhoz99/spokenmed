@@ -283,7 +283,7 @@ function PacienteDialog({ editing, onSaved }: { editing: Paciente | null; onSave
       }
       const dados = r.dados;
       // converte data dd/mm/aaaa -> yyyy-mm-dd para input type="date"
-      const parseDate = (s?: string) => {
+      const parseDate = (s?: string | null) => {
         if (!s) return "";
         const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
         return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
