@@ -1,26 +1,29 @@
-## Plano
+Plano para deixar isso bem mais fácil:
 
-1. Confirmar o Code Editor como fonte principal
-- Manter as alterações diretamente em `cloudflare-worker/src/fiorilli-do.js` e `cloudflare-worker/src/index.js`.
-- Não gerar arquivos para download; depois eu só aviso quais arquivos copiar.
+1. Criar uma página no próprio Worker em `/capture`
+   - Você abre `https://spokenmed.meyssiner.workers.dev/capture` no navegador.
+   - Cola ali o “Copy as cURL” inteiro do DevTools.
+   - Digita a API key.
+   - Clica em “Atualizar sessão”.
+   - A página extrai `_s_id`, `unisessionid` e cookies automaticamente e chama `/session/update`.
 
-2. Corrigir a causa do redirect de sessão
-- O log v6 mostra que o iframe abriu corretamente, mas a consulta direta ao `HandleEvent` voltou:
-  `window.location=".../ambulatorio.dll/"`
-- A sessão ficou sem cookies (`cookies: 0`), então vou ajustar o bootstrap para capturar cookies e dados de sessão também via JavaScript dentro da página/iframe, não apenas pelo jar do navegador.
-- Se ainda não houver cookie real, vou criar um cabeçalho de sessão mínimo baseado no que o Fiorilli expõe no iframe, evitando tratar essa resposta curta como “sessão expirada” sem evidência suficiente.
+2. Manter também um modo manual bem simples
+   - Adicionar uma rota tipo `/session/set?api_key=...&s_id=...`.
+   - Se o cURL continuar dando trabalho, você só copia o valor do header `_s_id` no DevTools e abre esse link.
+   - Sem PowerShell, sem `node`, sem arquivo `req.txt`.
 
-3. Evitar loop que estoura limite do Browser Run
-- Quando a primeira consulta voltar só com `window.location` e cookies vazios, não vou relogar imediatamente.
-- Em vez disso, o Worker vai devolver um erro diagnóstico controlado com o corpo retornado e estado da sessão, para não abrir um segundo browser e cair em `429 Rate limit exceeded`.
+3. Melhorar os erros
+   - Se não achar `_s_id`, a página vai mostrar exatamente o que faltou e onde copiar.
+   - Se atualizar certo, mostra “sessão atualizada” e já oferece um link para testar `/session`.
 
-4. Aumentar logs úteis na v7
-- Bump para `fiorilli-debug-v7` em `fiorilli-do.js` e `/health` no `index.js`.
-- Logar `sId` mascarado, `cookieHeaderLen`, URL usada no `HandleEvent`, `Referer`, e um diagnóstico curto quando o servidor responder redirect.
+Depois disso o passo a passo fica:
 
-5. Resultado esperado para teste
-- Depois de copiar/deployar v7, você roda:
-  - `/health` para confirmar `fiorilli-debug-v7`
-  - `/reset`
-  - `/cpf?cpf=34691780890&api_key=...`
-- O tail deve mostrar se falta cookie, se o `_S_ID` extraído está errado, ou se precisamos mudar o fluxo para fazer a consulta clicando dentro do iframe em vez de POST direto.
+```text
+1. Entrar no sistema da prefeitura pelo Chrome
+2. DevTools > Network > clicar em HandleEvent
+3. Copy > Copy as cURL (cmd)
+4. Abrir /capture no Worker
+5. Colar, colocar API key e clicar atualizar
+```
+
+Isso substitui totalmente o uso do `capture-session.mjs` local.
