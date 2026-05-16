@@ -300,7 +300,7 @@ export default {
         cookies: mask(SESSION.cookies),
         seq: SESSION.seq,
         updatedAt: SESSION.updatedAt,
-        hasSession: !!(SESSION.sId && SESSION.cookies),
+        hasSession: !!SESSION.sId,
       });
     }
 
@@ -313,13 +313,13 @@ export default {
       }
       const cookies = String(payload?.cookies || "").trim();
       const sId = String(payload?.s_id || payload?.sId || "").trim();
-      if (!cookies || !sId) {
-        return json({ ok: false, error: "cookies_e_s_id_obrigatorios" }, 400);
+      if (!sId) {
+        return json({ ok: false, error: "s_id_obrigatorio" }, 400);
       }
       SESSION = { cookies, sId, seq: 1, updatedAt: Date.now() };
       console.log("[session] atualizada", {
         sId: mask(sId),
-        cookies: mask(cookies),
+        cookies: cookies ? mask(cookies) : "(sem cookies)",
       });
       return json({ ok: true, sId: mask(sId), cookies: mask(cookies) });
     }
