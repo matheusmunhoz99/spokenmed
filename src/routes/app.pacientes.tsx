@@ -499,6 +499,30 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
         </DialogFooter>
       </form>
     </DialogContent>
+    <AlertDialog open={!!dup} onOpenChange={(o) => { if (!o) setDup(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Paciente já cadastrado</AlertDialogTitle>
+          <AlertDialogDescription>
+            {dup?.reason} Deseja abrir o cadastro existente para editar
+            {dup?.origem === "cadsus" ? " (a consulta ao CadSUS não será feita)" : ""}?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setDup(null)}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              const p = dup?.paciente;
+              setDup(null);
+              if (p && onOpenExisting) onOpenExisting(p);
+            }}
+          >
+            Editar existente
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
