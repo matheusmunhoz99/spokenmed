@@ -314,6 +314,12 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
     }
     setCadsusLoading(true);
     try {
+      // verifica duplicado ANTES de gastar consulta no Fiorilli
+      const found = await findDuplicate({ cpfDigits: d });
+      if (found) {
+        setDup({ ...found, origem: "cadsus" });
+        return;
+      }
       const r = await buscarCadSus({ data: { cpf: d } });
       if (!r.ok) {
         console.warn("[cadsus] erro:", r.error);
