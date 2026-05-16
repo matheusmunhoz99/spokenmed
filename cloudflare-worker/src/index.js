@@ -142,9 +142,11 @@ async function doPostConsulta(cpfDigits, env) {
   // persiste o seq incrementado pra próxima request
   await saveSession(env, session);
 
-  // Body EXATO conforme spec do usuário.
-  // O11162 valor: %021%02%02CPF_FORMATADO
-  const o1162 = `%021%02%02${encodeURIComponent(cpfFmt)}`;
+  // O uniGUI espera o CPF empacotado dentro do _fp_ (form payload),
+  // duplo-encodado, e o _seq_ em hex.
+  // Real capturado: _fp_=%26O1162%3D%25020%2502%2502346.917.808-90&_seq_=3f
+  const fp = `%26O1162%3D%25020%2502%2502${cpfFmt}`; // CPF literal com pontos/traço
+  const seqHex = seq.toString(16);
   const body =
     `Ajax=1` +
     `&IsEvent=1` +
@@ -152,10 +154,10 @@ async function doPostConsulta(cpfDigits, env) {
     `&Evt=click` +
     `&this=O117A` +
     `&_S_ID=${encodeURIComponent(session.sId)}` +
-    `&_fp_=` +
-    `&O1162=${o1162}` +
-    `&_seq_=${seq}` +
+    `&_fp_=${fp}` +
+    `&_seq_=${seqHex}` +
     `&_uo_=O112A`;
+  console.log("[cpf] POST body", body);
 
   const { signal, done } = withTimeout(null, TIMEOUT_MS);
   let postRes, postText;
