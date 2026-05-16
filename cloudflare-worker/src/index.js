@@ -13,7 +13,7 @@
 // Persistência: módulo em memória do isolate (volátil). Se o isolate reciclar,
 // basta re-postar /session/update com os valores atualizados.
 
-const BUILD = "fiorilli-http-v1";
+const BUILD = "fiorilli-http-v2";
 const BASE = "https://saudeteresopolis.oppcloud.com.br";
 const HANDLE_EVENT = `${BASE}/ambulatorio/ambulatorio.dll/HandleEvent`;
 const REFERER = `${BASE}/ambulatorio/ambulatorio.dll/`;
