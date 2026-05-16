@@ -112,7 +112,8 @@ function parseUniguiResponse(js) {
 
 function looksLikeSessionExpired(js) {
   if (/\.setText\(/i.test(js)) return false;
-  return /login|sess[aã]o|expirad|invalid|_S_ID/i.test(js) || js.length < 50;
+  if (js.length < 20) return true;
+  return /ajaxRedirect|loginForm|sess[aã]o\s+(expirad|invalid)|_S_ID\s*=\s*['"]?\s*['"]?\s*[;)]|window\.location|redirect/i.test(js);
 }
 
 export class FiorilliDO {
