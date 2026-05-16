@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { LayoutDashboard, CalendarDays, CalendarPlus, Users, Menu, ListOrdered } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
+import { haptic } from "@/hooks/use-haptics";
 import type { ModuleKey } from "@/lib/permissions";
 
 type Item = { title: string; url: string; icon: any; exact?: boolean; module?: ModuleKey };
@@ -28,7 +29,7 @@ export function MobileBottomNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-card/90 backdrop-blur-xl backdrop-saturate-150 md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <ul className="grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
@@ -38,12 +39,22 @@ export function MobileBottomNav() {
             <li key={it.url}>
               <Link
                 to={it.url}
-                className={`flex h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors ${
+                onClick={() => haptic("selection")}
+                className={`group relative flex h-[60px] flex-col items-center justify-center gap-1 text-[10.5px] font-medium transition-colors ${
                   active ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <it.icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.4 : 1.8} />
-                <span>{it.title}</span>
+                {active && (
+                  <span
+                    aria-hidden
+                    className="absolute top-0 left-1/2 h-[3px] w-8 -translate-x-1/2 rounded-b-full bg-primary"
+                  />
+                )}
+                <it.icon
+                  className={`h-[22px] w-[22px] transition-transform ${active ? "scale-110" : "group-active:scale-95"}`}
+                  strokeWidth={active ? 2.4 : 1.8}
+                />
+                <span className="leading-none">{it.title}</span>
               </Link>
             </li>
           );
@@ -51,11 +62,14 @@ export function MobileBottomNav() {
         <li>
           <button
             type="button"
-            onClick={() => setOpenMobile(true)}
-            className="flex h-14 w-full flex-col items-center justify-center gap-0.5 text-[10px] font-medium text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              haptic("selection");
+              setOpenMobile(true);
+            }}
+            className="group flex h-[60px] w-full flex-col items-center justify-center gap-1 text-[10.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            <Menu className="h-[22px] w-[22px]" strokeWidth={1.8} />
-            <span>Menu</span>
+            <Menu className="h-[22px] w-[22px] transition-transform group-active:scale-95" strokeWidth={1.8} />
+            <span className="leading-none">Menu</span>
           </button>
         </li>
       </ul>
