@@ -1,79 +1,72 @@
-# Plano — Fase 1: feel de app nativo + refresh visual
+# Consultório Simulado — padrão eSUS PEC
 
-Foco em **mobile** (iPhone/Android). Desktop ganha só o ajuste de paleta e fonte, sem mexer em layouts.
+Adicionar, **só para o usuário `admin@opportunity.com`**, um botão "Atender" em cada linha da Agenda do Dia que abre uma tela cheia de consultório com cara de prontuário moderno (muito melhor que o eSUS PEC). Tudo é **simulação visual** — nada é persistido no banco.
 
-## 1. Identidade visual (leve, em todo o app)
+## Escopo visual
 
-**Paleta "Clínico Sereno"** — atualizar tokens em `src/styles.css`:
-- Background `#fafbfc`, surface `#ffffff`, borda `#e8ecf1`
-- Primary teal `#2d8a9e` (claro) / `#5cbdb9` (escuro)
-- Texto principal `#0c2340`, secundário slate-500
-- Sombras mais suaves (`shadow-sm`/`shadow-md` redefinidos com blur maior e opacidade menor)
-- `--radius` de `0.5rem` → `0.75rem` (mais cara de iOS)
+- Botão `Stethoscope` ("Atender") na lista de `src/routes/app.agenda-dia.tsx`, visível apenas quando `user?.email === "admin@opportunity.com"`.
+- Abre `ConsultorioDialog` em **fullscreen** (sheet/dialog `inset-0`), com header fixo mostrando paciente, idade, CNS, alergias em destaque vermelho, e botão Finalizar.
+- Layout em 2 colunas no desktop, abas no mobile:
+  - **Coluna esquerda (resumo):** dados do paciente, condições, alergias, medicações em uso, últimos atendimentos (mock).
+  - **Coluna direita (abas):**
+    1. **SOAP** — 4 textareas (Subjetivo / Objetivo / Avaliação / Plano) com auto-grow, contador de caracteres, atalhos.
+    2. **CID / CIAP** — combobox com busca local (lista mock dos CIDs mais comuns na APS: I10, E11, J00, M54, F32, Z00, etc.) permitindo múltiplos.
+    3. **Alergias** — adicionar/remover tags (substância + reação + gravidade).
+    4. **Atestado** — modelo pré-preenchido (dias, CID opcional, repouso), preview formatado.
+    5. **Receita** — receituário simples e especial; itens com nome, posologia, quantidade, duração; botão "+ medicamento".
+    6. **Guia de Referência (SISREG)** — especialidade, prioridade, hipótese diagnóstica, justificativa.
+    7. **SADT** — exames (lista mock: hemograma, glicemia, EAS, USG, etc.) com checklist.
+    8. **LME** — formulário de Alto Custo com CID obrigatório, medicamento, CAS, posologia, tempo de tratamento, anamnese.
+- Visual "Clínico Sereno": cards com `rounded-xl`, sombras suaves, tipografia Sora/Manrope, ícones Lucide, badges semânticos. Sem gradientes berrantes.
 
-**Tipografia Sora + Manrope** — adicionar via `<link>` no `__root.tsx`, definir no `body` (`font-family: Manrope`) e em headings (`font-family: Sora`). Tracking levemente negativo nos títulos. Tamanho-base 15px no desktop, 16px mobile (já tem regra).
+## Fluxo de "Finalizar consulta"
 
-**Por que não vai "parecer IA":** paleta sóbria de um tom só, tipografia humanista (não a Inter de todo template), espaçamento generoso, zero gradientes coloridos, zero emojis, microcópia em PT-BR natural ("Tudo certo por aqui", "Nada por enquanto" em vez de "No data available").
+Ao clicar **Finalizar e enviar ao eSUS PEC**, abre um overlay modal central com:
+- Título: "Enviando ficha de atendimento ao eSUS PEC"
+- Lista de passos animados (cada um leva ~600-900ms, com check verde ao terminar):
+  1. Validando CNS do paciente…
+  2. Verificando CNES da unidade…
+  3. Validando INE da equipe…
+  4. Conferindo CBO do profissional…
+  5. Montando ficha CDS (Atendimento Individual)…
+  6. Assinando digitalmente…
+  7. Transmitindo ao eSUS PEC (Thrift)…
+  8. Confirmando recebimento (LEDI)…
+- Ao final: card verde "Atendimento finalizado com sucesso" + protocolo fake (`PEC-{timestamp}`), botão **Fechar**.
+- Ao fechar: dialog do consultório fecha, e na linha da agenda o paciente aparece com badge "Atendido" (apenas localmente, via `useState`/optimistic — **não chama Supabase**) e um pequeno ícone ✓ verde + tooltip "Enviado ao eSUS PEC · protocolo X".
 
-## 2. Cara de app nativo (mobile)
+## Arquivos
 
-### 2.1 Transições de página + haptics
-- Criar `src/hooks/use-haptics.ts` usando `navigator.vibrate` (Android) com fallback silencioso (iOS PWA não suporta, mas não quebra). Disparar em: salvar, deletar, chamar paciente, erro.
-- Wrapper `<PageTransition>` no `<Outlet />` do `app.tsx`: detecta mobile e aplica `animate-in slide-in-from-right-4 fade-in` em entrada de rota nova, `slide-in-from-left-4` ao voltar. Desktop: só fade leve.
+**Novos:**
+- `src/components/consultorio/consultorio-dialog.tsx` — shell fullscreen + tabs.
+- `src/components/consultorio/tab-soap.tsx`
+- `src/components/consultorio/tab-cid.tsx`
+- `src/components/consultorio/tab-alergias.tsx`
+- `src/components/consultorio/tab-atestado.tsx`
+- `src/components/consultorio/tab-receita.tsx`
+- `src/components/consultorio/tab-guia.tsx`
+- `src/components/consultorio/tab-sadt.tsx`
+- `src/components/consultorio/tab-lme.tsx`
+- `src/components/consultorio/envio-esus-overlay.tsx` — timer animado dos 8 passos.
+- `src/lib/mock/cid10.ts` — ~80 CIDs comuns.
+- `src/lib/mock/medicamentos.ts` — ~40 medicamentos APS.
+- `src/lib/mock/exames-sadt.ts` — lista de exames.
 
-### 2.2 Bottom sheets em vez de dialogs (mobile)
-- Criar `src/components/ui/responsive-dialog.tsx`: componente único que renderiza `<Dialog>` no desktop e `<Drawer>` (vaul, já instalado) no mobile via `useIsMobile()`. API igual ao Dialog (`<ResponsiveDialog>`, `Trigger`, `Content`, `Header`, `Title`, `Footer`).
-- Migrar usos críticos: `PacienteDialog` (em `app.pacientes.tsx`), `chamar-dialog`, `encaixe-dialog`, `reagendar-dialog`, `historico-dialog`, `anexos-dialog`, `permissions-dialog`. Não trocar nada da lógica interna — só o invólucro.
-- Drawer com `snapPoints` permitindo arrastar pra fechar; handle visual no topo.
+**Editados:**
+- `src/routes/app.agenda-dia.tsx` — botão Atender condicional + estado local `atendidosSimulados: Set<string>` + badge visual.
 
-### 2.3 Pull-to-refresh
-- Criar `src/components/pull-to-refresh.tsx`: usa `touchstart/touchmove` no scroll container, mostra spinner discreto no topo quando puxa >60px. Só mobile.
-- Aplicar em: `app.agenda-dia.tsx`, `app.fila.tsx`, `app.pacientes.tsx` (quando há resultado), `app.index.tsx`. `onRefresh` chama `queryClient.invalidateQueries` da query da página + haptic leve.
+## Detalhes técnicos
 
-### 2.4 Swipe-actions nas listas
-- Criar `src/components/swipe-row.tsx`: wrapper com gesture (CSS transform + touch handlers, sem libs novas). Arrastar pra esquerda revela 1–2 botões de ação.
-- Aplicar em:
-  - Fila: swipe → "Chamar" + "Adiar"
-  - Pacientes: swipe → "Editar" + "Histórico"
-  - Agenda do dia: swipe → "Reagendar" + "Faltou"
-- Desktop: ações continuam nos botões/menu existentes (componente vira no-op).
+- Nada toca em Supabase. Todo estado é `useState` dentro do `ConsultorioDialog`. Ao fechar/finalizar, o estado é descartado.
+- Restrição por email: `const isMedicoSimulado = user?.email === "admin@opportunity.com"`. Sem mudanças em roles/permissões/RLS.
+- `envio-esus-overlay` usa `setTimeout` encadeado + `framer-motion` se já presente (caso contrário, transições CSS via Tailwind `animate-*` já no projeto).
+- Acessibilidade: foco preso no dialog, ESC fecha (com confirmação se houver texto digitado), `aria-live` no overlay de envio.
+- Mobile: usa `ResponsiveDialog` existente (drawer no mobile, dialog no desktop) com as abas viradas em accordion vertical.
+- Print-friendly: atestado/receita têm `@media print` opcional caso o usuário queira "imprimir" (mockado, sem PDF — fora do escopo).
 
-### 2.5 Skeleton loaders
-- Criar 3 skeletons reutilizáveis em `src/components/skeletons/`: `list-skeleton.tsx`, `card-skeleton.tsx`, `table-skeleton.tsx` (usam `<Skeleton>` shadcn já presente).
-- Substituir `<Loader2 className="animate-spin" />` em: Agenda, Fila, Pacientes, Painel, Profissionais. Spinner só fica em ações pontuais (botão "Salvar").
+## Fora do escopo
 
-### 2.6 Splash + status bar polidos (PWA)
-- `manifest.webmanifest`: trocar `background_color`/`theme_color` para `#fafbfc` (claro) e adicionar `theme_color` escuro via `<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0c2340">` no `__root.tsx`.
-- Adicionar `<meta name="apple-mobile-web-app-status-bar-style" content="default">` e `<meta name="apple-mobile-web-app-capable" content="yes">`.
-- Verificar que `apple-touch-icon` aponta pra `/icons/icon-512.png`.
-
-### 2.7 Bottom nav polida
-- Aumentar tap targets pra 48px, adicionar leve "spring" no item ativo (scale 1.08 + cor primary), badge de contagem na Fila quando houver pendências.
-- Indicador ativo: barrinha de 3px no topo do item ativo em vez de só mudar cor.
-
-## 3. O que NÃO entra nessa fase
-- Reescrita de layouts desktop, novas telas, mudança em backend, em CSV/PDF, em CadSUS, em permissões.
-
-## Técnico
-
-**Arquivos novos:**
-- `src/hooks/use-haptics.ts`
-- `src/components/ui/responsive-dialog.tsx`
-- `src/components/pull-to-refresh.tsx`
-- `src/components/swipe-row.tsx`
-- `src/components/page-transition.tsx`
-- `src/components/skeletons/{list,card,table}-skeleton.tsx`
-
-**Arquivos editados:**
-- `src/styles.css` (paleta + radius + sombras + fonts)
-- `src/routes/__root.tsx` (links de fonte, metas iOS, theme-color)
-- `src/routes/app.tsx` (PageTransition no Outlet)
-- `src/components/mobile-bottom-nav.tsx` (indicador + tap target)
-- `public/manifest.webmanifest` (cores)
-- Rotas que viram bottom sheet: `app.pacientes.tsx` + 5 dialogs
-- Rotas com pull-to-refresh + skeletons: `app.agenda-dia.tsx`, `app.fila.tsx`, `app.pacientes.tsx`, `app.index.tsx`
-
-**Sem novas dependências** (vaul, lucide, radix já presentes).
-
-## Entrega
-Implemento tudo em um único passo (são alterações coordenadas). Depois você testa no celular instalado como PWA e me diz o que ajustar.
+- Geração real de PDF.
+- Persistência em qualquer tabela.
+- Integração real com eSUS PEC / Thrift / CADSUS.
+- Alterar permissões ou roles de outros usuários.
