@@ -134,32 +134,43 @@ def _sess() -> requests.Session:
     })
     return s
 
-def _ajax_headers(sid: str) -> dict[str, str]:
+def _ajax_headers() -> dict[str, str]:
+    # Replica EXATAMENTE o que o Chrome manda (vide HAR). Sem _s_id/unisessionid
+    # como header — o uniGUI rejeita com 401 se vierem. A sessão vai só no body.
     return {
         "X-Requested-With": "XMLHttpRequest",
         "Referer": OPP_BASE + OPP_LOGIN_PATH,
         "Origin": OPP_BASE,
         "Accept": "*/*",
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "_s_id": sid,
-        "unisessionid": sid,
     }
 
 def _looks_logged_in(text: str) -> bool:
-    """Sinais de que o login deu certo (uniGUI manda JS pra montar a tela principal)."""
+    """Sinais de que o login foi aceito.
+
+    A resposta clássica do uniGUI quando o login passa é:
+      _rsov_(O30,0);_rsov_(O34,0);O0.showMask("Validando Dados ...");ajaxRequestNoParams(O8,"_dummy_");
+    Depois disso vêm vários polls _dummy_ no O8 até a UI principal carregar."""
     if not text:
         return False
     low = text.lower()
     bad = ("usuário ou senha", "usuario ou senha", "senha inválida", "senha invalida",
-           "credenciais inválidas", "credenciais invalidas")
+           "credenciais inválidas", "credenciais invalidas", "login inválido", "login invalido")
     if any(b in low for b in bad):
         return False
-    # qualquer resposta não-vazia sem mensagem de erro vinda do uniGUI é sucesso.
-    return ("ext." in low or "_cdo_" in low or "ajaxsuccess" in low
-            or low.startswith("{") or '"success":true' in low)
+    return (
+        "validando dados" in low
+        or "_rsov_" in low
+        or "showmask" in low
+        or "ajaxrequestnoparams" in low
+        or "ext." in low
+        or "_cdo_" in low
+        or low.startswith("{")
+        or '"success":true' in low
+    )
 
 
-def login_e_captura_sid() -> tuple[str, str] | None:
+def login_e_captura_sid() -> tuple[str, str, str] | None:
     """Executa o fluxo completo de login e devolve (_S_ID, cookies). None em caso de falha."""
     s = _sess()
 
@@ -176,52 +187,94 @@ def login_e_captura_sid() -> tuple[str, str] | None:
     sid = m.group(1)
     log.info("   _S_ID inicial = %s…%s", sid[:4], sid[-4:])
 
-    # 2) handshake cinfo (o uniGUI sempre faz logo após renderizar a tela)
-    seq = 1
+    headers = _ajax_headers()
+
+    def _post(seq: int, body: str, label: str) -> requests.Response | None:
+        log.info("→ POST %s (seq=%s)", label, seq)
+        rr = s.post(OPP_BASE + OPP_HANDLE, data=body, headers=headers, timeout=HTTP_TIMEOUT)
+        if rr.status_code >= 400:
+            log.error("%s falhou: status=%s len=%s", label, rr.status_code, len(rr.text))
+            log.debug("body: %s", rr.text[:400])
+            return None
+        return rr
+
+    # 2) cinfo — formato EXATO do navegador (ver HAR)
+    #    ci=br=33;os=4;bv=146;ww=1920;wh=1080 (url-encoded)
+    ci_val = up.quote("br=33;os=4;bv=146;ww=1920;wh=1080", safe="")
     cinfo = (
-        f"Ajax=1&IsEvent=1&Obj=O0&Evt=cinfo&this=O0"
-        f"&_S_ID={sid}&ci=12,Chrome,Windows,1920,1080&_seq_={seq:x}"
+        f"Ajax=1&IsEvent=1&Obj=O0&Evt=cinfo"
+        f"&ci={ci_val}&_S_ID={sid}&_seq_=0&_uo_=O0"
     )
-    log.info("→ POST cinfo (seq=%s)", seq)
-    r2 = s.post(OPP_BASE + OPP_HANDLE, data=cinfo,
-                headers=_ajax_headers(sid), timeout=HTTP_TIMEOUT)
-    if r2.status_code >= 400:
-        log.error("cinfo falhou: status=%s len=%s", r2.status_code, len(r2.text))
-        log.debug("body: %s", r2.text[:300])
+    if _post(0, cinfo, "cinfo") is None:
         return None
 
-    # 3) clique no botão Entrar (O40) com username/senha nos campos O30 e O34
-    seq = 2
-    # uniGUI espera o _fp_ duplo-encodado (estilo "&O30=admin&O34=123")
-    fp = up.quote(f"&O30={up.quote(OPP_USERNAME)}&O34={up.quote(OPP_PASSWORD)}", safe="")
-    login_body = (
+    # 3) activate
+    activate = f"Ajax=1&IsEvent=1&Obj=O0&Evt=activate&this=O0&_S_ID={sid}&_seq_=1&_uo_=O0"
+    if _post(1, activate, "activate") is None:
+        return None
+
+    # 4) show
+    show = f"Ajax=1&IsEvent=1&Obj=O0&Evt=show&this=O0&_S_ID={sid}&_seq_=2&_uo_=O0"
+    if _post(2, show, "show") is None:
+        return None
+
+    # 5) clique no botão Entrar (O40). _fp_ no formato uniGUI:
+    #    &O30=<STX>0<STX><STX>admin&O34=<STX>0<STX><STX>123
+    #    O '0' antes do segundo STX é o contador de revisões (0 = primeira escrita).
+    STX = "\x02"
+    fp_raw = f"&O30={STX}0{STX}{STX}{OPP_USERNAME}&O34={STX}0{STX}{STX}{OPP_PASSWORD}"
+    fp = up.quote(fp_raw, safe="")
+    click = (
         f"Ajax=1&IsEvent=1&Obj=O40&Evt=click&this=O40"
-        f"&_S_ID={sid}&_fp_={fp}&_seq_={seq:x}"
+        f"&_S_ID={sid}&_fp_={fp}&_seq_=3&_uo_=O0"
     )
-    log.info("→ POST login click (user=%s)", OPP_USERNAME)
-    r3 = s.post(OPP_BASE + OPP_HANDLE, data=login_body,
-                headers=_ajax_headers(sid), timeout=HTTP_TIMEOUT)
-    if r3.status_code >= 400:
-        log.error("login falhou: status=%s len=%s", r3.status_code, len(r3.text))
-        log.debug("body: %s", r3.text[:400])
+    r3 = _post(3, click, "login click")
+    if r3 is None:
         return None
     if not _looks_logged_in(r3.text):
         log.error("login NÃO autenticado — resposta sugere credencial inválida.")
-        log.debug("body: %s", r3.text[:400])
+        log.debug("body: %s", r3.text[:600])
         return None
 
+    # 6) polls _dummy_ no O8 — uniGUI valida credencial em background.
+    #    O HAR mostra ~9 polls até a UI principal carregar. Paramos quando a resposta
+    #    deixa de pedir outro _dummy_ (sinal de que terminou).
+    next_seq = 4
+    for i in range(20):
+        body = (
+            f"Ajax=1&IsEvent=1&Obj=O8&Evt=_dummy_"
+            f"&_S_ID={sid}&_seq_={next_seq:x}&_a_=1&_uo_=O0"
+        )
+        log.info("→ POST _dummy_ poll #%s (seq=%x)", i + 1, next_seq)
+        rr = s.post(OPP_BASE + OPP_HANDLE, data=body, headers=headers, timeout=HTTP_TIMEOUT)
+        next_seq += 1
+        if rr.status_code >= 400:
+            log.error("dummy poll falhou: status=%s", rr.status_code)
+            return None
+        low = rr.text.lower()
+        # Se NÃO veio outro pedido de _dummy_, terminou a validação.
+        if 'ajaxrequestnoparams(o8,"_dummy_")' not in low and "_dummy_" not in low:
+            log.info("   → validação concluída (resposta de %s bytes)", len(rr.text))
+            break
+    else:
+        log.warning("20 polls e ainda pedindo _dummy_ — seguindo mesmo assim")
+
     cookies = "; ".join(f"{c.name}={c.value}" for c in s.cookies)
-    log.info("✓ login OK — sessão pronta")
-    return sid, cookies
+    last_seq_hex = f"{next_seq - 1:x}"
+    log.info("✓ login OK — sessão pronta (último seq usado=%s)", last_seq_hex)
+    return sid, cookies, last_seq_hex
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Comunicação com o Worker
 # ─────────────────────────────────────────────────────────────────────────────
-def manda_sessao_pro_worker(sid: str, cookies: str) -> bool:
+def manda_sessao_pro_worker(sid: str, cookies: str, seq_hex: str = "") -> bool:
     url = f"{WORKER_URL.rstrip('/')}/session/update?api_key={up.quote(WORKER_API_KEY)}"
+    payload = {"cookies": cookies, "s_id": sid}
+    if seq_hex:
+        payload["seq"] = seq_hex
     try:
-        r = requests.post(url, json={"cookies": cookies, "s_id": sid},
+        r = requests.post(url, json=payload,
                           headers={"Content-Type": "application/json"},
                           timeout=HTTP_TIMEOUT)
     except requests.RequestException as e:
@@ -272,8 +325,8 @@ def ciclo() -> bool:
     creds = login_e_captura_sid()
     if not creds:
         return False
-    sid, cookies = creds
-    return manda_sessao_pro_worker(sid, cookies)
+    sid, cookies, seq_hex = creds
+    return manda_sessao_pro_worker(sid, cookies, seq_hex)
 
 
 def main() -> None:
