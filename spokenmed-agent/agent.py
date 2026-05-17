@@ -146,17 +146,28 @@ def _ajax_headers() -> dict[str, str]:
     }
 
 def _looks_logged_in(text: str) -> bool:
-    """Sinais de que o login deu certo (uniGUI manda JS pra montar a tela principal)."""
+    """Sinais de que o login foi aceito.
+
+    A resposta clássica do uniGUI quando o login passa é:
+      _rsov_(O30,0);_rsov_(O34,0);O0.showMask("Validando Dados ...");ajaxRequestNoParams(O8,"_dummy_");
+    Depois disso vêm vários polls _dummy_ no O8 até a UI principal carregar."""
     if not text:
         return False
     low = text.lower()
     bad = ("usuário ou senha", "usuario ou senha", "senha inválida", "senha invalida",
-           "credenciais inválidas", "credenciais invalidas")
+           "credenciais inválidas", "credenciais invalidas", "login inválido", "login invalido")
     if any(b in low for b in bad):
         return False
-    # qualquer resposta não-vazia sem mensagem de erro vinda do uniGUI é sucesso.
-    return ("ext." in low or "_cdo_" in low or "ajaxsuccess" in low
-            or low.startswith("{") or '"success":true' in low)
+    return (
+        "validando dados" in low
+        or "_rsov_" in low
+        or "showmask" in low
+        or "ajaxrequestnoparams" in low
+        or "ext." in low
+        or "_cdo_" in low
+        or low.startswith("{")
+        or '"success":true' in low
+    )
 
 
 def login_e_captura_sid() -> tuple[str, str] | None:
