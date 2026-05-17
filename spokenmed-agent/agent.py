@@ -263,11 +263,12 @@ def sessao_atual_do_worker_ainda_vale() -> bool:
 # Loop principal
 # ─────────────────────────────────────────────────────────────────────────────
 def ciclo() -> bool:
-    """Um ciclo: testa sessão; se morta, faz login e atualiza Worker."""
-    if sessao_atual_do_worker_ainda_vale():
-        log.info("Sessão atual ainda válida — pulando login.")
-        return True
+    """Um ciclo: SEMPRE faz login novo e atualiza o Worker.
 
+    A checagem 'sessao_atual_ainda_vale' foi removida porque o uniGUI às vezes
+    responde 'cpf_nao_encontrado' mesmo com sessão morta, mascarando a expiração.
+    Login fresco a cada 30min custa ~1s e garante que o Worker nunca sirva uma
+    sessão zumbi pro frontend."""
     creds = login_e_captura_sid()
     if not creds:
         return False
