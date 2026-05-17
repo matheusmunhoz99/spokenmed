@@ -200,7 +200,34 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
   };
   const handleEnvioFechar = () => {
     setEnviando(false);
-    if (agendamento) onFinalizado(agendamento.id, `PEC-${Date.now().toString().slice(-10)}`);
+    const protocolo = `PEC-${Date.now().toString().slice(-10)}`;
+    if (agendamento) {
+      try {
+        saveHistorico({
+          id: crypto.randomUUID(),
+          agendamento_id: agendamento.id,
+          protocolo,
+          finalizado_em: new Date().toISOString(),
+          duracao_segundos: elapsed,
+          medico_email: user?.email ?? "",
+          medico_nome: profissional.nome,
+          paciente: { nome: paciente, cpf, cns: CNS_FAKE, telefone: agendamento.pacientes?.telefone },
+          profissional,
+          unidade,
+          soap: { s, o, a, p },
+          cids,
+          vitais: { pa, fc, temp, sat, peso },
+          alergias: alergias.map(({ substancia, reacao, gravidade }) => ({ substancia, reacao, gravidade })),
+          documentos: {
+            ...(meds.length > 0 && { receita: { tipo: recTipo, meds: meds.map(({ nome, apresentacao, posologia, qtd, duracao }) => ({ nome, apresentacao, posologia, qtd, duracao })), orientacoes: recOri } }),
+            ...(sadt.length > 0 && { sadt: { exames: sadt, carater: sadtCarater, indicacao: sadtIndic } }),
+            ...((lmeMed.trim() && lmeCid.trim()) && { lme: { med: lmeMed, apres: lmeApres, cid: lmeCid, pos: lmePos, qtd: lmeQtd, tempo: lmeTempo, anamnese: lmeAnam, exames: lmeExames } }),
+            ...((Number(atDias) > 0) && { atestado: { dias: Number(atDias), cid: atCid, mencionarCid: atMencCid, repouso: atRepouso } }),
+          },
+        });
+      } catch { /* ignore storage errors */ }
+      onFinalizado(agendamento.id, protocolo);
+    }
     reset();
     onOpenChange(false);
   };
