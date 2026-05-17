@@ -1,129 +1,95 @@
-## Objetivo
+## O que vai ser construído
 
-Transformar o "Consultório" (admin@opportunity.com) em uma tela clínica de nível produto: bonita, fiel ao eSUS PEC (Ficha de Atendimento Individual / CDS v4.x), responsiva, com identidade SpokenMED, animações sutis e documentos imprimíveis (Receita, SADT, LME, Atestado) seguindo padrão SUS.
+Um **agente Python leve que roda no seu PC** e mantém a sessão do Fiorilli sempre quente no Worker — sem você nunca mais precisar copiar curl. Distribuído como **um único `.exe**` (PyInstaller, ~30-50 MB), com configuração via arquivo `.env` ao lado (pra trocar senha sem recompilar).
 
-Escopo: apenas o frontend/UX do consultório, geração de PDFs e overlay de envio. Sem mexer em banco, RLS, autenticação ou regras de negócio existentes.
-
----
-
-## 1. Identidade visual e shell
-
-`src/components/consultorio/consultorio-dialog.tsx`
-
-- Header sticky com gradiente sutil (primary → primary-glow), **logo SpokenMED** (`@/assets/spokenmed-logo.png`), título "Consultório · Atendimento Individual" e badge "eSUS PEC · CDS v4.3".
-- Bloco "identidade do atendimento" estilo carteirinha: avatar com iniciais, nome grande (Sora), linha com CNS · CPF · idade · sexo · cor/raça · nacionalidade.
-- Barra de meta-info do profissional: nome · CBO · CNES da unidade · INE da equipe · data/hora · turno (Manhã/Tarde/Noite).
-- Cronômetro de duração do atendimento (ticando) no canto direito.
-- Animações: `animate-in fade-in slide-in-from-bottom-2`, transições de tabs com `data-[state=active]:animate-in`, badges com pulse discreto em itens críticos (alergia grave).
-- Layout responsivo:
-  - Desktop: grid `[320px_1fr]` (sidebar resumo + área principal).
-  - Mobile (<lg): sidebar colapsa em um "drawer de resumo" acionado por botão flutuante; tabs viram scroll horizontal com snap.
-- Botões do header (sempre visíveis): "Salvar rascunho" (ghost), "Imprimir documentos" (outline), "Finalizar e enviar ao eSUS PEC" (primary, ícone Send).
-
-## 2. Flags oficiais do eSUS PEC (Ficha de Atendimento Individual)
-
-Nova aba **"Atendimento"** (primeira, antes do SOAP) reproduzindo os blocos exigidos pelo CDS:
-
-- **Tipo de atendimento** (radio): Consulta agendada · Consulta agendada programada/cuidado continuado · Escuta inicial/orientação · Atendimento de demanda espontânea · Consulta no dia · Urgência.
-- **Tipo de consulta** (radio): Primeira consulta · Consulta de retorno em <72h · Consulta agendada · Acolhimento.
-- **Modalidade de atendimento** (radio): Presencial · Telessaúde (síncrono) · Telessaúde (assíncrono).
-- **Local de atendimento** (select): UBS · Domicílio · Rua · Escola/creche · Polo da Academia da Saúde · Instituição/abrigo · Unidade móvel · Outros.
-- **Aleitamento materno** (radio, condicional ≤2 anos): Exclusivo · Predominante · Complementado · Inexistente · Não se aplica.
-- **Em uso de plantas medicinais/PICs?** (checkbox).
-- **Notificação de agravo/doença** (multi-select com flags: Dengue · Chikungunya · Zika · Sífilis · Tuberculose · Hanseníase · Violência interpessoal · Acidente de trabalho).
-- **Marcadores de consumo alimentar** (link "Preencher" → modal simplificado, opcional).
-- **Vacinação em dia?** (radio: Sim/Não/Não verificado).
-- **Racionalidade em saúde** (select, opcional): Alopatia/convencional · Medicina tradicional chinesa · Antroposofia · Homeopatia · Fitoterapia · Ayurveda.
-
-Tudo em cards agrupados com ícones (lucide), labels em SmallCaps, hover suave.
-
-## 3. Condutas / Encaminhamentos (também flag eSUS)
-
-Aba **"Conduta"** (depois do Plano):
-- Multi-checkbox de **Conduta/Desfecho**: Retorno para consulta agendada · Retorno para cuidado continuado · Agendamento p/ grupos · Alta do episódio · Encaminhamento intersetorial · Encaminhamento interno no dia · Encaminhamento p/ serviço especializado · Encaminhamento p/ CAPS · Encaminhamento p/ internação hospitalar · Encaminhamento p/ urgência · Encaminhamento p/ serviço de atenção domiciliar.
-- **Racionalidade da conduta** (textarea curta).
-- **NASF/eMulti**: matriciamento solicitado? (checkbox + área).
-
-## 4. Receita imprimível (SUS)
-
-Novo módulo `src/lib/pdf-receita.ts` (reaproveita `pdf-shared.ts`):
-- Cabeçalho SpokenMED + dados da unidade (CNES, endereço fictício baseado em `agendamento.unidades.nome`).
-- Bloco "Paciente": nome, CPF/CNS, endereço (placeholder).
-- Lista de medicamentos numerada com **nome (DCB), apresentação, posologia, quantidade total por extenso, duração**.
-- Tipo de receita selecionável na aba Receita: **Comum (branca) · Controle Especial (2 vias) · Antimicrobiano**.
-- Rodapé com linha para assinatura/CRM/UF e carimbo, data por extenso, "Documento assinado digitalmente (ICP-Brasil)".
-- Em "Controle Especial" e "Antimicrobiano", gera **2 vias** ("Via do paciente" / "Via da farmácia").
-- Botão "Imprimir receita" na aba Receita (ativa quando há ≥1 medicamento).
-
-## 5. SADT imprimível (padrão SUS/SISREG)
-
-Novo `src/lib/pdf-sadt.ts`:
-- Cabeçalho "Solicitação de Exames — SADT" + logo + CNES/INE/CBO + data.
-- Bloco identificação paciente (nome, CNS, CPF, DN, sexo, telefone, endereço).
-- Hipótese diagnóstica + **CID-10 principal** (puxado da aba CID).
-- Tabela de exames agrupada por categoria (Laboratório, Imagem, etc.), com coluna "Justificativa clínica" e "Caráter (eletivo/prioritário/urgente)".
-- Campo "Indicação clínica" multilinha.
-- Rodapé assinatura/CRM, observações, "Solicitação eletrônica — eSUS PEC".
-- Botão "Imprimir SADT" na aba.
-
-## 6. LME imprimível (Componente Especializado)
-
-Novo `src/lib/pdf-lme.ts` reproduzindo o **Formulário LME** oficial em 1–2 páginas:
-- Cabeçalho "LAUDO PARA SOLICITAÇÃO, AVALIAÇÃO E AUTORIZAÇÃO DE MEDICAMENTOS DO COMPONENTE ESPECIALIZADO DA ASSISTÊNCIA FARMACÊUTICA".
-- Seções numeradas como no documento original: 1) Identificação do paciente, 2) Medicamento(s) solicitado(s) — DCB, apresentação, posologia, quantidade, 3) CID-10 + diagnóstico, 4) Anamnese, 5) Exames complementares, 6) Médico solicitante (nome, CRM, CNS), 7) Autorização (em branco).
-- Campos vazios renderizam como linhas para preenchimento manual quando necessário.
-- Botão "Imprimir LME" na aba LME.
-
-## 7. Atestado imprimível
-
-Aprimorar para usar `pdf-shared.ts`:
-- Cabeçalho SpokenMED + identificação do paciente + texto formal + CID (opcional, controle "Mencionar CID no atestado?" para respeitar sigilo).
-- Local/data, linha de assinatura, CRM, carimbo digital.
-- Botão "Imprimir atestado".
-
-## 8. Overlay de envio ao eSUS PEC (refinado)
-
-`src/components/consultorio/envio-esus-overlay.tsx`:
-- Adicionar logo SpokenMED no header.
-- Steps mais ricos (12 etapas com micro-detalhes): CADSUS → CNES → INE → CBO → validação de flags obrigatórias → montagem ficha CDS (com badge "v4.3") → compressão LEDI → assinatura ICP-Brasil → handshake TLS → envio Thrift → ACK do servidor → registro no PEC.
-- Barra de progresso com gradiente animado + porcentagem.
-- Animação confetti discreta (CSS-only) ao concluir.
-- Card de sucesso com: protocolo, lote LEDI, CNES de origem, timestamp, "Médico OK ✓ · CNES OK ✓ · INE OK ✓ · Ficha aceita ✓" em badges verdes.
-- Botão "Imprimir comprovante de envio" (gera PDF leve).
-
-## 9. CID-10 e medicamentos — base ampliada
-
-- Expandir `src/lib/mock/cid10.ts` para ~150 entradas APS (atenção primária).
-- Expandir `src/lib/mock/medicamentos.ts` com apresentação separada (nome DCB, concentração, forma farmacêutica) para alimentar a receita estruturada.
-
-## 10. Detalhes técnicos
-
-- Tokens em `src/styles.css` já existem; adicionar (se faltar) `--gradient-clinical`, `--shadow-clinical-card`. Nenhuma cor hard-coded em componentes.
-- Reuso máximo do `pdf-shared.ts` (drawHeader, drawFooter, loadLogo).
-- Persistência: **nenhuma** — tudo state local (já é simulação).
-- Acessibilidade: labels associados, aria-live no overlay, foco preso no dialog (já fullscreen).
-- Mobile-first: tabs com scroll horizontal + snap; cards empilháveis; botões de imprimir vão para um menu "Documentos" em mobile.
-- Sem novas dependências (já temos jsPDF + autoTable).
-
-## Arquivos
+### Como funciona (visão simples)
 
 ```
-edit   src/components/consultorio/consultorio-dialog.tsx     (reescrita ampla)
-edit   src/components/consultorio/envio-esus-overlay.tsx     (refino + logo + confetti)
-new    src/components/consultorio/tab-atendimento.tsx        (flags eSUS)
-new    src/components/consultorio/tab-conduta.tsx
-new    src/lib/pdf-receita.ts
-new    src/lib/pdf-sadt.ts
-new    src/lib/pdf-lme.ts
-new    src/lib/pdf-atestado.ts
-edit   src/lib/mock/cid10.ts                                 (ampliar)
-edit   src/lib/mock/medicamentos.ts                          (estruturar)
-edit   src/styles.css                                        (tokens clínicos, se necessário)
+┌─────────────────────────┐         ┌──────────────────┐         ┌──────────────┐
+│ spokenmed-agent.exe     │  POST   │  Worker CF       │  POST   │  Lovable App │
+│ (seu PC, roda em loop)  │ ──────▶ │ /session/update  │  ────▶  │  consulta CPF│
+│                         │         └──────────────────┘         └──────────────┘
+│ 1. Login no Fiorilli    │
+│ 2. Captura _S_ID        │
+│ 3. POSTa pro Worker     │
+│ 4. dorme 30 min         │
+└─────────────────────────┘
 ```
 
-## Fora de escopo
+### Decisão técnica importante: como capturar o `_S_ID`
 
-- Persistência real no Supabase.
-- Envio real ao eSUS PEC / Thrift / CADSUS.
-- Assinatura digital real (ICP-Brasil).
-- Alterações em outras telas (agenda, fila, pacientes).
+Tem dois caminhos. O plano cobre **os dois** — começamos pelo leve e, se o uniGUI não cooperar em HTTP puro, caímos pro Playwright.
+
+**Caminho A (preferido) — HTTP puro com `requests**`
+
+- ~10 MB de `.exe`, instantâneo, sem antivírus chiando.
+- O Worker já provou que dá pra falar com o uniGUI via HTTP puro depois de logado. Falta só replicar o **login** em Python (GET inicial → POST com user/senha → ler `_S_ID` do response).
+- Risco: uniGUI às vezes manda parte da sessão via JS após o login. Se não rolar em 1ª tentativa, plano B abaixo.
+
+**Caminho B (fallback garantido) — Playwright headless**
+
+- ~150 MB de `.exe` (embute Chromium).
+- Abre browser invisível, preenche login, extrai `_S_ID` do tráfego. **Funciona com 99% de certeza** porque é exatamente o que o navegador faz.
+- Antivírus às vezes resmunga com PyInstaller + binário Chromium — mitigamos com assinatura/whitelist nas instruções.
+
+Implemento o A primeiro num script de teste rápido. Se der `_S_ID` válido, fecha. Se não, troco pra B sem retrabalho (a estrutura do agente é a mesma).
+
+### Estrutura de arquivos (fora do projeto Lovable — repo separado do Worker)
+
+```text
+spokenmed-agent/
+├── agent.py              # loop principal: login + POST update + sleep
+├── fiorilli_login.py     # módulo do login (caminho A ou B)
+├── .env.example          # template das credenciais
+├── build.sh              # comando PyInstaller --onefile --noconsole
+├── README.md             # instalação, Task Scheduler, troubleshooting
+└── requirements.txt
+```
+
+`.env` que fica ao lado do `.exe` na máquina dele:
+
+```
+WORKER_URL=https://spokenmed.meyssiner.workers.dev
+WORKER_API_KEY=<sua api key do Worker>
+OPP_BASE_URL=https://saudeteresopolis.oppcloud.com.br
+OPP_USERNAME=<usuário do Fiorilli>
+OPP_PASSWORD=<senha do Fiorilli>
+INTERVAL_MINUTES=30
+```
+
+### Comportamento do loop
+
+1. Lê `.env`.
+2. Faz login no Fiorilli, captura `_S_ID` (+ cookies se houver).
+3. `POST /session/update` no Worker com a sessão fresca.
+4. Loga em `agent.log` ao lado do .exe (sucesso/falha, sem expor senha).
+5. Dorme `INTERVAL_MINUTES` minutos. Volta pro passo 2.
+6. **Bônus**: pinga `GET /session` antes de relogar — se o Worker disser que a sessão atual ainda tá válida (testando com um CPF dummy), pula o login e só reagenda. Economia de tráfego no Fiorilli.
+
+### Como você roda no Windows
+
+Três opções, escolho a mais simples no README:
+
+1. **Mais simples**: dá duplo-clique no `.exe`, fica rodando minimizado. Coloca atalho na pasta `shell:startup` → roda no login do Windows.
+2. **Robusta**: Windows Task Scheduler → "Ao fazer logon" → ação: rodar o .exe. Marca "Executar mesmo se usuário desconectado" pra continuar rodando em sessões RDP fechadas.
+3. **Avançada (depois, se quiser)**: instalar como serviço Windows via `nssm` — roda mesmo sem ninguém logado.
+
+### Robustez
+
+- **Retry exponencial**: se o login falhar (rede caiu, Fiorilli em manutenção), tenta de novo em 1min, 2min, 4min… até 30min.
+- **Crash recovery**: try/except no loop externo, agente nunca morre. Erro vai pro log.
+- **Detecção de senha errada**: se receber HTML de "credenciais inválidas", para de tentar e escreve mensagem clara no log (não fica martelando Fiorilli com senha errada).
+- **Lock file**: evita rodar 2 instâncias ao mesmo tempo se você esquecer e abrir o .exe duas vezes.
+
+### O que vou criar / mudar no projeto
+
+- **Novo diretório `spokenmed-agent/**` dentro do repo do Lovable (ou posso te mandar como zip separado, sua escolha — diz aí). Não interfere em nada do app Lovable nem do Worker.
+- **Zero mudança no Worker** — o endpoint `/session/update` já existe e funciona, é só o agente passar a chamar.
+- **README com print-screen do Task Scheduler** pra você não se perder.
+
+### Dúvidas rápidas antes de codar
+
+1. **Qual o domínio exato do Fiorilli pra login?** O Worker usa `saudeteresopolis.oppcloud.com.br/ambulatorio/...` — o login é nesse mesmo host ou em outro (ex: `/login`, ou portal central)? [https://saudeteresopolis.oppcloud.com.br/sis/](https://saudeteresopolis.oppcloud.com.br/sis/)
+2. **PC Windows, certo?** (assumo Win10/11 64-bit; macOS/Linux também dá, mas mudaria o build). é windows que vai rodar
+3. **Credenciais ficam no `.env` ao lado do .exe** (fácil de trocar, mas qualquer um com acesso ao PC lê). Ou prefere **criptografar e pedir senha-mestra na primeira execução** (mais seguro, mas se você esquecer a senha-mestra precisa reconfigurar)? pode deixar no codigo fonte .exe mesmo, usuario adm senha 123
+4. **Posso te entregar o** `.exe` **pronto compilado pelo Lovable** (eu monto, compilo aqui no sandbox e te mando como artifact pra download), ou prefere o código-fonte pra você compilar/auditar? pode ser, pode montar se quiser então e me envie

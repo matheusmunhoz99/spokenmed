@@ -1,0 +1,5 @@
+# SpokenMED Agente — configuração
+# Edite a linha abaixo colocando a API KEY do seu Worker Cloudflare.
+# (a mesma string que você usa no header x-api-key quando chama /cpf)
+
+WORKER_API_KEY=COLE_AQUI_SUA_API_KEY_DO_WORKER
