@@ -176,38 +176,53 @@ def login_e_captura_sid() -> tuple[str, str] | None:
     sid = m.group(1)
     log.info("   _S_ID inicial = %s…%s", sid[:4], sid[-4:])
 
-    # 2) handshake cinfo (o uniGUI sempre faz logo após renderizar a tela)
-    seq = 1
+    headers = _ajax_headers()
+
+    def _post(seq: int, body: str, label: str) -> requests.Response | None:
+        log.info("→ POST %s (seq=%s)", label, seq)
+        rr = s.post(OPP_BASE + OPP_HANDLE, data=body, headers=headers, timeout=HTTP_TIMEOUT)
+        if rr.status_code >= 400:
+            log.error("%s falhou: status=%s len=%s", label, rr.status_code, len(rr.text))
+            log.debug("body: %s", rr.text[:400])
+            return None
+        return rr
+
+    # 2) cinfo — formato EXATO do navegador (ver HAR)
+    #    ci=br=33;os=4;bv=146;ww=1920;wh=1080 (url-encoded)
+    ci_val = up.quote("br=33;os=4;bv=146;ww=1920;wh=1080", safe="")
     cinfo = (
-        f"Ajax=1&IsEvent=1&Obj=O0&Evt=cinfo&this=O0"
-        f"&_S_ID={sid}&ci=12,Chrome,Windows,1920,1080&_seq_={seq:x}"
+        f"Ajax=1&IsEvent=1&Obj=O0&Evt=cinfo"
+        f"&ci={ci_val}&_S_ID={sid}&_seq_=0&_uo_=O0"
     )
-    log.info("→ POST cinfo (seq=%s)", seq)
-    r2 = s.post(OPP_BASE + OPP_HANDLE, data=cinfo,
-                headers=_ajax_headers(sid), timeout=HTTP_TIMEOUT)
-    if r2.status_code >= 400:
-        log.error("cinfo falhou: status=%s len=%s", r2.status_code, len(r2.text))
-        log.debug("body: %s", r2.text[:300])
+    if _post(0, cinfo, "cinfo") is None:
         return None
 
-    # 3) clique no botão Entrar (O40) com username/senha nos campos O30 e O34
-    seq = 2
-    # uniGUI espera o _fp_ duplo-encodado (estilo "&O30=admin&O34=123")
-    fp = up.quote(f"&O30={up.quote(OPP_USERNAME)}&O34={up.quote(OPP_PASSWORD)}", safe="")
-    login_body = (
+    # 3) activate
+    activate = f"Ajax=1&IsEvent=1&Obj=O0&Evt=activate&this=O0&_S_ID={sid}&_seq_=1&_uo_=O0"
+    if _post(1, activate, "activate") is None:
+        return None
+
+    # 4) show
+    show = f"Ajax=1&IsEvent=1&Obj=O0&Evt=show&this=O0&_S_ID={sid}&_seq_=2&_uo_=O0"
+    if _post(2, show, "show") is None:
+        return None
+
+    # 5) clique no botão Entrar (O40). _fp_ no formato uniGUI:
+    #    &O30=<STX>0<STX><STX>admin&O34=<STX>0<STX><STX>123
+    #    O '0' antes do segundo STX é o contador de revisões (0 = primeira escrita).
+    STX = "\x02"
+    fp_raw = f"&O30={STX}0{STX}{STX}{OPP_USERNAME}&O34={STX}0{STX}{STX}{OPP_PASSWORD}"
+    fp = up.quote(fp_raw, safe="")
+    click = (
         f"Ajax=1&IsEvent=1&Obj=O40&Evt=click&this=O40"
-        f"&_S_ID={sid}&_fp_={fp}&_seq_={seq:x}"
+        f"&_S_ID={sid}&_fp_={fp}&_seq_=3&_uo_=O0"
     )
-    log.info("→ POST login click (user=%s)", OPP_USERNAME)
-    r3 = s.post(OPP_BASE + OPP_HANDLE, data=login_body,
-                headers=_ajax_headers(sid), timeout=HTTP_TIMEOUT)
-    if r3.status_code >= 400:
-        log.error("login falhou: status=%s len=%s", r3.status_code, len(r3.text))
-        log.debug("body: %s", r3.text[:400])
+    r3 = _post(3, click, "login click")
+    if r3 is None:
         return None
     if not _looks_logged_in(r3.text):
         log.error("login NÃO autenticado — resposta sugere credencial inválida.")
-        log.debug("body: %s", r3.text[:400])
+        log.debug("body: %s", r3.text[:600])
         return None
 
     cookies = "; ".join(f"{c.name}={c.value}" for c in s.cookies)
