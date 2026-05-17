@@ -268,10 +268,13 @@ def login_e_captura_sid() -> tuple[str, str] | None:
 # ─────────────────────────────────────────────────────────────────────────────
 # Comunicação com o Worker
 # ─────────────────────────────────────────────────────────────────────────────
-def manda_sessao_pro_worker(sid: str, cookies: str) -> bool:
+def manda_sessao_pro_worker(sid: str, cookies: str, seq_hex: str = "") -> bool:
     url = f"{WORKER_URL.rstrip('/')}/session/update?api_key={up.quote(WORKER_API_KEY)}"
+    payload = {"cookies": cookies, "s_id": sid}
+    if seq_hex:
+        payload["seq"] = seq_hex
     try:
-        r = requests.post(url, json={"cookies": cookies, "s_id": sid},
+        r = requests.post(url, json=payload,
                           headers={"Content-Type": "application/json"},
                           timeout=HTTP_TIMEOUT)
     except requests.RequestException as e:
