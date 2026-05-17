@@ -260,8 +260,9 @@ def login_e_captura_sid() -> tuple[str, str] | None:
         log.warning("20 polls e ainda pedindo _dummy_ — seguindo mesmo assim")
 
     cookies = "; ".join(f"{c.name}={c.value}" for c in s.cookies)
-    log.info("✓ login OK — sessão pronta")
-    return sid, cookies
+    last_seq_hex = f"{next_seq - 1:x}"
+    log.info("✓ login OK — sessão pronta (último seq usado=%s)", last_seq_hex)
+    return sid, cookies, last_seq_hex
 
 
 # ─────────────────────────────────────────────────────────────────────────────
