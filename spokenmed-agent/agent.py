@@ -325,8 +325,8 @@ def ciclo() -> bool:
     creds = login_e_captura_sid()
     if not creds:
         return False
-    sid, cookies = creds
-    return manda_sessao_pro_worker(sid, cookies)
+    sid, cookies, seq_hex = creds
+    return manda_sessao_pro_worker(sid, cookies, seq_hex)
 
 
 def main() -> None:
