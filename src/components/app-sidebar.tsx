@@ -3,7 +3,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, Stethoscope, CalendarCog, CalendarPlus,
   CalendarDays, Building2, Settings, LogOut, MonitorPlay, ListOrdered, ShieldCheck, BarChart3, KeyRound,
-  Activity, FolderPlus, UserCog, ChevronRight,
+  Activity, FolderPlus, UserCog, ChevronRight, History,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -67,10 +67,19 @@ const modules: Module[] = [
 
 export function AppSidebar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
-  const { profile, isAdmin, roles, can, signOut } = useAuth();
+  const { profile, isAdmin, roles, can, signOut, user } = useAuth();
   const isActive = (u: string) => path === u || (u !== "/app" && path.startsWith(u));
 
-  const visibleModules = modules
+  const isMedicoSimulado = user?.email === "admin@opportunity.com";
+  const modulesWithMedico: Module[] = isMedicoSimulado
+    ? modules.map((m) =>
+        m.key === "operacao"
+          ? { ...m, items: [...m.items, { title: "Histórico de Atendimentos", url: "/app/historico-atendimentos", icon: History }] }
+          : m
+      )
+    : modules;
+
+  const visibleModules = modulesWithMedico
     .filter((m) => !m.adminOnly || isAdmin)
     .map((m) => ({ ...m, items: m.items.filter((i) => !i.module || can(i.module, "view")) }))
     .filter((m) => m.items.length > 0);
