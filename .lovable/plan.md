@@ -1,95 +1,69 @@
-## O que vai ser construído
+## Diagnóstico (HAR vs agent.py atual)
 
-Um **agente Python leve que roda no seu PC** e mantém a sessão do Fiorilli sempre quente no Worker — sem você nunca mais precisar copiar curl. Distribuído como **um único `.exe**` (PyInstaller, ~30-50 MB), com configuração via arquivo `.env` ao lado (pra trocar senha sem recompilar).
+O 401 no `cinfo` vem do uniGUI rejeitando o request porque o agente está mandando **3 coisas erradas** que o servidor valida estritamente:
 
-### Como funciona (visão simples)
+### 1. Headers customizados sobrando
+- **Navegador real:** zero headers customizados. Sem `_s_id`, sem `unisessionid`. Nem cookies. A sessão vive 100% no parâmetro `_S_ID=` do body.
+- **Agente hoje:** manda `_s_id: xxx` e `unisessionid: xxx` como headers. O servidor estranha e devolve 401.
 
-```
-┌─────────────────────────┐         ┌──────────────────┐         ┌──────────────┐
-│ spokenmed-agent.exe     │  POST   │  Worker CF       │  POST   │  Lovable App │
-│ (seu PC, roda em loop)  │ ──────▶ │ /session/update  │  ────▶  │  consulta CPF│
-│                         │         └──────────────────┘         └──────────────┘
-│ 1. Login no Fiorilli    │
-│ 2. Captura _S_ID        │
-│ 3. POSTa pro Worker     │
-│ 4. dorme 30 min         │
-└─────────────────────────┘
-```
+### 2. Formato do `ci` (info do browser)
+- **Real:** `ci=br=33;os=4;bv=146;ww=758;wh=967` (URL-encoded → `br%3D33%3B...`)
+- **Agente hoje:** `ci=12,Chrome,Windows,1920,1080` (formato totalmente inventado). O servidor faz parse desse campo e quebra.
 
-### Decisão técnica importante: como capturar o `_S_ID`
+### 3. Estrutura do body do `cinfo`
+- **Real:** `Ajax=1&IsEvent=1&Obj=O0&Evt=cinfo&ci=...&_S_ID=...&_seq_=0&_uo_=O0`
+- **Agente hoje:** tem `this=O0` a mais, não tem `_uo_=O0`, e usa `_seq_=1` em hex quando o real usa `_seq_=0` em decimal.
 
-Tem dois caminhos. O plano cobre **os dois** — começamos pelo leve e, se o uniGUI não cooperar em HTTP puro, caímos pro Playwright.
+### 4. Faltam dois eventos antes do login
+Entre `cinfo` e o clique em "Entrar", o navegador sempre dispara:
+- `activate` (seq=1) no `O0`
+- `show` (seq=2) no `O0`
 
-**Caminho A (preferido) — HTTP puro com `requests**`
+Sem esses dois, o servidor considera a sessão "não montada" e o clique do `O40` é ignorado.
 
-- ~10 MB de `.exe`, instantâneo, sem antivírus chiando.
-- O Worker já provou que dá pra falar com o uniGUI via HTTP puro depois de logado. Falta só replicar o **login** em Python (GET inicial → POST com user/senha → ler `_S_ID` do response).
-- Risco: uniGUI às vezes manda parte da sessão via JS após o login. Se não rolar em 1ª tentativa, plano B abaixo.
+### 5. Formato do `_fp_` no clique
+- **Real:** `_fp_=&O34=\x022\x02\x02123` (com STX como separador — uniGUI rastreia state de campos modificados).
+- **Agente hoje:** `_fp_=&O30=admin&O34=123` (valores crus, sem o protocolo de change-tracking). O servidor não interpreta isso como "campos preenchidos".
 
-**Caminho B (fallback garantido) — Playwright headless**
+## Plano de correção (em `spokenmed-agent/agent.py`)
 
-- ~150 MB de `.exe` (embute Chromium).
-- Abre browser invisível, preenche login, extrai `_S_ID` do tráfego. **Funciona com 99% de certeza** porque é exatamente o que o navegador faz.
-- Antivírus às vezes resmunga com PyInstaller + binário Chromium — mitigamos com assinatura/whitelist nas instruções.
-
-Implemento o A primeiro num script de teste rápido. Se der `_S_ID` válido, fecha. Se não, troco pra B sem retrabalho (a estrutura do agente é a mesma).
-
-### Estrutura de arquivos (fora do projeto Lovable — repo separado do Worker)
+Reescrever a função `login_e_captura_sid()` pra bater **byte por byte** com o HAR:
 
 ```text
-spokenmed-agent/
-├── agent.py              # loop principal: login + POST update + sleep
-├── fiorilli_login.py     # módulo do login (caminho A ou B)
-├── .env.example          # template das credenciais
-├── build.sh              # comando PyInstaller --onefile --noconsole
-├── README.md             # instalação, Task Scheduler, troubleshooting
-└── requirements.txt
+1. GET https://.../sis/                          → extrai _S_ID do HTML (já funciona)
+2. POST /sis/sis.dll/HandleEvent                 → cinfo  (seq=0, _uo_=O0, ci no formato correto)
+3. POST /sis/sis.dll/HandleEvent                 → activate (seq=1)
+4. POST /sis/sis.dll/HandleEvent                 → show     (seq=2)
+5. POST /sis/sis.dll/HandleEvent                 → click O40 (seq=3) com _fp_ contendo
+                                                    O30 e O34 no formato STX-separado:
+                                                    &O30=\x020\x02\x02admin&O34=\x020\x02\x02123
+6. Verificar resposta: deve conter JS de inicialização (sem "senha inválida")
 ```
 
-`.env` que fica ao lado do `.exe` na máquina dele:
+**Headers (todos os POSTs):** apenas os 5 que o navegador usa de fato:
+- `Content-Type: application/x-www-form-urlencoded; charset=UTF-8`
+- `X-Requested-With: XMLHttpRequest`
+- `Accept: */*`
+- `Origin: https://saudeteresopolis.oppcloud.com.br`
+- `Referer: https://saudeteresopolis.oppcloud.com.br/sis/`
 
-```
-WORKER_URL=https://spokenmed.meyssiner.workers.dev
-WORKER_API_KEY=<sua api key do Worker>
-OPP_BASE_URL=https://saudeteresopolis.oppcloud.com.br
-OPP_USERNAME=<usuário do Fiorilli>
-OPP_PASSWORD=<senha do Fiorilli>
-INTERVAL_MINUTES=30
-```
+Remover completamente `_s_id` e `unisessionid` dos headers. Manter os cookies que o `requests.Session` coleta naturalmente do GET inicial (mesmo que servidor não envie nenhum no momento, deixar habilitado por segurança).
 
-### Comportamento do loop
+## Plano de validação
 
-1. Lê `.env`.
-2. Faz login no Fiorilli, captura `_S_ID` (+ cookies se houver).
-3. `POST /session/update` no Worker com a sessão fresca.
-4. Loga em `agent.log` ao lado do .exe (sucesso/falha, sem expor senha).
-5. Dorme `INTERVAL_MINUTES` minutos. Volta pro passo 2.
-6. **Bônus**: pinga `GET /session` antes de relogar — se o Worker disser que a sessão atual ainda tá válida (testando com um CPF dummy), pula o login e só reagenda. Economia de tráfego no Fiorilli.
+Antes de empacotar o ZIP novo:
+1. Rodar o `agent.py` corrigido aqui no sandbox apontando pro Fiorilli real.
+2. Verificar logs: `_S_ID inicial`, `cinfo OK`, `activate OK`, `show OK`, `click OK`.
+3. Confirmar que o POST `/session/update` no Worker retorna `ok:true`.
+4. Disparar um `/cpf?cpf=...` no Worker (com um CPF real que você tenha) pra confirmar que a sessão capturada realmente funciona end-to-end.
+5. Se passar, rebuild do bundle Windows e gerar `SpokenMED-Agente-Windows-v2.zip` em `/mnt/documents/`.
 
-### Como você roda no Windows
+## O que NÃO vou mexer
 
-Três opções, escolho a mais simples no README:
+- Worker Cloudflare (já tá certo)
+- Frontend
+- `agent.cfg`, launchers `.bat`/`.vbs`, `LEIA-ME.txt`
+- Lógica de loop / backoff / lock file
+- Credenciais hardcoded (admin/123)
 
-1. **Mais simples**: dá duplo-clique no `.exe`, fica rodando minimizado. Coloca atalho na pasta `shell:startup` → roda no login do Windows.
-2. **Robusta**: Windows Task Scheduler → "Ao fazer logon" → ação: rodar o .exe. Marca "Executar mesmo se usuário desconectado" pra continuar rodando em sessões RDP fechadas.
-3. **Avançada (depois, se quiser)**: instalar como serviço Windows via `nssm` — roda mesmo sem ninguém logado.
-
-### Robustez
-
-- **Retry exponencial**: se o login falhar (rede caiu, Fiorilli em manutenção), tenta de novo em 1min, 2min, 4min… até 30min.
-- **Crash recovery**: try/except no loop externo, agente nunca morre. Erro vai pro log.
-- **Detecção de senha errada**: se receber HTML de "credenciais inválidas", para de tentar e escreve mensagem clara no log (não fica martelando Fiorilli com senha errada).
-- **Lock file**: evita rodar 2 instâncias ao mesmo tempo se você esquecer e abrir o .exe duas vezes.
-
-### O que vou criar / mudar no projeto
-
-- **Novo diretório `spokenmed-agent/**` dentro do repo do Lovable (ou posso te mandar como zip separado, sua escolha — diz aí). Não interfere em nada do app Lovable nem do Worker.
-- **Zero mudança no Worker** — o endpoint `/session/update` já existe e funciona, é só o agente passar a chamar.
-- **README com print-screen do Task Scheduler** pra você não se perder.
-
-### Dúvidas rápidas antes de codar
-
-1. **Qual o domínio exato do Fiorilli pra login?** O Worker usa `saudeteresopolis.oppcloud.com.br/ambulatorio/...` — o login é nesse mesmo host ou em outro (ex: `/login`, ou portal central)? [https://saudeteresopolis.oppcloud.com.br/sis/](https://saudeteresopolis.oppcloud.com.br/sis/)
-2. **PC Windows, certo?** (assumo Win10/11 64-bit; macOS/Linux também dá, mas mudaria o build). é windows que vai rodar
-3. **Credenciais ficam no `.env` ao lado do .exe** (fácil de trocar, mas qualquer um com acesso ao PC lê). Ou prefere **criptografar e pedir senha-mestra na primeira execução** (mais seguro, mas se você esquecer a senha-mestra precisa reconfigurar)? pode deixar no codigo fonte .exe mesmo, usuario adm senha 123
-4. **Posso te entregar o** `.exe` **pronto compilado pelo Lovable** (eu monto, compilo aqui no sandbox e te mando como artifact pra download), ou prefere o código-fonte pra você compilar/auditar? pode ser, pode montar se quiser então e me envie
+Só toco em `login_e_captura_sid()`, `_ajax_headers()` e adiciono dois POSTs novos (`activate` + `show`).

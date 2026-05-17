@@ -134,15 +134,15 @@ def _sess() -> requests.Session:
     })
     return s
 
-def _ajax_headers(sid: str) -> dict[str, str]:
+def _ajax_headers() -> dict[str, str]:
+    # Replica EXATAMENTE o que o Chrome manda (vide HAR). Sem _s_id/unisessionid
+    # como header — o uniGUI rejeita com 401 se vierem. A sessão vai só no body.
     return {
         "X-Requested-With": "XMLHttpRequest",
         "Referer": OPP_BASE + OPP_LOGIN_PATH,
         "Origin": OPP_BASE,
         "Accept": "*/*",
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "_s_id": sid,
-        "unisessionid": sid,
     }
 
 def _looks_logged_in(text: str) -> bool:
