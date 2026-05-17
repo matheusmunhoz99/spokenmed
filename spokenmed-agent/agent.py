@@ -170,7 +170,7 @@ def _looks_logged_in(text: str) -> bool:
     )
 
 
-def login_e_captura_sid() -> tuple[str, str] | None:
+def login_e_captura_sid() -> tuple[str, str, str] | None:
     """Executa o fluxo completo de login e devolve (_S_ID, cookies). None em caso de falha."""
     s = _sess()
 
