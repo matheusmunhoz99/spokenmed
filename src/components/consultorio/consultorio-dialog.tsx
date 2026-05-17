@@ -26,6 +26,7 @@ import { gerarSadtPdf } from "@/lib/pdf-sadt";
 import { gerarLmePdf } from "@/lib/pdf-lme";
 import { gerarAtestadoPdf } from "@/lib/pdf-atestado";
 import { useAuth } from "@/hooks/use-auth";
+import { saveHistorico } from "@/lib/historico-atendimentos";
 import logoUrl from "@/assets/spokenmed-logo.png";
 
 interface Agendamento {
