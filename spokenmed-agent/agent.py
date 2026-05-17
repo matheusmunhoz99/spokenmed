@@ -236,6 +236,29 @@ def login_e_captura_sid() -> tuple[str, str] | None:
         log.debug("body: %s", r3.text[:600])
         return None
 
+    # 6) polls _dummy_ no O8 — uniGUI valida credencial em background.
+    #    O HAR mostra ~9 polls até a UI principal carregar. Paramos quando a resposta
+    #    deixa de pedir outro _dummy_ (sinal de que terminou).
+    next_seq = 4
+    for i in range(20):
+        body = (
+            f"Ajax=1&IsEvent=1&Obj=O8&Evt=_dummy_"
+            f"&_S_ID={sid}&_seq_={next_seq:x}&_a_=1&_uo_=O0"
+        )
+        log.info("→ POST _dummy_ poll #%s (seq=%x)", i + 1, next_seq)
+        rr = s.post(OPP_BASE + OPP_HANDLE, data=body, headers=headers, timeout=HTTP_TIMEOUT)
+        next_seq += 1
+        if rr.status_code >= 400:
+            log.error("dummy poll falhou: status=%s", rr.status_code)
+            return None
+        low = rr.text.lower()
+        # Se NÃO veio outro pedido de _dummy_, terminou a validação.
+        if 'ajaxrequestnoparams(o8,"_dummy_")' not in low and "_dummy_" not in low:
+            log.info("   → validação concluída (resposta de %s bytes)", len(rr.text))
+            break
+    else:
+        log.warning("20 polls e ainda pedindo _dummy_ — seguindo mesmo assim")
+
     cookies = "; ".join(f"{c.name}={c.value}" for c in s.cookies)
     log.info("✓ login OK — sessão pronta")
     return sid, cookies
