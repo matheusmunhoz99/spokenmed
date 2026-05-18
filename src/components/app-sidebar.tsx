@@ -28,6 +28,7 @@ const modules: Module[] = [
     items: [
       { title: "Painel", url: "/app", icon: LayoutDashboard },
       { title: "Agenda do Dia", url: "/app/agenda-dia", icon: CalendarDays, module: "agenda_dia" },
+      { title: "Recepção", url: "/app/recepcao", icon: ClipboardList, module: "recepcao" },
       { title: "Agendar Consulta", url: "/app/agendar", icon: CalendarPlus, module: "agendar" },
       { title: "Fila de Espera", url: "/app/fila", icon: ListOrdered, module: "fila" },
       { title: "Painel de Chamada", url: "/painel", icon: MonitorPlay, module: "painel" },
