@@ -248,27 +248,8 @@ function TeleAtendimento() {
               </SheetContent>
             </Sheet>
           }
-          extraControls={
-            <>
-              {!gravando ? (
-                <button
-                  onClick={handleStartRec}
-                  disabled={!sala?.consentimento_gravacao}
-                  title={sala?.consentimento_gravacao ? "Iniciar gravação" : "Aguardando consentimento do paciente"}
-                  className="hidden h-12 items-center gap-2 rounded-full bg-white/15 px-4 text-sm backdrop-blur transition hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-40 sm:flex"
-                >
-                  <Circle className="h-4 w-4 fill-red-500 text-red-500" /> Gravar
-                </button>
-              ) : (
-                <button
-                  onClick={handleStopRec}
-                  className="hidden h-12 items-center gap-2 rounded-full bg-red-600 px-4 text-sm shadow-lg backdrop-blur transition hover:bg-red-700 sm:flex"
-                >
-                  <Square className="h-4 w-4" /> Parar
-                </button>
-              )}
-            </>
-          }
+          extraControls={null}
+
         />
       </div>
     );
@@ -366,36 +347,8 @@ function TeleAtendimento() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                {sala?.consentimento_gravacao
-                  ? <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                  : <ShieldAlert className="h-4 w-4 text-amber-600" />}
-                Gravação
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Só inicia após o paciente autorizar pelo link.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="rounded-md border bg-muted/30 p-3 text-xs">
-                Consentimento:{" "}
-                <strong className={sala?.consentimento_gravacao ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}>
-                  {sala?.consentimento_gravacao ? "Autorizado" : "Pendente"}
-                </strong>
-              </div>
-              {!gravando ? (
-                <Button variant="outline" className="w-full" disabled={!sala?.consentimento_gravacao} onClick={handleStartRec}>
-                  <Circle className="mr-2 h-4 w-4 fill-red-500 text-red-500" /> Iniciar gravação
-                </Button>
-              ) : (
-                <Button variant="destructive" className="w-full" onClick={handleStopRec}>
-                  <Square className="mr-2 h-4 w-4" /> Parar gravação
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+
+
 
           <Card>
             <CardHeader className="pb-3">
