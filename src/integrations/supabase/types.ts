@@ -1561,6 +1561,7 @@ export type Database = {
           duracao_seg: number | null
           encerrada_em: string | null
           gravar: boolean
+          host_room_url: string | null
           id: string
           iniciada_em: string | null
           recording_expira_em: string | null
@@ -1569,6 +1570,7 @@ export type Database = {
           status: string
           token_paciente: string
           updated_at: string
+          whereby_meeting_id: string | null
         }
         Insert: {
           agendamento_id: string
@@ -1581,6 +1583,7 @@ export type Database = {
           duracao_seg?: number | null
           encerrada_em?: string | null
           gravar?: boolean
+          host_room_url?: string | null
           id?: string
           iniciada_em?: string | null
           recording_expira_em?: string | null
@@ -1589,6 +1592,7 @@ export type Database = {
           status?: string
           token_paciente: string
           updated_at?: string
+          whereby_meeting_id?: string | null
         }
         Update: {
           agendamento_id?: string
@@ -1601,6 +1605,7 @@ export type Database = {
           duracao_seg?: number | null
           encerrada_em?: string | null
           gravar?: boolean
+          host_room_url?: string | null
           id?: string
           iniciada_em?: string | null
           recording_expira_em?: string | null
@@ -1609,6 +1614,7 @@ export type Database = {
           status?: string
           token_paciente?: string
           updated_at?: string
+          whereby_meeting_id?: string | null
         }
         Relationships: []
       }
