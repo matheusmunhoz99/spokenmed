@@ -418,7 +418,7 @@ function AgendaDiaPage() {
         open={!!consultorio}
         onOpenChange={(v) => !v && setConsultorio(null)}
         agendamento={consultorio}
-        onFinalizado={(id, protocolo) => setAtendidosSim((prev) => ({ ...prev, [id]: protocolo }))}
+        onFinalizado={() => qc.invalidateQueries({ queryKey: ["agenda-dia"] })}
       />
     </div>
     </PullToRefresh>
