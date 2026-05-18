@@ -129,7 +129,7 @@ export async function gerarComprovante(c: ComprovanteData) {
   doc.text("• Em caso de impossibilidade, entre em contato com pelo menos 24h de antecedência.", marginX + 14, y + 52);
 
   const protocolo = gerarProtocolo("AGEN");
-  const conteudoHash = await hashConteudoClient(protocolo + '|' + opts.paciente.nome);
+  const conteudoHash = await hashConteudoClient(protocolo + '|' + c.paciente.nome);
   const sig = await tentarAssinar({ protocolo, tipo: 'comprovante', conteudo_hash: conteudoHash });
   const qr = await buildQrDataUrl(buildVerifyUrl(protocolo, { c: c.codigo }));
   drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr , assinatura: sig?.assinatura, assinadoEm: sig?.assinado_em });
