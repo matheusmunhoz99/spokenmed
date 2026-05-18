@@ -88,9 +88,12 @@ _console = logging.StreamHandler(sys.stdout)
 _console.setFormatter(_fmt)
 log.addHandler(_console)
 try:
-    _file = RotatingFileHandler(_log_dir() / "agent.log", maxBytes=1_000_000, backupCount=3, encoding="utf-8")
+    _file = RotatingFileHandler(_log_dir() / "agent.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8")
     _file.setFormatter(_fmt)
+    _file.setLevel(logging.DEBUG)   # arquivo guarda DEBUG; console fica em INFO
     log.addHandler(_file)
+    log.setLevel(logging.DEBUG)     # logger raiz precisa estar em DEBUG p/ o handler de arquivo ver
+    _console.setLevel(logging.INFO)
 except Exception as e:  # pasta read-only? só console então.
     log.warning("não foi possível abrir agent.log: %s", e)
 
