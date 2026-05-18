@@ -326,13 +326,13 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                       <Badge className="bg-primary/15 text-primary border-0">{ROLE_LABEL[role]}</Badge>
                     </div>
                     <Select value={role} onValueChange={(v) => handleRoleChange(u.id, v as AppRole)} disabled={isMe}>
-                      <SelectItem value="triagem">Triagem</SelectItem>
-                      <SelectItem value="acs">Agente Comunitário</SelectItem>
                       <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="admin">Administrador</SelectItem>
                         <SelectItem value="recepcionista">Administrativo</SelectItem>
                         <SelectItem value="medico">Médico</SelectItem>
+                        <SelectItem value="triagem">Triagem</SelectItem>
+                        <SelectItem value="acs">Agente Comunitário</SelectItem>
                       </SelectContent>
                     </Select>
                     {role === "medico" && (
