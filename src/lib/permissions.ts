@@ -10,15 +10,19 @@ export type ModuleKey =
   | "unidades_especialidades"
   | "usuarios"
   | "relatorios"
-  | "auditoria";
+  | "auditoria"
+  | "triagem"
+  | "visitas";
 
-export type AppRole = "admin" | "recepcionista" | "medico";
+export type AppRole = "admin" | "recepcionista" | "medico" | "triagem" | "acs";
 
 export const MODULES: { key: ModuleKey; label: string; manageable: boolean }[] = [
   { key: "agenda_dia", label: "Agenda do dia", manageable: true },
   { key: "agendar", label: "Agendar consulta", manageable: true },
   { key: "fila", label: "Fila de Espera", manageable: true },
   { key: "recepcao", label: "Recepção do dia", manageable: true },
+  { key: "triagem", label: "Triagem (Classificação de Risco)", manageable: true },
+  { key: "visitas", label: "Visitas Domiciliares (ACS)", manageable: true },
   { key: "pacientes", label: "Pacientes", manageable: true },
   { key: "profissionais", label: "Profissionais", manageable: true },
   { key: "agendas", label: "Agendas (configuração)", manageable: true },
@@ -31,11 +35,12 @@ export const MODULES: { key: ModuleKey; label: string; manageable: boolean }[] =
 
 export type PermRow = { module: ModuleKey; can_view: boolean; can_manage: boolean };
 
-/** "Recepcionista" é exibido como "Administrativo" na UI. */
 export const ROLE_LABEL: Record<AppRole, string> = {
   admin: "Administrador",
   recepcionista: "Administrativo",
   medico: "Médico",
+  triagem: "Triagem",
+  acs: "Agente Comunitário de Saúde",
 };
 
 export function defaultPermsFor(role: AppRole): PermRow[] {
@@ -48,6 +53,24 @@ export function defaultPermsFor(role: AppRole): PermRow[] {
       can_view: m.key === "agenda_dia" || m.key === "pacientes" || m.key === "recepcao",
       can_manage: false,
     }));
+  }
+  if (role === "triagem") {
+    return MODULES.map((m) => {
+      if (m.key === "triagem" || m.key === "fila" || m.key === "recepcao" || m.key === "pacientes") {
+        return { module: m.key, can_view: true, can_manage: true };
+      }
+      if (m.key === "agenda_dia" || m.key === "painel") {
+        return { module: m.key, can_view: true, can_manage: false };
+      }
+      return { module: m.key, can_view: false, can_manage: false };
+    });
+  }
+  if (role === "acs") {
+    return MODULES.map((m) => {
+      if (m.key === "visitas") return { module: m.key, can_view: true, can_manage: true };
+      if (m.key === "pacientes") return { module: m.key, can_view: true, can_manage: false };
+      return { module: m.key, can_view: false, can_manage: false };
+    });
   }
   // administrativo (recepcionista)
   return MODULES.map((m) => {

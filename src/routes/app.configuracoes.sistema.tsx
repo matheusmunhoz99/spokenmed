@@ -263,6 +263,8 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                   <Select value={newRole} onValueChange={(v) => setNewRole(v as AppRole)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="triagem">Triagem</SelectItem>
+                      <SelectItem value="acs">Agente Comunitário</SelectItem>
                       <SelectItem value="admin">Administrador</SelectItem>
                       <SelectItem value="recepcionista">Administrativo</SelectItem>
                       <SelectItem value="medico">Médico</SelectItem>
@@ -329,6 +331,8 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                         <SelectItem value="admin">Administrador</SelectItem>
                         <SelectItem value="recepcionista">Administrativo</SelectItem>
                         <SelectItem value="medico">Médico</SelectItem>
+                        <SelectItem value="triagem">Triagem</SelectItem>
+                        <SelectItem value="acs">Agente Comunitário</SelectItem>
                       </SelectContent>
                     </Select>
                     {role === "medico" && (
@@ -384,11 +388,13 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                             onValueChange={(v) => handleRoleChange(u.id, v as AppRole)}
                             disabled={isMe}
                           >
-                            <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-8 w-[180px]"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="admin">Administrador</SelectItem>
                               <SelectItem value="recepcionista">Administrativo</SelectItem>
                               <SelectItem value="medico">Médico</SelectItem>
+                              <SelectItem value="triagem">Triagem</SelectItem>
+                              <SelectItem value="acs">Agente Comunitário</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>

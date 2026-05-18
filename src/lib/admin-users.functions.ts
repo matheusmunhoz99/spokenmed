@@ -19,7 +19,7 @@ const MODULE_KEYS = [
 ] as const;
 
 type ModuleKey = (typeof MODULE_KEYS)[number];
-type AppRole = "admin" | "recepcionista" | "medico";
+type AppRole = "admin" | "recepcionista" | "medico" | "triagem" | "acs";
 
 function defaultPermsFor(role: AppRole) {
   return MODULE_KEYS.map((m) => {
@@ -30,6 +30,14 @@ function defaultPermsFor(role: AppRole) {
         can_view: m === "agenda_dia" || m === "pacientes" || m === "recepcao",
         can_manage: false,
       };
+    }
+    if (role === "triagem") {
+      const manage = (m === "fila" || m === "recepcao" || m === "pacientes") as boolean;
+      const view = manage || m === "agenda_dia" || m === "painel";
+      return { module: m, can_view: view, can_manage: manage };
+    }
+    if (role === "acs") {
+      return { module: m, can_view: m === "pacientes", can_manage: false };
     }
     // recepcionista (administrativo)
     if (m === "agenda_dia" || m === "agendar" || m === "fila" || m === "pacientes" || m === "painel" || m === "recepcao") {
@@ -128,7 +136,7 @@ export const createSystemUser = createServerFn({ method: "POST" })
         password: z.string().min(6).max(100),
         nome: z.string().min(1).max(120),
         cargo: z.string().max(120).optional().default(""),
-        role: z.enum(["admin", "recepcionista", "medico"]),
+        role: z.enum(["admin", "recepcionista", "medico", "triagem", "acs"]),
         unidade_ids: z.array(z.string().uuid()).default([]),
         profissional_id: z.string().uuid().nullable().optional(),
       })
@@ -174,7 +182,7 @@ export const updateUserRole = createServerFn({ method: "POST" })
     z
       .object({
         user_id: z.string().uuid(),
-        role: z.enum(["admin", "recepcionista", "medico"]),
+        role: z.enum(["admin", "recepcionista", "medico", "triagem", "acs"]),
       })
       .parse(input),
   )

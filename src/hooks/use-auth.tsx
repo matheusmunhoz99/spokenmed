@@ -15,6 +15,8 @@ type AuthContextType = {
   isAdmin: boolean;
   isMedico: boolean;
   isAdministrativo: boolean;
+  isTriagem: boolean;
+  isAcs: boolean;
   can: (module: ModuleKey, action?: "view" | "manage") => boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, nome: string, cargo?: string) => Promise<{ error: string | null }>;
@@ -75,6 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAdmin = roles.includes("admin");
   const isMedico = roles.includes("medico");
   const isAdministrativo = roles.includes("recepcionista");
+  const isTriagem = roles.includes("triagem");
+  const isAcs = roles.includes("acs");
 
   const can = (module: ModuleKey, action: "view" | "manage" = "view") => {
     if (isAdmin) return true;
@@ -116,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         session, user, profile, roles, permissions, loading,
-        isAdmin, isMedico, isAdministrativo, can,
+        isAdmin, isMedico, isAdministrativo, isTriagem, isAcs, can,
         signIn, signUp, signOut,
       }}
     >

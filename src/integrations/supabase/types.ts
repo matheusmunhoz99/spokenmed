@@ -1387,6 +1387,99 @@ export type Database = {
           },
         ]
       }
+      visitas_domiciliares: {
+        Row: {
+          acompanhamentos: Json
+          acs_user_id: string
+          altura: number | null
+          anti_vetorial: boolean
+          assinatura_paciente: string | null
+          assinatura_paciente_em: string | null
+          assinatura_recusa_motivo: string | null
+          assinatura_recusada: boolean
+          controle_ambiental: Json
+          created_at: string
+          data_visita: string
+          desfecho: string
+          endereco_visitado: string | null
+          fotos: Json
+          gps_accuracy: number | null
+          gps_capturado_em: string
+          id: string
+          latitude: number
+          longitude: number
+          motivos: Json
+          observacoes: string | null
+          pa_diastolica: number | null
+          pa_sistolica: number | null
+          paciente_id: string
+          peso: number | null
+          turno: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          acompanhamentos?: Json
+          acs_user_id: string
+          altura?: number | null
+          anti_vetorial?: boolean
+          assinatura_paciente?: string | null
+          assinatura_paciente_em?: string | null
+          assinatura_recusa_motivo?: string | null
+          assinatura_recusada?: boolean
+          controle_ambiental?: Json
+          created_at?: string
+          data_visita?: string
+          desfecho: string
+          endereco_visitado?: string | null
+          fotos?: Json
+          gps_accuracy?: number | null
+          gps_capturado_em: string
+          id?: string
+          latitude: number
+          longitude: number
+          motivos?: Json
+          observacoes?: string | null
+          pa_diastolica?: number | null
+          pa_sistolica?: number | null
+          paciente_id: string
+          peso?: number | null
+          turno: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          acompanhamentos?: Json
+          acs_user_id?: string
+          altura?: number | null
+          anti_vetorial?: boolean
+          assinatura_paciente?: string | null
+          assinatura_paciente_em?: string | null
+          assinatura_recusa_motivo?: string | null
+          assinatura_recusada?: boolean
+          controle_ambiental?: Json
+          created_at?: string
+          data_visita?: string
+          desfecho?: string
+          endereco_visitado?: string | null
+          fotos?: Json
+          gps_accuracy?: number | null
+          gps_capturado_em?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          motivos?: Json
+          observacoes?: string | null
+          pa_diastolica?: number | null
+          pa_sistolica?: number | null
+          paciente_id?: string
+          peso?: number | null
+          turno?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       cotas_uso: {
@@ -1548,7 +1641,7 @@ export type Database = {
         | "documento"
         | "foto"
         | "outro"
-      app_role: "admin" | "recepcionista" | "medico"
+      app_role: "admin" | "recepcionista" | "medico" | "triagem" | "acs"
       classificacao_risco: "vermelho" | "laranja" | "amarelo" | "verde" | "azul"
       fila_status: "aguardando" | "agendado" | "concluido" | "cancelado"
       fila_urgencia: "normal" | "prioritaria" | "urgente"
@@ -1692,7 +1785,7 @@ export const Constants = {
         "triado",
       ],
       anexo_categoria: ["pedido_medico", "exame", "documento", "foto", "outro"],
-      app_role: ["admin", "recepcionista", "medico"],
+      app_role: ["admin", "recepcionista", "medico", "triagem", "acs"],
       classificacao_risco: ["vermelho", "laranja", "amarelo", "verde", "azul"],
       fila_status: ["aguardando", "agendado", "concluido", "cancelado"],
       fila_urgencia: ["normal", "prioritaria", "urgente"],
