@@ -133,7 +133,7 @@ function FilaPage() {
     enabled: !!unidadeId,
     queryFn: async () => {
       let q = (supabase.from(FILA_TABLE as any) as any)
-        .select("id, created_at, observacoes, paciente_id, especialidade_id, unidade_id, status, urgencia, agendamento_id, pacientes(id, nome, cpf, telefone, data_nascimento), especialidades(id, nome), unidades(id, nome)")
+        .select("id, created_at, observacoes, paciente_id, especialidade_id, unidade_id, status, urgencia, agendamento_id, classificacao_risco, cid10, solicitante_nome, solicitante_cns, solicitante_cbo, solicitante_cnes, procedimento_id, pacientes(id, nome, cpf, cns, telefone, data_nascimento), especialidades(id, nome), unidades(id, nome), procedimentos(id, codigo_sigtap, nome)")
         .eq("unidade_id", unidadeId)
         .in("status", statusFiltro === "todos" ? ["aguardando", "agendado"] : [statusFiltro])
         .order("created_at", { ascending: true });
@@ -143,6 +143,24 @@ function FilaPage() {
       return (data ?? []) as any[];
     },
   });
+
+  // TME: regras vigentes (default + customizadas) — usadas para classificar prazo
+  const { data: tmeRows } = useQuery({
+    queryKey: ["tme-config"],
+    queryFn: async () => (await (supabase.from("tme_config" as any) as any).select("especialidade_id, unidade_id, classificacao_risco, tme_dias")).data ?? [],
+  });
+
+  function tmeFor(especId: string | null, classif: ClassRisco | null, unId: string | null): number {
+    if (!classif) return Infinity;
+    const rows = (tmeRows ?? []) as any[];
+    const matches = rows.filter((r) => r.classificacao_risco === classif
+      && (r.especialidade_id === especId || r.especialidade_id === null)
+      && (r.unidade_id === unId || r.unidade_id === null));
+    if (matches.length === 0) return RISCO_TME_DEFAULT[classif];
+    matches.sort((a, b) => (Number(b.especialidade_id !== null) - Number(a.especialidade_id !== null))
+      || (Number(b.unidade_id !== null) - Number(a.unidade_id !== null)));
+    return matches[0].tme_dias;
+  }
 
   // Realtime → invalida toda vez que a tabela muda nessa unidade
   useEffect(() => {
@@ -156,14 +174,16 @@ function FilaPage() {
     return () => { supabase.removeChannel(ch); };
   }, [unidadeId, qc]);
 
-  // Ordena por (status aguardando primeiro, urgência, created_at) e calcula posição
-  // entre os "aguardando", particionada por especialidade.
+  // Ordena por (aguardando primeiro, classificação de risco SUS, urgência legacy, created_at)
   const filaOrdenada = useMemo(() => {
     if (!fila) return [];
     const arr = [...fila].sort((a, b) => {
       const sa = a.status === "aguardando" ? 0 : 1;
       const sb = b.status === "aguardando" ? 0 : 1;
       if (sa !== sb) return sa - sb;
+      const ra = RISCO_RANK[a.classificacao_risco as ClassRisco] ?? 99;
+      const rb = RISCO_RANK[b.classificacao_risco as ClassRisco] ?? 99;
+      if (ra !== rb) return ra - rb;
       const ua = URGENCIA_RANK[a.urgencia as Urgencia] ?? 2;
       const ub = URGENCIA_RANK[b.urgencia as Urgencia] ?? 2;
       if (ua !== ub) return ua - ub;
