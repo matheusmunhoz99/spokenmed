@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "br.com.oppcloud.spokenmed",
+      "sha256_cert_fingerprints": [
+        "E9:48:C3:00:00:0C:26:E9:54:FA:71:B6:B8:04:6D:D2:24:8B:83:C1:F5:82:5D:F2:59:82:39:FD:92:25:3F:99"
+      ]
+    }
+  }
+]
