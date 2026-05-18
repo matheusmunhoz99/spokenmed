@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +9,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Upload, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Save, Upload, X, Home, Users, User, ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { SemAcesso } from "@/components/sem-acesso";
@@ -26,11 +36,23 @@ function Guard() {
 
 export const Route = createFileRoute("/app/visitas/nova")({ component: Guard });
 
+type Membro = {
+  paciente_id: string;
+  parentesco: string | null;
+  is_responsavel: boolean;
+  pacientes: { id: string; nome: string; cpf: string | null; data_nascimento: string | null } | null;
+};
+
 function NovaVisitaPage() {
   const nav = useNavigate();
   const { user } = useAuth();
-  const [busca, setBusca] = useState("");
-  const [paciente, setPaciente] = useState<any>(null);
+
+  // Seleção em cascata
+  const [domicilio, setDomicilio] = useState<any>(null);
+  const [familia, setFamilia] = useState<any>(null);
+  const [pacienteId, setPacienteId] = useState<string | null>(null);
+  const [buscaDom, setBuscaDom] = useState("");
+
   const [dataVisita, setDataVisita] = useState(format(new Date(), "yyyy-MM-dd"));
   const [turno, setTurno] = useState("manha");
   const [desfecho, setDesfecho] = useState("realizada");
@@ -50,22 +72,64 @@ function NovaVisitaPage() {
   const [motivoRecusa, setMotivoRecusa] = useState("");
   const [fotos, setFotos] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const [askReplicar, setAskReplicar] = useState(false);
 
-  const { data: pacientes } = useQuery({
-    queryKey: ["pac-busca", busca],
-    enabled: busca.trim().length >= 3,
+  // 1) Domicílios do ACS
+  const { data: domicilios } = useQuery({
+    queryKey: ["acs-domicilios", user?.id, buscaDom],
+    enabled: !!user && !domicilio,
     queryFn: async () => {
-      const t = busca.replace(/\D/g, "");
-      let q = supabase.from("pacientes").select("id, nome, cpf, data_nascimento, logradouro, numero, bairro").eq("ativo", true).limit(15);
-      q = t.length >= 3 ? q.or(`nome.ilike.%${busca}%,cpf.ilike.%${t}%`) : q.ilike("nome", `%${busca}%`);
-      return (await q).data ?? [];
+      let q = supabase
+        .from("domicilios")
+        .select("id, logradouro, numero, bairro, cidade, uf, microarea, cep, latitude, longitude, familias(id)")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (buscaDom.trim().length >= 2) {
+        q = q.or(`logradouro.ilike.%${buscaDom}%,bairro.ilike.%${buscaDom}%,microarea.ilike.%${buscaDom}%`);
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
-  const enderecoPac = useMemo(() => {
-    if (!paciente) return "";
-    return [paciente.logradouro, paciente.numero, paciente.bairro].filter(Boolean).join(", ");
-  }, [paciente]);
+  // 2) Famílias do domicílio
+  const { data: familias } = useQuery({
+    queryKey: ["dom-familias", domicilio?.id],
+    enabled: !!domicilio && !familia,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("familias")
+        .select("id, prontuario_familiar, responsavel_paciente_id, familia_membros(paciente_id, pacientes(nome))")
+        .eq("domicilio_id", domicilio.id);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // 3) Membros da família
+  const { data: membros } = useQuery({
+    queryKey: ["fam-membros", familia?.id],
+    enabled: !!familia,
+    queryFn: async (): Promise<Membro[]> => {
+      const { data, error } = await supabase
+        .from("familia_membros")
+        .select("paciente_id, parentesco, is_responsavel, pacientes(id, nome, cpf, data_nascimento)")
+        .eq("familia_id", familia.id);
+      if (error) throw error;
+      return (data ?? []) as any;
+    },
+  });
+
+  const pacienteSelecionado = useMemo(
+    () => membros?.find((m) => m.paciente_id === pacienteId)?.pacientes ?? null,
+    [membros, pacienteId],
+  );
+
+  const enderecoDom = useMemo(() => {
+    if (!domicilio) return "";
+    return [domicilio.logradouro, domicilio.numero, domicilio.bairro, domicilio.cidade].filter(Boolean).join(", ");
+  }, [domicilio]);
 
   const toggle = (arr: string[], setArr: (v: string[]) => void, v: string) =>
     setArr(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
@@ -75,22 +139,38 @@ function NovaVisitaPage() {
     setFotos((prev) => [...prev, ...files].slice(0, 3));
   };
 
-  const salvar = async () => {
-    if (!paciente) { toast.error("Selecione o paciente."); return; }
-    if (!geo) { toast.error("GPS é obrigatório para salvar a visita."); return; }
+  const validar = () => {
+    if (!domicilio) { toast.error("Selecione o domicílio."); return false; }
+    if (!familia) { toast.error("Selecione a família."); return false; }
+    if (!pacienteId) { toast.error("Selecione o membro da família."); return false; }
+    if (!geo) { toast.error("GPS é obrigatório para salvar a visita."); return false; }
     if (desfecho === "realizada" && !assinatura && !recusou) {
       toast.error("Colete a assinatura do paciente ou marque 'recusou assinar'.");
-      return;
+      return false;
     }
     if (recusou && !motivoRecusa.trim()) {
       toast.error("Informe o motivo da recusa de assinatura.");
-      return;
+      return false;
     }
-    if (motivos.length === 0) { toast.error("Selecione ao menos um motivo da visita."); return; }
+    if (motivos.length === 0) { toast.error("Selecione ao menos um motivo da visita."); return false; }
+    return true;
+  };
 
+  const onClickSalvar = () => {
+    if (!validar()) return;
+    const totalMembros = membros?.length ?? 0;
+    if (totalMembros >= 2) {
+      setAskReplicar(true);
+    } else {
+      void salvar(false);
+    }
+  };
+
+  const salvar = async (replicar: boolean) => {
+    setAskReplicar(false);
     setSaving(true);
     try {
-      // upload fotos
+      // upload fotos (uma única vez)
       const fotosMeta: any[] = [];
       for (const f of fotos) {
         const path = `${user!.id}/${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
@@ -99,10 +179,11 @@ function NovaVisitaPage() {
         fotosMeta.push({ path, name: f.name, size: f.size });
       }
 
-      const payload: any = {
-        paciente_id: paciente.id,
+      const basePayload: any = {
         acs_user_id: user!.id,
-        unidade_id: null,
+        unidade_id: domicilio.unidade_id ?? null,
+        domicilio_id: domicilio.id,
+        familia_id: familia.id,
         data_visita: dataVisita,
         turno,
         desfecho,
@@ -114,11 +195,11 @@ function NovaVisitaPage() {
         altura: altura ? Number(altura.replace(",", ".")) : null,
         pa_sistolica: pasis ? parseInt(pasis, 10) : null,
         pa_diastolica: padia ? parseInt(padia, 10) : null,
-        latitude: geo.latitude,
-        longitude: geo.longitude,
-        gps_accuracy: geo.accuracy,
-        gps_capturado_em: geo.captured_at,
-        endereco_visitado: endereco || enderecoPac || null,
+        latitude: geo!.latitude,
+        longitude: geo!.longitude,
+        gps_accuracy: geo!.accuracy,
+        gps_capturado_em: geo!.captured_at,
+        endereco_visitado: endereco || enderecoDom || null,
         observacoes: obs || null,
         assinatura_paciente: recusou ? null : assinatura,
         assinatura_paciente_em: assinatura && !recusou ? new Date().toISOString() : null,
@@ -127,9 +208,19 @@ function NovaVisitaPage() {
         fotos: fotosMeta,
       };
 
-      const { error } = await supabase.from("visitas_domiciliares").insert(payload);
+      const alvos = replicar
+        ? (membros ?? []).map((m) => m.paciente_id)
+        : [pacienteId!];
+
+      const rows = alvos.map((pid) => ({ ...basePayload, paciente_id: pid }));
+      const { error } = await supabase.from("visitas_domiciliares").insert(rows);
       if (error) throw new Error(error.message);
-      toast.success("Visita registrada com sucesso");
+
+      toast.success(
+        rows.length > 1
+          ? `Visita registrada para ${rows.length} pacientes da família`
+          : "Visita registrada com sucesso",
+      );
       nav({ to: "/app/visitas" });
     } catch (e: any) {
       toast.error(e.message ?? "Erro ao salvar");
@@ -138,156 +229,304 @@ function NovaVisitaPage() {
     }
   };
 
+  // ---------- UI ----------
   return (
     <div className="space-y-4 max-w-3xl mx-auto pb-20">
       <h1 className="text-2xl font-bold">Nova Visita Domiciliar</h1>
 
+      {/* PASSO 1: Domicílio */}
       <Card>
-        <CardHeader><CardTitle className="text-base">1. Paciente</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><Home className="h-4 w-4" /> 1. Domicílio</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
-          {paciente ? (
+          {domicilio ? (
             <div className="flex items-center justify-between rounded-md border p-3">
               <div>
-                <div className="font-medium">{paciente.nome}</div>
-                <div className="text-xs text-muted-foreground">{paciente.cpf} · {enderecoPac}</div>
+                <div className="font-medium">{enderecoDom || "Domicílio"}</div>
+                <div className="text-xs text-muted-foreground">
+                  Microárea: {domicilio.microarea ?? "—"} · CEP {domicilio.cep ?? "—"}
+                </div>
               </div>
-              <Button size="sm" variant="ghost" onClick={() => setPaciente(null)}><X className="h-4 w-4" /></Button>
+              <Button size="sm" variant="ghost" onClick={() => { setDomicilio(null); setFamilia(null); setPacienteId(null); }}>
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           ) : (
             <>
-              <Input placeholder="Buscar por nome ou CPF (mín. 3 caracteres)" value={busca} onChange={(e) => setBusca(e.target.value)} />
-              {pacientes && pacientes.length > 0 && (
-                <div className="max-h-60 overflow-y-auto rounded-md border divide-y">
-                  {pacientes.map((p: any) => (
-                    <button key={p.id} type="button"
-                      onClick={() => { setPaciente(p); setBusca(""); setEndereco([p.logradouro, p.numero, p.bairro].filter(Boolean).join(", ")); }}
-                      className="block w-full text-left px-3 py-2 hover:bg-muted text-sm">
-                      <div className="font-medium">{p.nome}</div>
-                      <div className="text-xs text-muted-foreground">{p.cpf}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <Input
+                placeholder="Buscar por logradouro, bairro ou microárea"
+                value={buscaDom}
+                onChange={(e) => setBuscaDom(e.target.value)}
+              />
+              <div className="max-h-72 overflow-y-auto rounded-md border divide-y">
+                {(domicilios ?? []).map((d: any) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => { setDomicilio(d); setEndereco([d.logradouro, d.numero, d.bairro, d.cidade].filter(Boolean).join(", ")); }}
+                    className="block w-full text-left px-3 py-2 hover:bg-muted text-sm"
+                  >
+                    <div className="font-medium">
+                      {[d.logradouro, d.numero].filter(Boolean).join(", ")}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {[d.bairro, d.cidade, d.uf].filter(Boolean).join(" · ")} · Microárea {d.microarea ?? "—"} · {d.familias?.length ?? 0} família(s)
+                    </div>
+                  </button>
+                ))}
+                {(domicilios ?? []).length === 0 && (
+                  <div className="p-4 text-sm text-muted-foreground text-center">
+                    Nenhum domicílio encontrado.
+                  </div>
+                )}
+              </div>
+              <Button asChild variant="outline" size="sm" className="w-full">
+                <Link to="/app/domicilios/novo">+ Cadastrar novo domicílio</Link>
+              </Button>
             </>
           )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">2. Visita</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3">
-          <div><Label>Data</Label><Input type="date" value={dataVisita} onChange={(e) => setDataVisita(e.target.value)} /></div>
-          <div><Label>Turno</Label>
-            <Select value={turno} onValueChange={setTurno}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{TURNOS.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="col-span-2"><Label>Endereço visitado</Label><Input value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Endereço onde a visita foi realizada" /></div>
-        </CardContent>
-      </Card>
+      {/* PASSO 2: Família */}
+      {domicilio && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> 2. Família</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {familia ? (
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div>
+                  <div className="font-medium">Prontuário: {familia.prontuario_familiar ?? "—"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {familia.familia_membros?.length ?? 0} membro(s)
+                  </div>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => { setFamilia(null); setPacienteId(null); }}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="max-h-60 overflow-y-auto rounded-md border divide-y">
+                  {(familias ?? []).map((f: any) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setFamilia(f)}
+                      className="block w-full text-left px-3 py-2 hover:bg-muted text-sm"
+                    >
+                      <div className="font-medium">Prontuário: {f.prontuario_familiar ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {f.familia_membros?.length ?? 0} membro(s)
+                      </div>
+                    </button>
+                  ))}
+                  {(familias ?? []).length === 0 && (
+                    <div className="p-4 text-sm text-muted-foreground text-center">
+                      Nenhuma família cadastrada neste domicílio.
+                    </div>
+                  )}
+                </div>
+                <Button asChild variant="outline" size="sm" className="w-full">
+                  <Link to="/app/domicilios/$id" params={{ id: domicilio.id }}>
+                    Gerenciar famílias deste domicílio
+                  </Link>
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">3. Motivo da visita</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {MOTIVOS_VISITA.map((m) => (
-            <label key={m.value} className="flex items-start gap-2 text-sm cursor-pointer">
-              <Checkbox checked={motivos.includes(m.value)} onCheckedChange={() => toggle(motivos, setMotivos, m.value)} />
-              <span>{m.label}</span>
-            </label>
-          ))}
-        </CardContent>
-      </Card>
+      {/* PASSO 3: Membro */}
+      {familia && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><User className="h-4 w-4" /> 3. Paciente (membro da família)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {(membros ?? []).length === 0 ? (
+              <div className="p-3 text-sm text-muted-foreground">
+                Esta família não tem membros cadastrados. Acesse o domicílio para adicionar.
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {(membros ?? []).map((m) => (
+                  <label
+                    key={m.paciente_id}
+                    className={`flex items-center justify-between rounded-md border px-3 py-2 cursor-pointer ${pacienteId === m.paciente_id ? "border-primary bg-primary/5" : ""}`}
+                  >
+                    <div>
+                      <div className="font-medium text-sm">{m.pacientes?.nome ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {m.parentesco ?? "—"}{m.is_responsavel ? " · Responsável" : ""} · {m.pacientes?.cpf ?? "sem CPF"}
+                      </div>
+                    </div>
+                    <input
+                      type="radio"
+                      name="membro"
+                      checked={pacienteId === m.paciente_id}
+                      onChange={() => setPacienteId(m.paciente_id)}
+                    />
+                  </label>
+                ))}
+              </div>
+            )}
+            {pacienteSelecionado && (membros?.length ?? 0) >= 2 && (
+              <div className="text-xs text-muted-foreground pt-2">
+                Ao salvar, você poderá replicar esta visita para todos os {membros!.length} membros da família.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">4. Acompanhamento</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {ACOMPANHAMENTOS.map((m) => (
-            <label key={m.value} className="flex items-center gap-2 text-sm cursor-pointer">
-              <Checkbox checked={acomps.includes(m.value)} onCheckedChange={() => toggle(acomps, setAcomps, m.value)} />
-              <span>{m.label}</span>
-            </label>
-          ))}
-        </CardContent>
-      </Card>
+      {/* Demais seções: só aparecem com paciente selecionado */}
+      {pacienteId && (
+        <>
+          <Card>
+            <CardHeader><CardTitle className="text-base">4. Visita</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-2 gap-3">
+              <div><Label>Data</Label><Input type="date" value={dataVisita} onChange={(e) => setDataVisita(e.target.value)} /></div>
+              <div><Label>Turno</Label>
+                <Select value={turno} onValueChange={setTurno}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{TURNOS.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2"><Label>Endereço visitado</Label><Input value={endereco} onChange={(e) => setEndereco(e.target.value)} /></div>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">5. Controle ambiental / vetorial</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <Checkbox checked={antiVet} onCheckedChange={(v) => setAntiVet(!!v)} />
-            <span>Visita compartilhada com agente de endemias</span>
-          </label>
-          {CONTROLE_AMBIENTAL.map((m) => (
-            <label key={m.value} className="flex items-center gap-2 text-sm cursor-pointer">
-              <Checkbox checked={ctrlAmb.includes(m.value)} onCheckedChange={() => toggle(ctrlAmb, setCtrlAmb, m.value)} />
-              <span>{m.label}</span>
-            </label>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-base">6. Antropometria / PA (opcional)</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div><Label className="text-xs">Peso (kg)</Label><Input inputMode="decimal" value={peso} onChange={(e) => setPeso(e.target.value)} /></div>
-          <div><Label className="text-xs">Altura (m)</Label><Input inputMode="decimal" value={altura} onChange={(e) => setAltura(e.target.value)} /></div>
-          <div><Label className="text-xs">PA sistólica</Label><Input inputMode="numeric" value={pasis} onChange={(e) => setPasis(e.target.value)} /></div>
-          <div><Label className="text-xs">PA diastólica</Label><Input inputMode="numeric" value={padia} onChange={(e) => setPadia(e.target.value)} /></div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-base">7. Desfecho e observações</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <div><Label>Desfecho</Label>
-            <Select value={desfecho} onValueChange={setDesfecho}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{DESFECHOS.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div><Label>Observações</Label><Textarea rows={3} value={obs} onChange={(e) => setObs(e.target.value)} /></div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-base">8. Localização GPS (obrigatório)</CardTitle></CardHeader>
-        <CardContent><GeolocationCapture value={geo} onChange={setGeo} required /></CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-base">9. Fotos (até 3)</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          <Input type="file" accept="image/*" multiple capture="environment" onChange={handleFotos} disabled={fotos.length >= 3} />
-          {fotos.length > 0 && (
-            <ul className="text-xs space-y-1">
-              {fotos.map((f, i) => (
-                <li key={i} className="flex items-center justify-between rounded border px-2 py-1">
-                  <span className="truncate"><Upload className="inline h-3 w-3 mr-1" />{f.name}</span>
-                  <Button size="sm" variant="ghost" onClick={() => setFotos(fotos.filter((_, j) => j !== i))}><X className="h-3 w-3" /></Button>
-                </li>
+          <Card>
+            <CardHeader><CardTitle className="text-base">5. Motivo da visita</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {MOTIVOS_VISITA.map((m) => (
+                <label key={m.value} className="flex items-start gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={motivos.includes(m.value)} onCheckedChange={() => toggle(motivos, setMotivos, m.value)} />
+                  <span>{m.label}</span>
+                </label>
               ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">10. Assinatura do paciente</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          {!recusou && <SignaturePad value={assinatura} onChange={setAssinatura} />}
-          <label className="flex items-center gap-2 text-sm pt-2 border-t">
-            <Checkbox checked={recusou} onCheckedChange={(v) => { setRecusou(!!v); if (v) setAssinatura(null); }} />
-            <span>Paciente recusou / impossibilitado de assinar</span>
-          </label>
-          {recusou && <Input placeholder="Motivo da recusa / impossibilidade" value={motivoRecusa} onChange={(e) => setMotivoRecusa(e.target.value)} />}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-base">6. Acompanhamento</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {ACOMPANHAMENTOS.map((m) => (
+                <label key={m.value} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={acomps.includes(m.value)} onCheckedChange={() => toggle(acomps, setAcomps, m.value)} />
+                  <span>{m.label}</span>
+                </label>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-base">7. Controle ambiental / vetorial</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox checked={antiVet} onCheckedChange={(v) => setAntiVet(!!v)} />
+                <span>Visita compartilhada com agente de endemias</span>
+              </label>
+              {CONTROLE_AMBIENTAL.map((m) => (
+                <label key={m.value} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={ctrlAmb.includes(m.value)} onCheckedChange={() => toggle(ctrlAmb, setCtrlAmb, m.value)} />
+                  <span>{m.label}</span>
+                </label>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-base">8. Antropometria / PA (opcional)</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div><Label className="text-xs">Peso (kg)</Label><Input inputMode="decimal" value={peso} onChange={(e) => setPeso(e.target.value)} /></div>
+              <div><Label className="text-xs">Altura (m)</Label><Input inputMode="decimal" value={altura} onChange={(e) => setAltura(e.target.value)} /></div>
+              <div><Label className="text-xs">PA sistólica</Label><Input inputMode="numeric" value={pasis} onChange={(e) => setPasis(e.target.value)} /></div>
+              <div><Label className="text-xs">PA diastólica</Label><Input inputMode="numeric" value={padia} onChange={(e) => setPadia(e.target.value)} /></div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-base">9. Desfecho e observações</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div><Label>Desfecho</Label>
+                <Select value={desfecho} onValueChange={setDesfecho}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{DESFECHOS.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label>Observações</Label><Textarea rows={3} value={obs} onChange={(e) => setObs(e.target.value)} /></div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-base">10. Localização GPS (obrigatório)</CardTitle></CardHeader>
+            <CardContent><GeolocationCapture value={geo} onChange={setGeo} required /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-base">11. Fotos (até 3)</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              <Input type="file" accept="image/*" multiple capture="environment" onChange={handleFotos} disabled={fotos.length >= 3} />
+              {fotos.length > 0 && (
+                <ul className="text-xs space-y-1">
+                  {fotos.map((f, i) => (
+                    <li key={i} className="flex items-center justify-between rounded border px-2 py-1">
+                      <span className="truncate"><Upload className="inline h-3 w-3 mr-1" />{f.name}</span>
+                      <Button size="sm" variant="ghost" onClick={() => setFotos(fotos.filter((_, j) => j !== i))}><X className="h-3 w-3" /></Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-base">12. Assinatura do paciente / responsável</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {!recusou && <SignaturePad value={assinatura} onChange={setAssinatura} />}
+              <label className="flex items-center gap-2 text-sm pt-2 border-t">
+                <Checkbox checked={recusou} onCheckedChange={(v) => { setRecusou(!!v); if (v) setAssinatura(null); }} />
+                <span>Paciente recusou / impossibilitado de assinar</span>
+              </label>
+              {recusou && <Input placeholder="Motivo da recusa / impossibilidade" value={motivoRecusa} onChange={(e) => setMotivoRecusa(e.target.value)} />}
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       <div className="sticky bottom-0 bg-background/95 backdrop-blur border-t p-3 -mx-4 flex gap-2">
         <Button variant="outline" onClick={() => nav({ to: "/app/visitas" })} className="flex-1">Cancelar</Button>
-        <Button onClick={salvar} disabled={saving} className="flex-1"><Save className="mr-1 h-4 w-4" />{saving ? "Salvando..." : "Salvar visita"}</Button>
+        <Button onClick={onClickSalvar} disabled={saving || !pacienteId} className="flex-1">
+          <Save className="mr-1 h-4 w-4" />{saving ? "Salvando..." : "Salvar visita"}
+        </Button>
       </div>
+
+      <AlertDialog open={askReplicar} onOpenChange={setAskReplicar}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replicar para a família?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta família tem <strong>{membros?.length ?? 0}</strong> membros. Deseja registrar esta mesma visita
+              para todos os membros (cada um com seu próprio registro), ou apenas para{" "}
+              <strong>{pacienteSelecionado?.nome}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => void salvar(false)}>
+              Apenas {pacienteSelecionado?.nome?.split(" ")[0]}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => void salvar(true)}>
+              Sim, replicar para todos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
