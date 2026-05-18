@@ -491,9 +491,9 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
                 </div>
                 {/* badges visíveis só em desktop */}
                 <div className="mt-0.5 hidden flex-wrap items-center gap-1.5 lg:flex">
-                  <Badge variant="secondary" className="text-[10px]"><Stethoscope className="mr-1 h-3 w-3" />Atendimento individual</Badge>
+                  <Badge variant="secondary" className="text-[10px]"><Stethoscope className="mr-1 h-3 w-3" />Atendimento Individual · SOAP · LEDI 5.4</Badge>
                   <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-[10px] text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300">
-                    <BadgeCheck className="mr-1 h-3 w-3" />eSUS PEC · CDS v4.3
+                    <BadgeCheck className="mr-1 h-3 w-3" />e-SUS APS PEC v5.4.30
                   </Badge>
                 </div>
                 {/* meta desktop */}
