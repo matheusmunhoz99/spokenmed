@@ -131,6 +131,7 @@ export type Database = {
           hora_inicio: string
           id: string
           is_encaixe: boolean
+          modalidade: string
           motivo: string | null
           observacoes: string | null
           paciente_id: string
@@ -144,6 +145,7 @@ export type Database = {
           solicitante_cns: string | null
           solicitante_nome: string | null
           status: Database["public"]["Enums"]["agendamento_status"]
+          tele_sala_id: string | null
           triado_em: string | null
           triagem_em: string | null
           triagem_por: string | null
@@ -168,6 +170,7 @@ export type Database = {
           hora_inicio: string
           id?: string
           is_encaixe?: boolean
+          modalidade?: string
           motivo?: string | null
           observacoes?: string | null
           paciente_id: string
@@ -181,6 +184,7 @@ export type Database = {
           solicitante_cns?: string | null
           solicitante_nome?: string | null
           status?: Database["public"]["Enums"]["agendamento_status"]
+          tele_sala_id?: string | null
           triado_em?: string | null
           triagem_em?: string | null
           triagem_por?: string | null
@@ -205,6 +209,7 @@ export type Database = {
           hora_inicio?: string
           id?: string
           is_encaixe?: boolean
+          modalidade?: string
           motivo?: string | null
           observacoes?: string | null
           paciente_id?: string
@@ -218,6 +223,7 @@ export type Database = {
           solicitante_cns?: string | null
           solicitante_nome?: string | null
           status?: Database["public"]["Enums"]["agendamento_status"]
+          tele_sala_id?: string | null
           triado_em?: string | null
           triagem_em?: string | null
           triagem_por?: string | null
@@ -251,6 +257,13 @@ export type Database = {
             columns: ["slot_id"]
             isOneToOne: false
             referencedRelation: "slots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendamentos_tele_sala_fk"
+            columns: ["tele_sala_id"]
+            isOneToOne: false
+            referencedRelation: "teleconsulta_salas"
             referencedColumns: ["id"]
           },
           {
@@ -1456,6 +1469,149 @@ export type Database = {
           },
         ]
       }
+      teleconsulta_avaliacoes: {
+        Row: {
+          audio_ok: boolean | null
+          comentario: string | null
+          created_at: string
+          id: string
+          ip: unknown
+          nota: number
+          nps: number | null
+          sala_id: string
+          video_ok: boolean | null
+        }
+        Insert: {
+          audio_ok?: boolean | null
+          comentario?: string | null
+          created_at?: string
+          id?: string
+          ip?: unknown
+          nota: number
+          nps?: number | null
+          sala_id: string
+          video_ok?: boolean | null
+        }
+        Update: {
+          audio_ok?: boolean | null
+          comentario?: string | null
+          created_at?: string
+          id?: string
+          ip?: unknown
+          nota?: number
+          nps?: number | null
+          sala_id?: string
+          video_ok?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teleconsulta_avaliacoes_sala_id_fkey"
+            columns: ["sala_id"]
+            isOneToOne: true
+            referencedRelation: "teleconsulta_salas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teleconsulta_resumos: {
+        Row: {
+          agendamento_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notas_internas: string | null
+          publicado: boolean
+          publicado_em: string | null
+          resumo_paciente: string | null
+          updated_at: string
+        }
+        Insert: {
+          agendamento_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notas_internas?: string | null
+          publicado?: boolean
+          publicado_em?: string | null
+          resumo_paciente?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agendamento_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notas_internas?: string | null
+          publicado?: boolean
+          publicado_em?: string | null
+          resumo_paciente?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      teleconsulta_salas: {
+        Row: {
+          agendamento_id: string
+          consentimento_em: string | null
+          consentimento_gravacao: boolean
+          consentimento_ip: unknown
+          created_at: string
+          daily_room_name: string
+          daily_room_url: string
+          duracao_seg: number | null
+          encerrada_em: string | null
+          gravar: boolean
+          id: string
+          iniciada_em: string | null
+          recording_expira_em: string | null
+          recording_id: string | null
+          recording_url: string | null
+          status: string
+          token_paciente: string
+          updated_at: string
+        }
+        Insert: {
+          agendamento_id: string
+          consentimento_em?: string | null
+          consentimento_gravacao?: boolean
+          consentimento_ip?: unknown
+          created_at?: string
+          daily_room_name: string
+          daily_room_url: string
+          duracao_seg?: number | null
+          encerrada_em?: string | null
+          gravar?: boolean
+          id?: string
+          iniciada_em?: string | null
+          recording_expira_em?: string | null
+          recording_id?: string | null
+          recording_url?: string | null
+          status?: string
+          token_paciente: string
+          updated_at?: string
+        }
+        Update: {
+          agendamento_id?: string
+          consentimento_em?: string | null
+          consentimento_gravacao?: boolean
+          consentimento_ip?: unknown
+          created_at?: string
+          daily_room_name?: string
+          daily_room_url?: string
+          duracao_seg?: number | null
+          encerrada_em?: string | null
+          gravar?: boolean
+          id?: string
+          iniciada_em?: string | null
+          recording_expira_em?: string | null
+          recording_id?: string | null
+          recording_url?: string | null
+          status?: string
+          token_paciente?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tme_config: {
         Row: {
           classificacao_risco: Database["public"]["Enums"]["classificacao_risco"]
@@ -1847,6 +2003,25 @@ export type Database = {
           unidade_telefone: string
         }[]
       }
+      cidadao_consultar_documentos: {
+        Args: { p_cpf: string; p_data_nasc: string }
+        Returns: {
+          agendamento_id: string
+          avaliada: boolean
+          data: string
+          documentos: Json
+          especialidade_nome: string
+          hora_inicio: string
+          modalidade: string
+          profissional_nome: string
+          recording_disponivel: boolean
+          resumo_paciente: string
+          resumo_publicado_em: string
+          sala_token: string
+          status: Database["public"]["Enums"]["agendamento_status"]
+          unidade_nome: string
+        }[]
+      }
       gen_agendamento_codigo: { Args: never; Returns: string }
       gerar_numero_receita: {
         Args: { p_serie: string; p_uf: string }
@@ -1883,6 +2058,33 @@ export type Database = {
       set_audit_context: {
         Args: { p_ip?: string; p_modulo?: string; p_ua?: string }
         Returns: undefined
+      }
+      tele_aceitar_gravacao: { Args: { p_token: string }; Returns: boolean }
+      tele_avaliar: {
+        Args: {
+          p_audio_ok: boolean
+          p_comentario: string
+          p_nota: number
+          p_nps: number
+          p_token: string
+          p_video_ok: boolean
+        }
+        Returns: boolean
+      }
+      tele_paciente_entrar: {
+        Args: { p_token: string }
+        Returns: {
+          consentimento_gravacao: boolean
+          data: string
+          gravar: boolean
+          hora_inicio: string
+          paciente_nome: string
+          profissional_nome: string
+          room_name: string
+          room_url: string
+          sala_id: string
+          status: string
+        }[]
       }
       tme_aplicavel: {
         Args: {
