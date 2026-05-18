@@ -52,6 +52,8 @@ interface Documento {
   unidade_nome: string | null;
   unidade_cnes: string | null;
   emitido_em: string;
+  assinatura: string | null;
+  assinado_em: string | null;
 }
 
 const TIPO_LABEL: Record<string, string> = {
@@ -232,6 +234,22 @@ function VerificarPage() {
               {doc.unidade_nome && <Row label="Unidade" value={doc.unidade_nome} />}
               {doc.unidade_cnes && <Row label="CNES" value={doc.unidade_cnes} mono />}
               <Row label="Emitido em" value={new Date(doc.emitido_em).toLocaleString("pt-BR", { dateStyle: "long", timeStyle: "short" })} />
+              {doc.assinatura && (
+                <div className="rounded-lg border border-emerald-300 bg-emerald-50/60 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                    <ShieldCheck className="h-3.5 w-3.5" /> Assinatura digital SpokenMED
+                  </div>
+                  <div className="mt-1 break-all font-mono text-[11px] text-foreground">{doc.assinatura}</div>
+                  {doc.assinado_em && (
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      Assinado em {new Date(doc.assinado_em).toLocaleString("pt-BR", { dateStyle: "long", timeStyle: "short" })}
+                    </div>
+                  )}
+                  <div className="mt-2 text-[11px] text-muted-foreground">
+                    Hash HMAC-SHA256 vinculado ao profissional emissor — equivalente a assinatura eletrônica avançada (MP 2.200-2/01, art. 10 §2º).
+                  </div>
+                </div>
+              )}
             </div>
             <div className="border-t bg-muted/30 px-6 py-3 text-[11px] text-muted-foreground">
               Por segurança, exibimos apenas dados essenciais para verificação. Dados sensíveis do paciente permanecem protegidos.
