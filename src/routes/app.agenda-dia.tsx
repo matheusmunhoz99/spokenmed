@@ -101,7 +101,7 @@ function AgendaDiaPage() {
     enabled: !!unidades,
     queryFn: async () => {
       let q = supabase.from("agendamentos")
-        .select("id, hora_inicio, status, motivo, paciente_id, slot_id, profissional_id, unidade_id, is_encaixe, encaixe_prioridade, encaixe_justificativa, reagendado_em, pacientes(nome, cpf, telefone), profissionais(id, nome, sala, especialidades(nome)), unidades(nome)")
+        .select("id, hora_inicio, status, motivo, paciente_id, slot_id, profissional_id, unidade_id, is_encaixe, encaixe_prioridade, encaixe_justificativa, reagendado_em, chegou_em, triagem_em, atendido_em, pacientes(nome, cpf, telefone), profissionais(id, nome, sala, user_id, especialidades(nome)), unidades(nome)")
         .eq("data", data).order("hora_inicio");
       if (profId !== "all") q = q.eq("profissional_id", profId);
       if (unidadeId !== "all") q = q.eq("unidade_id", unidadeId);
