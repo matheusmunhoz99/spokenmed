@@ -249,8 +249,10 @@ function RecepcaoPage() {
           {cols.aguard.map((a: any) => (
             <PacienteCard
               key={a.id} a={a} ordem={ordemMap.get(a.id)} fmtWait={fmtWait} waitMinutes={waitMinutes} waitToneCls={waitToneCls} idadeStr={idadeStr}
-              actions={canManage ? [{ label: "Chegou", icon: LogIn, tone: "sky", onClick: () => updateStatus(a, "chegou") }] : []}
-              onChamar={canManage && a.unidade_id ? () => setChamar(a) : undefined}
+              ctaLabel={canManage ? "Marcar chegada" : undefined}
+              ctaIcon={LogIn}
+              ctaTone="sky"
+              onCta={canManage ? () => updateStatus(a, "chegou") : undefined}
             />
           ))}
         </KanbanCol>
@@ -258,8 +260,10 @@ function RecepcaoPage() {
           {cols.chegou.map((a: any) => (
             <PacienteCard
               key={a.id} a={a} ordem={ordemMap.get(a.id)} fmtWait={fmtWait} waitMinutes={waitMinutes} waitToneCls={waitToneCls} idadeStr={idadeStr}
-              actions={canManage ? [{ label: "Triagem", icon: Activity, tone: "violet", onClick: () => updateStatus(a, "em_triagem") }] : []}
-              onChamar={canManage && a.unidade_id ? () => setChamar(a) : undefined}
+              ctaLabel={canManage ? "Iniciar triagem" : undefined}
+              ctaIcon={Activity}
+              ctaTone="violet"
+              onCta={canManage ? () => updateStatus(a, "em_triagem") : undefined}
             />
           ))}
         </KanbanCol>
