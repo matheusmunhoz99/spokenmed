@@ -1,34 +1,83 @@
-## Objetivo
+## Diagnóstico do bug "Nova visita não abre"
 
-Ajustar a barra de navegação inferior (mobile) em `src/components/mobile-bottom-nav.tsx` para mostrar apenas os itens relevantes a cada perfil — Triagem e Visitas só aparecem para quem realmente usa.
+O arquivo `src/routes/app.visitas.tsx` é uma rota-folha que renderiza a lista de visitas direto, mas como existe um filho (`app.visitas.nova.tsx`), o TanStack Router trata `app.visitas` como **rota-pai/layout**. Pais com filhos **precisam ter `<Outlet />`** — sem isso o navegador troca de URL, mas a tela continua mostrando a lista (parece que "nada acontece"). Não é problema de permissão (verifiquei: ACS tem `visitas can_manage = true` no banco).
 
-## Regras por perfil
+## O que vou entregar
 
-| Perfil | Itens da barra inferior |
-|---|---|
-| **Admin** | Início, Agenda, Recepção, Agendar, Pacientes, Menu (sem Triagem, sem Visitas) |
-| **Médico** | Início, Agenda, Recepção, Agendar, Pacientes, Menu |
-| **Enfermeiro (Triagem)** | Início, Agenda, Recepção, Triagem, Agendar, Pacientes, Menu |
-| **ACS (Agente de Saúde)** | Início, Visitas, Pacientes, Menu |
-| **Recepcionista** (mantém comportamento atual baseado em permissões) | Início, Agenda, Recepção, Agendar, Pacientes, Menu |
+### 1. Corrigir o bug da rota
+Reestruturar as rotas de visitas:
+- `src/routes/app.visitas.tsx` vira **layout** (só `<Outlet />` + guard de permissão).
+- Mover a lista atual para `src/routes/app.visitas.index.tsx`.
+- `app.visitas.nova.tsx` continua igual (passa a renderizar corretamente dentro do Outlet).
+- Mesma correção aplicada nas novas rotas de domicílios.
 
-O botão **Menu** continua sempre presente (abre o sidebar com o resto das opções).
+### 2. Cadastro Domiciliar / Territorial (modelo PEC CDS)
 
-## Mudanças técnicas
+#### Modelo de dados (migração)
+- **`domicilios`** — uma "casa" com:
+  - endereço completo (CEP, logradouro, número, complemento, bairro, cidade, UF),
+  - GPS (lat/lng/precisão/capturado_em),
+  - tipo de imóvel, tipo de domicílio, situação de moradia,
+  - nº de moradores, nº de cômodos/dormitórios,
+  - água (abastecimento + tratamento), esgoto, lixo, energia,
+  - animais no domicílio (jsonb), material das paredes,
+  - unidade_id (UBS responsável), acs_user_id (quem cadastrou),
+  - microárea, família de referência.
+- **`familias`** — núcleo familiar dentro do domicílio:
+  - prontuário familiar (código), renda familiar, qtd. membros, em situação de rua (bool), Bolsa Família (bool),
+  - responsável familiar (paciente_id).
+- **`familia_membros`** — vínculo `familia_id` ↔ `paciente_id` + parentesco com o responsável.
+- Coluna nova em `visitas_domiciliares`: `domicilio_id` (uuid, nullable) e `familia_id` (uuid, nullable) — visita passa a poder ser ligada ao domicílio/família, não só ao paciente.
+- RLS:
+  - ACS lê/escreve apenas registros que ele cadastrou (`acs_user_id = auth.uid()`).
+  - Staff da unidade lê tudo da própria unidade.
+  - Admin lê/escreve tudo.
+- Trigger de imutabilidade após 24h (mesma regra das visitas), exceto admin.
 
-Arquivo único: `src/components/mobile-bottom-nav.tsx`
+#### Permissões
+- Novo módulo `domicilios` em `src/lib/permissions.ts`.
+- ACS: `view + manage`. Admin: tudo. Demais perfis: `view` (somente leitura, pra equipe ver os cadastros).
+- Atualizar `defaultPermsFor` e inserir as linhas em `user_permissions` para os usuários ACS/triagem/admin existentes.
 
-1. Importar os flags `isAdmin`, `isMedico`, `isTriagem`, `isAcs` do `useAuth()` (já existem no hook).
-2. Substituir o filtro atual `allItems.filter((it) => !it.module || can(it.module, "view"))` por uma função `pickItemsForRole()` que retorna a lista exata conforme a tabela acima:
-   - **ACS** (`isAcs && !isAdmin`): apenas `Início`, `Visitas`, `Pacientes`.
-   - **Triagem/Enfermeiro** (`isTriagem && !isAdmin`): `Início`, `Agenda`, `Recepção`, `Triagem`, `Agendar`, `Pacientes`.
-   - **Admin**: `Início`, `Agenda`, `Recepção`, `Agendar`, `Pacientes` (oculta Triagem e Visitas explicitamente, mesmo que `can()` permita).
-   - **Médico / Recepcionista / outros**: `Início`, `Agenda`, `Recepção`, `Agendar`, `Pacientes`, filtrando por `can(module, "view")` para respeitar permissões customizadas.
-3. Manter o item `Fila` fora da barra inferior em todos os casos (já não está nas listas pedidas) — continua acessível pelo Menu lateral.
-4. Não mexer no sidebar desktop (`app-sidebar.tsx`) — o pedido é específico para a barra de baixo ("la em baixo").
+#### Telas (mobile-first, mesmo padrão das visitas)
+- **`/app/domicilios`** — lista dos domicílios cadastrados pelo ACS (endereço, nº moradores, microárea, ações).
+- **`/app/domicilios/novo`** — formulário do **Cadastro Domiciliar CDS**:
+  1. Endereço (com ViaCEP) + GPS obrigatório.
+  2. Características do imóvel (tipo, paredes, água, esgoto, lixo, energia, cômodos, animais).
+  3. Família(s) que moram no domicílio: cria a família, vincula moradores (busca pacientes por nome/CPF, ou cria paciente novo rápido), define parentesco e o responsável familiar.
+  4. Observações.
+  5. Assinatura do responsável (opcional, mesmo componente da visita) + foto opcional da fachada.
+- **`/app/domicilios/$id`** — visualização do domicílio com membros, ações: editar (≤24h), nova visita pré-preenchida.
 
-## Fora de escopo
+#### Nova visita ligada à família/domicílio
+- Em `/app/visitas/nova`, antes de buscar paciente, opção:
+  - **"Selecionar domicílio"** → lista os domicílios do ACS → escolhe a família → escolhe o morador que está sendo visitado (pré-preenche endereço/GPS sugerido).
+  - **"Visita avulsa"** → fluxo atual (busca paciente direto).
+- Salva `domicilio_id` e `familia_id` no registro da visita quando vier por esse fluxo.
 
-- Permissões do banco / RLS — sem alterações.
-- Sidebar desktop — sem alterações.
-- Rotas e telas de Triagem/Visitas — continuam acessíveis aos perfis corretos.
+### 3. Navegação
+- Sidebar e barra inferior (ACS): adicionar **"Domicílios"** entre Início e Visitas.
+- Sidebar (admin): grupo "Atenção Básica" com Domicílios + Visitas (read-only para visualização da equipe da UBS).
+
+## Fora de escopo (avisar se precisar depois)
+- Ficha de Cadastro Individual completa do CDS (campos como escolaridade, ocupação, deficiências, gestação, condições crônicas no paciente — hoje só temos os básicos em `pacientes`).
+- Microáreas/áreas de abrangência cadastráveis (vamos usar campo livre `microarea text` por enquanto; cadastro estruturado pode vir num próximo passo).
+- Sincronização offline (PWA) das visitas — fica para depois.
+
+## Arquivos que serão criados/alterados
+
+```text
+supabase/migrations/<novo>.sql          (domicilios, familias, familia_membros, alter visitas, RLS, trigger, módulo domicilios em user_permissions)
+src/lib/permissions.ts                   (+ módulo "domicilios" e defaults)
+src/lib/domicilios-constants.ts          (opções: tipo imóvel, abastecimento, esgoto, lixo, parentesco...)
+src/routes/app.visitas.tsx               (vira layout com Outlet)
+src/routes/app.visitas.index.tsx         (lista — conteúdo atual da visitas.tsx)
+src/routes/app.domicilios.tsx            (layout com Outlet)
+src/routes/app.domicilios.index.tsx      (lista)
+src/routes/app.domicilios.novo.tsx       (formulário CDS)
+src/routes/app.domicilios.$id.tsx        (detalhe)
+src/routes/app.visitas.nova.tsx          (adicionar seletor de domicílio/família, salvar IDs)
+src/components/app-sidebar.tsx           (item Domicílios)
+src/components/mobile-bottom-nav.tsx     (item Domicílios para ACS)
+src/hooks/use-auth.tsx                   (sem mudança estrutural — só se módulo novo exigir flag)
+```
