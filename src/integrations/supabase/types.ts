@@ -410,6 +410,9 @@ export type Database = {
       documentos_emitidos: {
         Row: {
           agendamento_id: string | null
+          assinado_em: string | null
+          assinatura: string | null
+          assinatura_payload_sha: string | null
           created_at: string
           emitido_por: string | null
           emitido_por_email: string | null
@@ -427,6 +430,9 @@ export type Database = {
         }
         Insert: {
           agendamento_id?: string | null
+          assinado_em?: string | null
+          assinatura?: string | null
+          assinatura_payload_sha?: string | null
           created_at?: string
           emitido_por?: string | null
           emitido_por_email?: string | null
@@ -444,6 +450,9 @@ export type Database = {
         }
         Update: {
           agendamento_id?: string | null
+          assinado_em?: string | null
+          assinatura?: string | null
+          assinatura_payload_sha?: string | null
           created_at?: string
           emitido_por?: string | null
           emitido_por_email?: string | null
@@ -696,26 +705,47 @@ export type Database = {
       }
       profiles: {
         Row: {
+          assinatura_secret: string | null
           cargo: string | null
+          cbo: string | null
+          conselho_numero: string | null
+          conselho_tipo: string | null
+          conselho_uf: string | null
           created_at: string
+          especialidade: string | null
           id: string
           nome: string
+          rqe: string | null
           telefone: string | null
           updated_at: string
         }
         Insert: {
+          assinatura_secret?: string | null
           cargo?: string | null
+          cbo?: string | null
+          conselho_numero?: string | null
+          conselho_tipo?: string | null
+          conselho_uf?: string | null
           created_at?: string
+          especialidade?: string | null
           id: string
           nome: string
+          rqe?: string | null
           telefone?: string | null
           updated_at?: string
         }
         Update: {
+          assinatura_secret?: string | null
           cargo?: string | null
+          cbo?: string | null
+          conselho_numero?: string | null
+          conselho_tipo?: string | null
+          conselho_uf?: string | null
           created_at?: string
+          especialidade?: string | null
           id?: string
           nome?: string
+          rqe?: string | null
           telefone?: string | null
           updated_at?: string
         }
@@ -1048,9 +1078,12 @@ export type Database = {
       verificar_documento: {
         Args: { p_protocolo: string }
         Returns: {
+          assinado_em: string
+          assinatura: string
           emitido_em: string
           paciente_cpf_mask: string
           paciente_nome_iniciais: string
+          profissional_cbo: string
           profissional_conselho: string
           profissional_nome: string
           protocolo: string

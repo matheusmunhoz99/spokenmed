@@ -23,58 +23,128 @@ export async function buildQrDataUrl(text: string, size = 220): Promise<string |
   }
 }
 
+/** Formata o conselho profissional (CRM, CRO, CRP, COREN, CRF, CRP, CREFITO, …) */
+export function formatarConselho(
+  p: { conselho_tipo?: string | null; conselho_numero?: string | null; conselho_uf?: string | null } | null | undefined,
+): string | null {
+  if (!p?.conselho_tipo || !p?.conselho_numero) return null;
+  return `${p.conselho_tipo} ${p.conselho_numero}${p.conselho_uf ? "/" + p.conselho_uf : ""}`;
+}
+
+/** Formata o hash em grupos de 4: XXXX-XXXX-XXXX-... (até 32 chars hex) */
+export function formatarAssinatura(hash: string | null | undefined): string {
+  if (!hash) return "";
+  const s = hash.replace(/[^0-9A-Fa-f]/g, "").toUpperCase().slice(0, 32);
+  return s.match(/.{1,4}/g)?.join("-") ?? s;
+}
+
+export type VerificationOpts = {
+  protocolo: string;
+  qrDataUrl: string | null;
+  verifyUrl?: string;
+  assinatura?: string | null;
+  assinadoEm?: string | null;
+};
+
 /**
- * Bloco de verificação (QR + protocolo) no rodapé esquerdo, acima do footer.
- * Indica autenticidade do documento.
+ * Faixa do rodapé (acima do footer):
+ *  - Cartão QR à DIREITA (sempre)
+ *  - Cartão de Assinatura Eletrônica SpokenMED à ESQUERDA (quando informado)
+ * Ambos cabem dentro de PDF_FOOTER_MARGIN, sem sobrepor conteúdo.
  */
-export function drawVerificationBox(
-  doc: jsPDF,
-  opts: { protocolo: string; qrDataUrl: string | null; verifyUrl?: string; y?: number },
-) {
+export function drawVerificationBox(doc: jsPDF, opts: VerificationOpts) {
+  const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const boxW = 180;
-  const boxH = 64;
-  const x = 36;
-  const y = opts.y ?? pageH - PDF_FOOTER_MARGIN - boxH - 8;
+
+  // ===== Cartão QR (direita) =====
+  const qrBoxW = 170;
+  const qrBoxH = 62;
+  const qrX = pageW - 36 - qrBoxW;
+  const qrY = pageH - 52 - qrBoxH - 6;
 
   doc.setDrawColor(...PDF_COLORS.border);
   doc.setFillColor(255, 255, 255);
-  doc.roundedRect(x, y, boxW, boxH, 6, 6, "FD");
+  doc.roundedRect(qrX, qrY, qrBoxW, qrBoxH, 6, 6, "FD");
 
-  // QR
   if (opts.qrDataUrl) {
-    try { doc.addImage(opts.qrDataUrl, "PNG", x + 6, y + 6, boxH - 12, boxH - 12); } catch { /* ignore */ }
+    try { doc.addImage(opts.qrDataUrl, "PNG", qrX + 6, qrY + 6, qrBoxH - 12, qrBoxH - 12); } catch { /* ignore */ }
   }
 
-  // Texto
-  const tx = x + boxH - 4;
+  const tx = qrX + qrBoxH - 4;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
-  doc.setTextColor(...PDF_COLORS.primaryDark);
-  doc.text("VERIFICAÇÃO DE AUTENTICIDADE", tx, y + 12);
-
-  doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
-  doc.setTextColor(...PDF_COLORS.muted);
-  doc.text("Protocolo:", tx, y + 24);
-  doc.setFont("courier", "bold");
-  doc.setFontSize(8);
-  doc.setTextColor(...PDF_COLORS.ink);
-  doc.text(opts.protocolo, tx, y + 35);
+  doc.setTextColor(...PDF_COLORS.primaryDark);
+  doc.text("VERIFICAÇÃO DE AUTENTICIDADE", tx, qrY + 11);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   doc.setTextColor(...PDF_COLORS.muted);
+  doc.text("Protocolo:", tx, qrY + 22);
+  doc.setFont("courier", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...PDF_COLORS.ink);
+  doc.text(opts.protocolo, tx, qrY + 32);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6);
+  doc.setTextColor(...PDF_COLORS.muted);
   const url = opts.verifyUrl ?? "spokenmed.lovable.app/verificar";
-  const urlLines = doc.splitTextToSize(url, boxW - boxH);
-  doc.text(urlLines, tx, y + 46);
+  doc.text(url, tx, qrY + 42);
   doc.setTextColor(0, 0, 0);
+
+  // ===== Cartão de Assinatura Eletrônica (esquerda) =====
+  if (opts.assinatura) {
+    const sigBoxW = 260;
+    const sigBoxH = 62;
+    const sigX = 36;
+    const sigY = qrY;
+
+    doc.setDrawColor(...PDF_COLORS.primary);
+    doc.setLineWidth(0.7);
+    doc.setFillColor(...PDF_COLORS.primarySoft);
+    doc.roundedRect(sigX, sigY, sigBoxW, sigBoxH, 6, 6, "FD");
+    doc.setLineWidth(0.5);
+
+    // selo redondo
+    const stampX = sigX + 26;
+    const stampY = sigY + sigBoxH / 2;
+    doc.setDrawColor(...PDF_COLORS.primaryDark);
+    doc.setFillColor(...PDF_COLORS.primary);
+    doc.circle(stampX, stampY, 18, "FD");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(5.5);
+    doc.text("SpokenMED", stampX, stampY - 3, { align: "center" });
+    doc.setFontSize(6.5);
+    doc.text("ASSINADO", stampX, stampY + 6, { align: "center" });
+
+    const txtX = stampX + 22;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.8);
+    doc.setTextColor(...PDF_COLORS.primaryDark);
+    doc.text("ASSINATURA ELETRÔNICA SPOKENMED", txtX, sigY + 11);
+
+    doc.setFont("courier", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(...PDF_COLORS.ink);
+    const hashFmt = formatarAssinatura(opts.assinatura);
+    const hashLines = doc.splitTextToSize(hashFmt, sigBoxW - (txtX - sigX) - 8);
+    doc.text(hashLines.slice(0, 2), txtX, sigY + 22);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(5.6);
+    doc.setTextColor(...PDF_COLORS.muted);
+    const quando = opts.assinadoEm
+      ? new Date(opts.assinadoEm).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
+      : "";
+    doc.text(`HMAC-SHA256 · ${quando}`, txtX, sigY + 42);
+    doc.text("Assinatura eletrônica avançada — Lei 14.063/2020", txtX, sigY + 50);
+    doc.text("Verifique em spokenmed.lovable.app/verificar", txtX, sigY + 58);
+    doc.setTextColor(0, 0, 0);
+  }
 }
 
-export function drawVerificationOnAllPages(
-  doc: jsPDF,
-  opts: { protocolo: string; qrDataUrl: string | null; verifyUrl?: string },
-) {
+export function drawVerificationOnAllPages(doc: jsPDF, opts: VerificationOpts) {
   const total = doc.getNumberOfPages();
   for (let i = 1; i <= total; i++) {
     doc.setPage(i);
@@ -207,8 +277,10 @@ export function drawHeader(
   return headerH + 12;
 }
 
-// Espaço reservado ao rodapé (use no margin.bottom do autoTable e nos checks de quebra)
-export const PDF_FOOTER_MARGIN = 70;
+// Faixa reservada na base de cada página:
+//   ~52pt para o footer (duas linhas) + ~68pt para o cartão QR/assinatura + folga.
+// autoTable e checks de quebra DEVEM respeitar este valor.
+export const PDF_FOOTER_MARGIN = 150;
 
 // ===== Rodapé em todas as páginas (duas linhas, sem sobreposição) =====
 export function drawFooterAllPages(
@@ -276,13 +348,8 @@ export function openPdf(doc: jsPDF, filename: string) {
       });
       return;
     }
-    // tenta dar um título amigável na aba
     setTimeout(() => {
-      try {
-        win.document.title = filename;
-      } catch {
-        /* cross-origin no worker, ignore */
-      }
+      try { win.document.title = filename; } catch { /* cross-origin no worker, ignore */ }
     }, 500);
   } catch {
     doc.save(filename);
