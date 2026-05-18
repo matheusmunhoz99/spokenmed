@@ -23,7 +23,7 @@ import { Save, Upload, X, Home, Users, User, ChevronLeft, CheckCircle2, Calendar
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { SemAcesso } from "@/components/sem-acesso";
-import { SignaturePad } from "@/components/signature-pad";
+import { SignatureDialog, type SignatureResult } from "@/components/signature-dialog";
 import { GeolocationCapture, type GeoCoord } from "@/components/geolocation-capture";
 import { MOTIVOS_VISITA, ACOMPANHAMENTOS, CONTROLE_AMBIENTAL, TURNOS, DESFECHOS } from "@/lib/visitas-constants";
 import { format } from "date-fns";
