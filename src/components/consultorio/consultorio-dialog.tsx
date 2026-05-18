@@ -508,7 +508,7 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
                 <Save className="h-4 w-4" />
                 <span>Salvar</span>
               </Button>
-              <Button onClick={finalizar} className="hidden gap-2 shadow-sm sm:inline-flex" title="Finalizar (Ctrl+Enter)">
+              <Button onClick={finalizar} className="hidden gap-2 bg-gradient-to-r from-primary to-primary/85 font-semibold shadow-md shadow-primary/25 sm:inline-flex" title="Finalizar (Ctrl+Enter)">
                 <Send className="h-4 w-4" />
                 <span className="hidden sm:inline">Finalizar e enviar ao eSUS PEC</span>
                 <span className="sm:hidden">Finalizar</span>
