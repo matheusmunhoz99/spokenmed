@@ -68,7 +68,7 @@ export async function gerarAtestadoPdf(opts: AtestadoOpts) {
   doc.setFontSize(10);
   doc.setTextColor(...PDF_COLORS.muted);
   const meta = [
-    opts.profissional.crm ? `CRM ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}` : null,
+    opts.profissional.crm ? `${opts.profissional.conselho_tipo || "CRM"} ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}` : null,
     opts.profissional.cbo ? `CBO ${opts.profissional.cbo}` : null,
     opts.unidade?.cnes ? `CNES ${opts.unidade.cnes}` : null,
   ].filter(Boolean).join("   ·   ");

@@ -157,7 +157,7 @@ function drawVia(doc: jsPDF, opts: GerarReceitaOpts, viaLabel: string | null, lo
   doc.setFontSize(9);
   doc.setTextColor(...PDF_COLORS.muted);
   const profMeta = [
-    opts.profissional.crm ? `CRM ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}` : null,
+    opts.profissional.crm ? `${opts.profissional.conselho_tipo || "CRM"} ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}` : null,
     opts.profissional.cbo ? `CBO ${opts.profissional.cbo}` : null,
   ].filter(Boolean).join("   ·   ");
   if (profMeta) doc.text(profMeta, pageW / 2, sigY + 28, { align: "center" });
@@ -252,7 +252,7 @@ function drawNotificacao(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   const emitMeta: string[] = [];
-  if (opts.profissional.crm) emitMeta.push(`CRM ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}`);
+  if (opts.profissional.crm) emitMeta.push(`${opts.profissional.conselho_tipo || "CRM"} ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}`);
   if (opts.profissional.cbo) emitMeta.push(`CBO ${opts.profissional.cbo}`);
   doc.text(emitMeta.join("   ·   "), 44, y + 38);
   const unidLinha: string[] = [];
@@ -367,7 +367,7 @@ function drawNotificacao(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   if (opts.profissional.crm) {
-    doc.text(`CRM ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}`, pageW / 2, sigY + 24, { align: "center" });
+    doc.text(`${opts.profissional.conselho_tipo || "CRM"} ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}`, pageW / 2, sigY + 24, { align: "center" });
   }
   doc.setFontSize(7.5);
   doc.setTextColor(80, 80, 80);

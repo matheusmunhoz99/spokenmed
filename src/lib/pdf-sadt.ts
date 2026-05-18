@@ -172,7 +172,7 @@ export async function gerarSadtPdf(opts: SadtOpts) {
   doc.setFontSize(9);
   doc.setTextColor(...PDF_COLORS.muted);
   const meta = [
-    opts.profissional.crm ? `CRM ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}` : null,
+    opts.profissional.crm ? `${opts.profissional.conselho_tipo || "CRM"} ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}` : null,
     opts.profissional.cbo ? `CBO ${opts.profissional.cbo}` : null,
   ].filter(Boolean).join("   ·   ");
   if (meta) doc.text(meta, pageW / 2, sigY + 28, { align: "center" });
