@@ -135,6 +135,7 @@ export function StatusBadge({ status }: { status: string }) {
     confirmado: { label: "Confirmado", cls: "bg-primary/15 text-primary" },
     chegou: { label: "Chegou", cls: "bg-sky-500/15 text-sky-700 dark:text-sky-300" },
     em_triagem: { label: "Em triagem", cls: "bg-violet-500/15 text-violet-700 dark:text-violet-300" },
+    triado: { label: "Pronto p/ consulta", cls: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/40" },
     atendido: { label: "Atendido", cls: "bg-success/15 text-success" },
     faltou: { label: "Faltou", cls: "bg-warning/20 text-warning-foreground" },
     cancelado: { label: "Cancelado", cls: "bg-destructive/15 text-destructive" },
