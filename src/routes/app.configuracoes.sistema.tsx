@@ -263,6 +263,8 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                   <Select value={newRole} onValueChange={(v) => setNewRole(v as AppRole)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="triagem">Triagem</SelectItem>
+                      <SelectItem value="acs">Agente Comunitário</SelectItem>
                       <SelectItem value="admin">Administrador</SelectItem>
                       <SelectItem value="recepcionista">Administrativo</SelectItem>
                       <SelectItem value="medico">Médico</SelectItem>
@@ -324,6 +326,8 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                       <Badge className="bg-primary/15 text-primary border-0">{ROLE_LABEL[role]}</Badge>
                     </div>
                     <Select value={role} onValueChange={(v) => handleRoleChange(u.id, v as AppRole)} disabled={isMe}>
+                      <SelectItem value="triagem">Triagem</SelectItem>
+                      <SelectItem value="acs">Agente Comunitário</SelectItem>
                       <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="admin">Administrador</SelectItem>
@@ -382,6 +386,8 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                           <Select
                             value={role}
                             onValueChange={(v) => handleRoleChange(u.id, v as AppRole)}
+                      <SelectItem value="triagem">Triagem</SelectItem>
+                      <SelectItem value="acs">Agente Comunitário</SelectItem>
                             disabled={isMe}
                           >
                             <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
