@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Activity, AlertTriangle, CalendarClock, ClipboardList, FileSignature, FileText, FlaskConical,
   HeartPulse, Pill, Plus, Printer, Save, Send, Stethoscope, Trash2, User, X, Timer, BadgeCheck, Workflow,
+  PanelRight,
 } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -326,32 +328,110 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 
   if (!open || !agendamento) return null;
 
+  const sidebarJsx = (
+    <div className="space-y-3">
+      <Card icon={User} title="Resumo do paciente">
+        <dl className="space-y-1.5 text-sm">
+          <Dl k="Sexo" v="Não informado" />
+          <Dl k="Idade" v="—" />
+          <Dl k="Raça/Cor" v="—" />
+          <Dl k="Telefone" v={agendamento.pacientes?.telefone ?? "—"} />
+        </dl>
+      </Card>
+
+      <div className={`rounded-xl border p-4 shadow-xs ${alergias.some(a=>a.gravidade==="grave") ? "border-rose-300 bg-rose-50/70 dark:border-rose-900/40 dark:bg-rose-950/20 animate-in fade-in" : "border-rose-200 bg-rose-50/40 dark:border-rose-900/30 dark:bg-rose-950/10"}`}>
+        <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-300">
+          <AlertTriangle className="h-3.5 w-3.5" /> Alergias ativas
+          {alergias.length > 0 && <Badge className="ml-auto bg-rose-600 text-white">{alergias.length}</Badge>}
+        </div>
+        {alergias.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhuma alergia registrada.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {alergias.map((al) => (
+              <li key={al.id} className="text-xs">
+                <span className="font-semibold">{al.substancia}</span>
+                {al.reacao && <span className="text-muted-foreground"> — {al.reacao}</span>}
+                <Badge variant="outline" className={`ml-1.5 text-[9px] ${al.gravidade==="grave" ? "border-rose-400 text-rose-700" : al.gravidade==="moderada" ? "border-amber-400 text-amber-700" : "border-slate-300 text-slate-600"}`}>
+                  {al.gravidade}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <Card icon={Activity} title="Sinais vitais">
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="PA (mmHg)" v={pa} onChange={setPa} placeholder="120x80" />
+          <Field label="FC (bpm)" v={fc} onChange={setFc} placeholder="78" />
+          <Field label="FR (irpm)" v={fr} onChange={setFr} placeholder="16" />
+          <Field label="Temp (°C)" v={temp} onChange={setTemp} placeholder="36,5" />
+          <Field label="SatO₂ (%)" v={sat} onChange={setSat} placeholder="98" />
+          <Field label="Peso (kg)" v={peso} onChange={setPeso} placeholder="70" />
+          <Field label="Altura (cm)" v={altura} onChange={setAltura} placeholder="170" />
+          {(() => {
+            const pesoN = parseFloat(peso.replace(",", "."));
+            const altN = parseFloat(altura.replace(",", ".")) / 100;
+            const imc = pesoN > 0 && altN > 0 ? (pesoN / (altN * altN)).toFixed(1) : "";
+            return (
+              <div>
+                <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">IMC</Label>
+                <div className="grid h-8 place-items-center rounded-md border bg-muted/30 text-sm font-semibold tabular-nums">
+                  {imc || "—"}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </Card>
+
+      <Card icon={Workflow} title="Status do atendimento">
+        <ul className="space-y-1 text-xs">
+          <StatusLi ok={!!atend.tipoAtendimento}>Tipo de atendimento</StatusLi>
+          <StatusLi ok={!!(s||o||a||p)}>SOAP preenchido</StatusLi>
+          <StatusLi ok={cids.length>0}>CID-10 codificado</StatusLi>
+          <StatusLi ok={conduta.desfechos.length>0}>Conduta definida</StatusLi>
+        </ul>
+      </Card>
+    </div>
+  );
+
   return (
     <>
-      <div className="fixed inset-0 z-[100] flex flex-col bg-background animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-[100] flex h-[100dvh] flex-col bg-background animate-in fade-in duration-200">
         {/* HEADER ===================================== */}
         <header className="relative shrink-0 border-b bg-card">
           {/* gradient ribbon */}
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/70 to-emerald-400" />
           <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/[0.04] via-transparent to-emerald-400/[0.04]" />
-          <div className="mx-auto flex w-full max-w-[1400px] flex-wrap items-center gap-3 px-4 py-3 lg:gap-4">
-            <img src={logoUrl} alt="SpokenMED" className="h-10 w-10 shrink-0 object-contain drop-shadow-sm" />
+
+          {/* LINHA 1: identidade compacta + ações principais */}
+          <div className="mx-auto flex w-full max-w-[1400px] items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3 lg:gap-4">
+            <img src={logoUrl} alt="SpokenMED" className="hidden h-10 w-10 shrink-0 object-contain drop-shadow-sm lg:block" />
             <div className="hidden h-10 w-px bg-border lg:block" />
 
-            {/* identidade */}
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-sm font-bold text-primary-foreground shadow-sm">
+            {/* avatar + nome */}
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-xs font-bold text-primary-foreground shadow-sm sm:h-11 sm:w-11 sm:text-sm">
                 {iniciais}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <h1 className="truncate text-base font-semibold tracking-tight sm:text-lg">{paciente}</h1>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <h1 className="truncate text-sm font-semibold tracking-tight sm:text-base lg:text-lg">{paciente}</h1>
+                  {alergias.some(a=>a.gravidade==="grave") && (
+                    <Badge className="hidden bg-rose-600 text-white text-[10px] sm:inline-flex"><AlertTriangle className="mr-0.5 h-3 w-3" />Alergia grave</Badge>
+                  )}
+                </div>
+                {/* badges visíveis só em desktop */}
+                <div className="mt-0.5 hidden flex-wrap items-center gap-1.5 lg:flex">
                   <Badge variant="secondary" className="text-[10px]"><Stethoscope className="mr-1 h-3 w-3" />Atendimento individual</Badge>
                   <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-[10px] text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300">
                     <BadgeCheck className="mr-1 h-3 w-3" />eSUS PEC · CDS v4.3
                   </Badge>
                 </div>
-                <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                {/* meta desktop */}
+                <div className="mt-0.5 hidden flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground lg:flex">
                   <span>CNS <span className="font-mono">{CNS_FAKE}</span></span>
                   {cpf && <span>CPF <span className="font-mono">{cpf}</span></span>}
                   {agendamento.hora_inicio && (
@@ -362,8 +442,8 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
               </div>
             </div>
 
-            {/* cronômetro + auto-save */}
-            <div className="hidden flex-col items-end gap-0.5 sm:flex">
+            {/* cronômetro + auto-save (desktop) */}
+            <div className="hidden flex-col items-end gap-0.5 lg:flex">
               <div className="flex items-center gap-1.5 rounded-lg border bg-card/60 px-3 py-1.5">
                 <Timer className="h-3.5 w-3.5 text-primary" />
                 <span className="text-xs font-medium text-muted-foreground">Atendimento</span>
@@ -376,18 +456,36 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
             </div>
 
             {/* actions */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex shrink-0 items-center gap-1">
+              {/* Botão resumo paciente — mobile */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon" className="lg:hidden h-9 w-9" aria-label="Resumo do paciente">
+                    <PanelRight className="h-4 w-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[88vw] max-w-sm overflow-y-auto p-4">
+                  <SheetHeader className="mb-3">
+                    <SheetTitle className="flex items-center gap-2 text-base">
+                      <User className="h-4 w-4 text-primary" /> Resumo do paciente
+                    </SheetTitle>
+                  </SheetHeader>
+                  {sidebarJsx}
+                </SheetContent>
+              </Sheet>
+
               <Button variant="outline" size="sm" onClick={salvarRascunhoManual} className="hidden gap-1.5 md:inline-flex" title="Salvar rascunho (Ctrl+S)">
                 <Save className="h-4 w-4" />
                 <span>Salvar</span>
               </Button>
-              <Button onClick={finalizar} className="gap-2 shadow-sm" title="Finalizar (Ctrl+Enter)">
+              <Button onClick={finalizar} className="hidden gap-2 shadow-sm sm:inline-flex" title="Finalizar (Ctrl+Enter)">
                 <Send className="h-4 w-4" />
                 <span className="hidden sm:inline">Finalizar e enviar ao eSUS PEC</span>
                 <span className="sm:hidden">Finalizar</span>
               </Button>
               <Button
                 variant="ghost" size="icon"
+                className="h-9 w-9"
                 onClick={() => {
                   if (s || o || a || p || meds.length || cids.length) {
                     if (!confirm("Descartar atendimento e fechar?")) return;
@@ -398,77 +496,36 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
               ><X className="h-5 w-5" /></Button>
             </div>
           </div>
+
+          {/* LINHA 2 (mobile/tablet): chips roláveis com meta */}
+          <div className="border-t bg-background/60 lg:hidden">
+            <div className="mx-auto flex w-full max-w-[1400px] items-center gap-2 overflow-x-auto px-3 py-1.5 text-[11px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {agendamento.hora_inicio && (
+                <Chip><CalendarClock className="h-3 w-3" />{formatTime(agendamento.hora_inicio)}</Chip>
+              )}
+              <Chip><Timer className="h-3 w-3 text-primary" /><span className="font-mono tabular-nums">{elapsedFmt}</span></Chip>
+              <Chip>
+                <span className={`inline-block h-1.5 w-1.5 rounded-full ${savedAt ? "bg-emerald-500" : "bg-amber-400"}`} />
+                {savedAt ? "salvo" : "rascunho"}
+              </Chip>
+              {alergias.length > 0 && (
+                <Chip className="border-rose-300 bg-rose-50 text-rose-700">
+                  <AlertTriangle className="h-3 w-3" />Alergias {alergias.length}
+                </Chip>
+              )}
+              {cpf && <Chip>CPF <span className="font-mono">{cpf}</span></Chip>}
+              <Chip>CNS <span className="font-mono">{CNS_FAKE}</span></Chip>
+              {agendamento.unidades?.nome && (
+                <Chip className="text-primary/90">{agendamento.unidades.nome} · CNES {CNES_FAKE}</Chip>
+              )}
+            </div>
+          </div>
         </header>
 
         {/* BODY ====================================== */}
-        <div className="mx-auto grid w-full max-w-[1400px] flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 lg:grid-cols-[320px_1fr]">
-          {/* SIDEBAR */}
-          <aside className="space-y-3">
-            <Card icon={User} title="Resumo do paciente">
-              <dl className="space-y-1.5 text-sm">
-                <Dl k="Sexo" v="Não informado" />
-                <Dl k="Idade" v="—" />
-                <Dl k="Raça/Cor" v="—" />
-                <Dl k="Telefone" v={agendamento.pacientes?.telefone ?? "—"} />
-              </dl>
-            </Card>
-
-            <div className={`rounded-xl border p-4 shadow-xs ${alergias.some(a=>a.gravidade==="grave") ? "border-rose-300 bg-rose-50/70 dark:border-rose-900/40 dark:bg-rose-950/20 animate-in fade-in" : "border-rose-200 bg-rose-50/40 dark:border-rose-900/30 dark:bg-rose-950/10"}`}>
-              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-300">
-                <AlertTriangle className="h-3.5 w-3.5" /> Alergias ativas
-                {alergias.length > 0 && <Badge className="ml-auto bg-rose-600 text-white">{alergias.length}</Badge>}
-              </div>
-              {alergias.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Nenhuma alergia registrada.</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {alergias.map((al) => (
-                    <li key={al.id} className="text-xs">
-                      <span className="font-semibold">{al.substancia}</span>
-                      {al.reacao && <span className="text-muted-foreground"> — {al.reacao}</span>}
-                      <Badge variant="outline" className={`ml-1.5 text-[9px] ${al.gravidade==="grave" ? "border-rose-400 text-rose-700" : al.gravidade==="moderada" ? "border-amber-400 text-amber-700" : "border-slate-300 text-slate-600"}`}>
-                        {al.gravidade}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <Card icon={Activity} title="Sinais vitais">
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="PA (mmHg)" v={pa} onChange={setPa} placeholder="120x80" />
-                <Field label="FC (bpm)" v={fc} onChange={setFc} placeholder="78" />
-                <Field label="FR (irpm)" v={fr} onChange={setFr} placeholder="16" />
-                <Field label="Temp (°C)" v={temp} onChange={setTemp} placeholder="36,5" />
-                <Field label="SatO₂ (%)" v={sat} onChange={setSat} placeholder="98" />
-                <Field label="Peso (kg)" v={peso} onChange={setPeso} placeholder="70" />
-                <Field label="Altura (cm)" v={altura} onChange={setAltura} placeholder="170" />
-                {(() => {
-                  const pesoN = parseFloat(peso.replace(",", "."));
-                  const altN = parseFloat(altura.replace(",", ".")) / 100;
-                  const imc = pesoN > 0 && altN > 0 ? (pesoN / (altN * altN)).toFixed(1) : "";
-                  return (
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">IMC</Label>
-                      <div className="grid h-8 place-items-center rounded-md border bg-muted/30 text-sm font-semibold tabular-nums">
-                        {imc || "—"}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            </Card>
-
-            <Card icon={Workflow} title="Status do atendimento">
-              <ul className="space-y-1 text-xs">
-                <StatusLi ok={!!atend.tipoAtendimento}>Tipo de atendimento</StatusLi>
-                <StatusLi ok={!!(s||o||a||p)}>SOAP preenchido</StatusLi>
-                <StatusLi ok={cids.length>0}>CID-10 codificado</StatusLi>
-                <StatusLi ok={conduta.desfechos.length>0}>Conduta definida</StatusLi>
-              </ul>
-            </Card>
-          </aside>
+        <div className="mx-auto grid w-full max-w-[1400px] flex-1 grid-cols-1 gap-4 overflow-y-auto p-3 pb-28 sm:p-4 lg:grid-cols-[320px_1fr] lg:pb-4">
+          {/* SIDEBAR (desktop) */}
+          <aside className="hidden lg:block">{sidebarJsx}</aside>
 
           {/* MAIN */}
           <main className="rounded-xl border bg-card p-3 shadow-sm sm:p-4">
@@ -775,6 +832,25 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
             </Tabs>
           </main>
         </div>
+
+        {/* Barra de ação fixa (mobile) */}
+        <div className="sticky bottom-0 left-0 right-0 z-10 border-t bg-card/95 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur sm:hidden">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={salvarRascunhoManual}
+              className="gap-1.5"
+              title="Salvar rascunho"
+            >
+              <Save className="h-4 w-4" />
+              Salvar
+            </Button>
+            <Button onClick={finalizar} className="flex-1 gap-2 shadow-sm" size="lg">
+              <Send className="h-4 w-4" />
+              Finalizar e enviar
+            </Button>
+          </div>
+        </div>
       </div>
 
       <EnvioEsusOverlay open={enviando} onClose={handleEnvioFechar} pacienteNome={paciente} />
@@ -783,6 +859,14 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 }
 
 /* ---------- helpers ---------- */
+function Chip({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border bg-card px-2 py-0.5 text-muted-foreground ${className}`}>
+      {children}
+    </span>
+  );
+}
+
 function TT({ v, icon: Icon, children }: { v: string; icon: any; children: React.ReactNode }) {
   return (
     <TabsTrigger value={v} className="gap-1.5 whitespace-nowrap data-[state=active]:bg-card data-[state=active]:shadow-sm">
