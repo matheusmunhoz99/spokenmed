@@ -1,83 +1,51 @@
-## Diagnóstico do bug "Nova visita não abre"
+## Objetivo
 
-O arquivo `src/routes/app.visitas.tsx` é uma rota-folha que renderiza a lista de visitas direto, mas como existe um filho (`app.visitas.nova.tsx`), o TanStack Router trata `app.visitas` como **rota-pai/layout**. Pais com filhos **precisam ter `<Outlet />`** — sem isso o navegador troca de URL, mas a tela continua mostrando a lista (parece que "nada acontece"). Não é problema de permissão (verifiquei: ACS tem `visitas can_manage = true` no banco).
+Tornar obrigatório que toda visita seja vinculada a um **paciente que pertença a uma família** cadastrada em um **domicílio** (com microárea/área), e oferecer a opção de **replicar a visita para todos os membros da família** ao salvar.
 
-## O que vou entregar
+## Mudanças
 
-### 1. Corrigir o bug da rota
-Reestruturar as rotas de visitas:
-- `src/routes/app.visitas.tsx` vira **layout** (só `<Outlet />` + guard de permissão).
-- Mover a lista atual para `src/routes/app.visitas.index.tsx`.
-- `app.visitas.nova.tsx` continua igual (passa a renderizar corretamente dentro do Outlet).
-- Mesma correção aplicada nas novas rotas de domicílios.
+### 1. Fluxo da tela `/app/visitas/nova`
 
-### 2. Cadastro Domiciliar / Territorial (modelo PEC CDS)
+Substituir a busca livre de paciente por um seletor em 3 passos:
 
-#### Modelo de dados (migração)
-- **`domicilios`** — uma "casa" com:
-  - endereço completo (CEP, logradouro, número, complemento, bairro, cidade, UF),
-  - GPS (lat/lng/precisão/capturado_em),
-  - tipo de imóvel, tipo de domicílio, situação de moradia,
-  - nº de moradores, nº de cômodos/dormitórios,
-  - água (abastecimento + tratamento), esgoto, lixo, energia,
-  - animais no domicílio (jsonb), material das paredes,
-  - unidade_id (UBS responsável), acs_user_id (quem cadastrou),
-  - microárea, família de referência.
-- **`familias`** — núcleo familiar dentro do domicílio:
-  - prontuário familiar (código), renda familiar, qtd. membros, em situação de rua (bool), Bolsa Família (bool),
-  - responsável familiar (paciente_id).
-- **`familia_membros`** — vínculo `familia_id` ↔ `paciente_id` + parentesco com o responsável.
-- Coluna nova em `visitas_domiciliares`: `domicilio_id` (uuid, nullable) e `familia_id` (uuid, nullable) — visita passa a poder ser ligada ao domicílio/família, não só ao paciente.
-- RLS:
-  - ACS lê/escreve apenas registros que ele cadastrou (`acs_user_id = auth.uid()`).
-  - Staff da unidade lê tudo da própria unidade.
-  - Admin lê/escreve tudo.
-- Trigger de imutabilidade após 24h (mesma regra das visitas), exceto admin.
+1. **Selecionar Domicílio** — busca/lista dos domicílios cadastrados pelo ACS (próprios, via RLS). Cada item mostra logradouro/nº, bairro, microárea e nº de famílias. Botão "Cadastrar novo domicílio" → `/app/domicilios/novo`.
+2. **Selecionar Família** — lista das famílias do domicílio escolhido. Mostra responsável e nº de membros.
+3. **Selecionar Paciente (membro)** — lista somente os membros da família selecionada (`familia_membros` → `pacientes`). Sem busca livre por CPF/nome solto.
 
-#### Permissões
-- Novo módulo `domicilios` em `src/lib/permissions.ts`.
-- ACS: `view + manage`. Admin: tudo. Demais perfis: `view` (somente leitura, pra equipe ver os cadastros).
-- Atualizar `defaultPermsFor` e inserir as linhas em `user_permissions` para os usuários ACS/triagem/admin existentes.
+Se o domicílio não tiver família, ou a família não tiver membros, mostrar aviso com link para editar o domicílio.
 
-#### Telas (mobile-first, mesmo padrão das visitas)
-- **`/app/domicilios`** — lista dos domicílios cadastrados pelo ACS (endereço, nº moradores, microárea, ações).
-- **`/app/domicilios/novo`** — formulário do **Cadastro Domiciliar CDS**:
-  1. Endereço (com ViaCEP) + GPS obrigatório.
-  2. Características do imóvel (tipo, paredes, água, esgoto, lixo, energia, cômodos, animais).
-  3. Família(s) que moram no domicílio: cria a família, vincula moradores (busca pacientes por nome/CPF, ou cria paciente novo rápido), define parentesco e o responsável familiar.
-  4. Observações.
-  5. Assinatura do responsável (opcional, mesmo componente da visita) + foto opcional da fachada.
-- **`/app/domicilios/$id`** — visualização do domicílio com membros, ações: editar (≤24h), nova visita pré-preenchida.
+Endereço da visita passa a ser pré-preenchido com o endereço do domicílio (e GPS sugerido a partir das coordenadas salvas, mas ainda obrigatória a captura no momento da visita).
 
-#### Nova visita ligada à família/domicílio
-- Em `/app/visitas/nova`, antes de buscar paciente, opção:
-  - **"Selecionar domicílio"** → lista os domicílios do ACS → escolhe a família → escolhe o morador que está sendo visitado (pré-preenche endereço/GPS sugerido).
-  - **"Visita avulsa"** → fluxo atual (busca paciente direto).
-- Salva `domicilio_id` e `familia_id` no registro da visita quando vier por esse fluxo.
+### 2. Replicar visita para a família
 
-### 3. Navegação
-- Sidebar e barra inferior (ACS): adicionar **"Domicílios"** entre Início e Visitas.
-- Sidebar (admin): grupo "Atenção Básica" com Domicílios + Visitas (read-only para visualização da equipe da UBS).
+Antes de salvar, se a família tiver 2+ membros, mostrar um `AlertDialog`:
 
-## Fora de escopo (avisar se precisar depois)
-- Ficha de Cadastro Individual completa do CDS (campos como escolaridade, ocupação, deficiências, gestação, condições crônicas no paciente — hoje só temos os básicos em `pacientes`).
-- Microáreas/áreas de abrangência cadastráveis (vamos usar campo livre `microarea text` por enquanto; cadastro estruturado pode vir num próximo passo).
-- Sincronização offline (PWA) das visitas — fica para depois.
+> "Replicar esta visita para todos os **N** membros da família?"
+> Botões: **Sim, replicar para todos** / **Não, apenas para [nome do paciente]**.
 
-## Arquivos que serão criados/alterados
+- **Não** → comportamento atual: 1 insert em `visitas_domiciliares` para o paciente selecionado.
+- **Sim** → 1 insert por membro da família, todos com os mesmos campos da visita (data, turno, motivos, acompanhamentos, GPS, fotos, observações, etc.) e mesma assinatura/recusa. Cada registro fica individual (auditável separadamente), todos vinculados ao mesmo `domicilio_id` e `familia_id`.
 
-```text
-supabase/migrations/<novo>.sql          (domicilios, familias, familia_membros, alter visitas, RLS, trigger, módulo domicilios em user_permissions)
-src/lib/permissions.ts                   (+ módulo "domicilios" e defaults)
-src/lib/domicilios-constants.ts          (opções: tipo imóvel, abastecimento, esgoto, lixo, parentesco...)
-src/routes/app.visitas.tsx               (vira layout com Outlet)
-src/routes/app.visitas.index.tsx         (lista — conteúdo atual da visitas.tsx)
-src/routes/app.domicilios.tsx            (layout com Outlet)
-src/routes/app.domicilios.index.tsx      (lista)
-src/routes/app.domicilios.novo.tsx       (formulário CDS)
-src/routes/app.domicilios.$id.tsx        (detalhe)
-src/routes/app.visitas.nova.tsx          (adicionar seletor de domicílio/família, salvar IDs)
-src/components/app-sidebar.tsx           (item Domicílios)
-src/components/mobile-bottom-nav.tsx     (item Domicílios para ACS)
-src/hooks/use-auth.tsx                   (sem mudança estrutural — só se módulo novo exigir flag)
-```
+Toast final: "Visita registrada para N pacientes."
+
+### 3. Banco
+
+Tornar `domicilio_id` e `familia_id` **NOT NULL** em `visitas_domiciliares` (após o backfill: como ainda não há visitas com esses campos preenchidos em produção, basta um check — se houver linhas antigas sem domicílio, deixar nullable e validar apenas no frontend; confirmo durante a migração).
+
+Plano seguro: validar **no frontend** que `domicilio_id` e `familia_id` são obrigatórios na criação, **sem** alterar a coluna (mantém visitas antigas válidas).
+
+### 4. Permissões
+
+Sem mudanças — ACS já tem `manage` em `visitas` e `domicilios`.
+
+## Arquivos
+
+- **editar** `src/routes/app.visitas.nova.tsx` — novo seletor domicílio→família→paciente, dialog de replicação, loop de inserts.
+- **(opcional) novo** `src/components/visita-replicar-dialog.tsx` — extrair o AlertDialog se ficar grande.
+
+## Pontos técnicos
+
+- Buscar domicílios do ACS: `domicilios` filtrado por `acs_user_id = auth.uid()` (RLS já garante).
+- Buscar famílias: `familias.select('*, familia_membros(paciente_id, parentesco, is_responsavel, pacientes(id, nome, cpf, data_nascimento))').eq('domicilio_id', selectedDomicilio.id)`.
+- Replicação: `Promise.all(membros.map(m => supabase.from('visitas_domiciliares').insert({...payload, paciente_id: m.paciente_id})))`. Upload das fotos acontece **uma única vez**; os metadados são reaproveitados em todos os inserts.
+- Assinatura: a mesma assinatura do responsável é replicada para os registros dos demais membros (PEC permite — responsável familiar assina pela família). Manter campo `assinatura_recusada` igual em todos.
