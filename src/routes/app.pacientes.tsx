@@ -520,6 +520,8 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
           <Field label="CEP">
             <div className="relative">
               <Input
+                data-field="cep"
+                className={hl("cep")}
                 value={formatCEP(form.cep ?? "")}
                 onChange={(e) => set("cep", e.target.value)}
                 onBlur={handleCepBlur}
@@ -536,12 +538,12 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
               {cepLoading && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
             </div>
           </Field>
-          <Field label="Logradouro" className="md:col-span-2"><Input value={form.logradouro ?? ""} onChange={(e) => set("logradouro", e.target.value)} /></Field>
+          <Field label="Logradouro" className="md:col-span-2"><Input data-field="logradouro" className={hl("logradouro")} value={form.logradouro ?? ""} onChange={(e) => set("logradouro", e.target.value)} /></Field>
           <Field label="Número"><Input data-field="numero" value={form.numero ?? ""} onChange={(e) => set("numero", e.target.value)} /></Field>
           <Field label="Complemento"><Input value={form.complemento ?? ""} onChange={(e) => set("complemento", e.target.value)} /></Field>
-          <Field label="Bairro"><Input value={form.bairro ?? ""} onChange={(e) => set("bairro", e.target.value)} /></Field>
-          <Field label="Cidade"><Input value={form.cidade ?? ""} onChange={(e) => set("cidade", e.target.value)} /></Field>
-          <Field label="UF"><Input maxLength={2} value={form.uf ?? ""} onChange={(e) => set("uf", e.target.value.toUpperCase())} /></Field>
+          <Field label="Bairro"><Input data-field="bairro" className={hl("bairro")} value={form.bairro ?? ""} onChange={(e) => set("bairro", e.target.value)} /></Field>
+          <Field label="Cidade"><Input data-field="cidade" className={hl("cidade")} value={form.cidade ?? ""} onChange={(e) => set("cidade", e.target.value)} /></Field>
+          <Field label="UF"><Input data-field="uf" className={hl("uf")} maxLength={2} value={form.uf ?? ""} onChange={(e) => set("uf", e.target.value.toUpperCase())} /></Field>
         </Section>
 
         <Section title="Observações" cols={1}>
