@@ -267,7 +267,10 @@ function RecepcaoPage() {
           {cols.triagem.map((a: any) => (
             <PacienteCard
               key={a.id} a={a} ordem={ordemMap.get(a.id)} fmtWait={fmtWait} waitMinutes={waitMinutes} waitToneCls={waitToneCls} idadeStr={idadeStr} waitFrom={a.triagem_em}
-              actions={canManage ? [{ label: "Liberar", icon: Stethoscope, tone: "emerald", onClick: () => updateStatus(a, "triado") }] : []}
+              ctaLabel={canManage ? "Finalizar triagem" : undefined}
+              ctaIcon={Stethoscope}
+              ctaTone="emerald"
+              onCta={canManage ? () => updateStatus(a, "triado") : undefined}
             />
           ))}
         </KanbanCol>
@@ -276,7 +279,10 @@ function RecepcaoPage() {
             <PacienteCard
               key={a.id} a={a} ordem={ordemMap.get(a.id)} fmtWait={fmtWait} waitMinutes={waitMinutes} waitToneCls={waitToneCls} idadeStr={idadeStr}
               highlight
-              onChamar={canManage && a.unidade_id ? () => setChamar(a) : undefined}
+              ctaLabel={canManage && a.unidade_id ? "Chamar no painel" : undefined}
+              ctaIcon={Megaphone}
+              ctaTone="primary"
+              onCta={canManage && a.unidade_id ? () => setChamar(a) : undefined}
             />
           ))}
         </KanbanCol>
