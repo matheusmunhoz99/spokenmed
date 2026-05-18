@@ -25,7 +25,7 @@ export interface HistAtendimento {
 
   soap: { s: string; o: string; a: string; p: string };
   cids: string[];
-  vitais: { pa: string; fc: string; temp: string; sat: string; peso: string };
+  vitais: { pa: string; fc: string; fr?: string; temp: string; sat: string; peso: string; altura?: string };
   alergias: HistAlergia[];
 
   documentos: {

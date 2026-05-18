@@ -5,6 +5,7 @@ import {
   Activity, AlertTriangle, CalendarClock, ClipboardList, FileSignature, FileText, FlaskConical,
   HeartPulse, Pill, Plus, Printer, Send, Stethoscope, Trash2, User, X, Timer, BadgeCheck, Workflow,
 } from "lucide-react";
+
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,8 @@ import { gerarAtestadoPdf } from "@/lib/pdf-atestado";
 import { useAuth } from "@/hooks/use-auth";
 import { saveHistorico } from "@/lib/historico-atendimentos";
 import logoUrl from "@/assets/spokenmed-logo.png";
+
+
 
 interface Agendamento {
   id: string;
@@ -64,7 +67,8 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 
   // SOAP + vitais
   const [s, setS] = useState(""); const [o, setO] = useState(""); const [a, setA] = useState(""); const [p, setP] = useState("");
-  const [pa, setPa] = useState(""); const [fc, setFc] = useState(""); const [temp, setTemp] = useState(""); const [sat, setSat] = useState(""); const [peso, setPeso] = useState("");
+  const [pa, setPa] = useState(""); const [fc, setFc] = useState(""); const [fr, setFr] = useState(""); const [temp, setTemp] = useState(""); const [sat, setSat] = useState(""); const [peso, setPeso] = useState(""); const [altura, setAltura] = useState("");
+
 
   // CID
   const [cids, setCids] = useState<string[]>([]);
@@ -135,7 +139,7 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 
   const reset = () => {
     setAtend(ATENDIMENTO_DEFAULT); setConduta(CONDUTA_DEFAULT);
-    setS(""); setO(""); setA(""); setP(""); setPa(""); setFc(""); setTemp(""); setSat(""); setPeso("");
+    setS(""); setO(""); setA(""); setP(""); setPa(""); setFc(""); setFr(""); setTemp(""); setSat(""); setPeso(""); setAltura("");
     setCids([]); setCidBusca(""); setAlergias([]); setASub(""); setAReac(""); setAGrav("moderada");
     setAtDias("2"); setAtCid(""); setAtRepouso(true); setAtMencCid(false);
     setMeds([]); setMedNome(""); setMedApres(""); setMedPos(""); setMedQtd(""); setMedDur(""); setRecTipo("comum"); setRecOri("");
@@ -144,6 +148,7 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
     setLmeMed(""); setLmeApres(""); setLmeCid(""); setLmePos(""); setLmeQtd(""); setLmeTempo(""); setLmeAnam(""); setLmeExames("");
     setTab("atendimento");
   };
+
 
   const profissional = {
     nome: profile?.nome || agendamento?.profissionais?.nome || user?.email || "Médico(a)",
@@ -216,7 +221,7 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
           unidade,
           soap: { s, o, a, p },
           cids,
-          vitais: { pa, fc, temp, sat, peso },
+          vitais: { pa, fc, fr, temp, sat, peso, altura },
           alergias: alergias.map(({ substancia, reacao, gravidade }) => ({ substancia, reacao, gravidade })),
           documentos: {
             ...(meds.length > 0 && { receita: { tipo: recTipo, meds: meds.map(({ nome, apresentacao, posologia, qtd, duracao }) => ({ nome, apresentacao, posologia, qtd, duracao })), orientacoes: recOri } }),
@@ -337,9 +342,24 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
               <div className="grid grid-cols-2 gap-2">
                 <Field label="PA (mmHg)" v={pa} onChange={setPa} placeholder="120x80" />
                 <Field label="FC (bpm)" v={fc} onChange={setFc} placeholder="78" />
+                <Field label="FR (irpm)" v={fr} onChange={setFr} placeholder="16" />
                 <Field label="Temp (°C)" v={temp} onChange={setTemp} placeholder="36,5" />
                 <Field label="SatO₂ (%)" v={sat} onChange={setSat} placeholder="98" />
                 <Field label="Peso (kg)" v={peso} onChange={setPeso} placeholder="70" />
+                <Field label="Altura (cm)" v={altura} onChange={setAltura} placeholder="170" />
+                {(() => {
+                  const pesoN = parseFloat(peso.replace(",", "."));
+                  const altN = parseFloat(altura.replace(",", ".")) / 100;
+                  const imc = pesoN > 0 && altN > 0 ? (pesoN / (altN * altN)).toFixed(1) : "";
+                  return (
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">IMC</Label>
+                      <div className="grid h-8 place-items-center rounded-md border bg-muted/30 text-sm font-semibold tabular-nums">
+                        {imc || "—"}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </Card>
 
