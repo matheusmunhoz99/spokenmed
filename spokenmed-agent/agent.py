@@ -110,6 +110,10 @@ def _required_any(*names: str) -> str:
 WORKER_API_KEY = _required_cfg("WORKER_API_KEY")
 OPP_USERNAME = _required_any("FIORILLI_USERNAME", "OPP_USERNAME")
 OPP_PASSWORD = _required_any("FIORILLI_PASSWORD", "OPP_PASSWORD")
+try:
+    UNIDADE_IDX = int(_optional_cfg("FIORILLI_UNIDADE_INDEX", default="4") or "4")
+except ValueError:
+    UNIDADE_IDX = 4
 
 log = logging.getLogger("spokenmed-agent")
 log.setLevel(logging.INFO)
