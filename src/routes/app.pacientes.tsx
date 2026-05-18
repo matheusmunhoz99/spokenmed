@@ -324,6 +324,19 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
     setCpfErro(isValidCPF(d) ? null : "CPF inválido (dígitos verificadores não conferem).");
   };
 
+  // Auto-busca CADSUS assim que o CPF atingir 11 dígitos válidos (1x por CPF).
+  useEffect(() => {
+    if (editing) return; // só em "novo paciente"
+    const d = onlyDigits(form.cpf ?? "");
+    if (d.length !== 11 || !isValidCPF(d)) return;
+    if (autoCadsusDone === d) return;
+    if (cadsusLoading) return;
+    setAutoCadsusDone(d);
+    void handleBuscarCadSus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.cpf, editing]);
+
+
   const handleBuscarCadSus = async () => {
     const d = onlyDigits(form.cpf ?? "");
     if (d.length !== 11 || !isValidCPF(d)) {
