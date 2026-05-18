@@ -150,26 +150,42 @@ function NovaVisitaPage() {
     if (!familia) { toast.error("Selecione a família."); return false; }
     if (!pacienteId) { toast.error("Selecione o membro da família."); return false; }
     if (!geo) { toast.error("GPS é obrigatório para salvar a visita."); return false; }
-    if (desfecho === "realizada" && !assinatura && !recusou) {
-      toast.error("Colete a assinatura do paciente ou marque 'recusou assinar'.");
-      return false;
-    }
-    if (recusou && !motivoRecusa.trim()) {
-      toast.error("Informe o motivo da recusa de assinatura.");
-      return false;
-    }
     if (motivos.length === 0) { toast.error("Selecione ao menos um motivo da visita."); return false; }
     return true;
   };
 
   const onClickSalvar = () => {
     if (!validar()) return;
+    // Se desfecho realizada e ainda não temos assinatura ou recusa, abrir modal
+    if (desfecho === "visita_realizada" && !assinatura && !recusou) {
+      setAskAssinatura(true);
+      return;
+    }
+    prosseguirSalvar();
+  };
+
+  const prosseguirSalvar = () => {
     const totalMembros = membros?.length ?? 0;
     if (totalMembros >= 2) {
       setAskReplicar(true);
     } else {
       void salvar(false);
     }
+  };
+
+  const handleAssinaturaConfirmada = (r: SignatureResult) => {
+    setAskAssinatura(false);
+    if (r.recusou) {
+      setRecusou(true);
+      setMotivoRecusa(r.motivoRecusa);
+      setAssinatura(null);
+    } else {
+      setRecusou(false);
+      setMotivoRecusa("");
+      setAssinatura(r.assinatura);
+    }
+    // dar um tick para o estado atualizar antes de seguir
+    setTimeout(() => prosseguirSalvar(), 0);
   };
 
   const salvar = async (replicar: boolean) => {
