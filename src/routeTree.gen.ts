@@ -20,6 +20,7 @@ import { Route as AppSessoesRouteImport } from './routes/app.sessoes'
 import { Route as AppRelatoriosRouteImport } from './routes/app.relatorios'
 import { Route as AppProfissionaisRouteImport } from './routes/app.profissionais'
 import { Route as AppPacientesRouteImport } from './routes/app.pacientes'
+import { Route as AppMeuPerfilRouteImport } from './routes/app.meu-perfil'
 import { Route as AppHistoricoAtendimentosRouteImport } from './routes/app.historico-atendimentos'
 import { Route as AppFilaRouteImport } from './routes/app.fila'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
@@ -85,6 +86,11 @@ const AppPacientesRoute = AppPacientesRouteImport.update({
   path: '/pacientes',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMeuPerfilRoute = AppMeuPerfilRouteImport.update({
+  id: '/meu-perfil',
+  path: '/meu-perfil',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppHistoricoAtendimentosRoute =
   AppHistoricoAtendimentosRouteImport.update({
     id: '/historico-atendimentos',
@@ -146,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/fila': typeof AppFilaRoute
   '/app/historico-atendimentos': typeof AppHistoricoAtendimentosRoute
+  '/app/meu-perfil': typeof AppMeuPerfilRoute
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
   '/app/relatorios': typeof AppRelatoriosRoute
@@ -167,6 +174,7 @@ export interface FileRoutesByTo {
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/fila': typeof AppFilaRoute
   '/app/historico-atendimentos': typeof AppHistoricoAtendimentosRoute
+  '/app/meu-perfil': typeof AppMeuPerfilRoute
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
   '/app/relatorios': typeof AppRelatoriosRoute
@@ -190,6 +198,7 @@ export interface FileRoutesById {
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/fila': typeof AppFilaRoute
   '/app/historico-atendimentos': typeof AppHistoricoAtendimentosRoute
+  '/app/meu-perfil': typeof AppMeuPerfilRoute
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
   '/app/relatorios': typeof AppRelatoriosRoute
@@ -214,6 +223,7 @@ export interface FileRouteTypes {
     | '/app/configuracoes'
     | '/app/fila'
     | '/app/historico-atendimentos'
+    | '/app/meu-perfil'
     | '/app/pacientes'
     | '/app/profissionais'
     | '/app/relatorios'
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
     | '/app/configuracoes'
     | '/app/fila'
     | '/app/historico-atendimentos'
+    | '/app/meu-perfil'
     | '/app/pacientes'
     | '/app/profissionais'
     | '/app/relatorios'
@@ -257,6 +268,7 @@ export interface FileRouteTypes {
     | '/app/configuracoes'
     | '/app/fila'
     | '/app/historico-atendimentos'
+    | '/app/meu-perfil'
     | '/app/pacientes'
     | '/app/profissionais'
     | '/app/relatorios'
@@ -355,6 +367,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPacientesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/meu-perfil': {
+      id: '/app/meu-perfil'
+      path: '/meu-perfil'
+      fullPath: '/app/meu-perfil'
+      preLoaderRoute: typeof AppMeuPerfilRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/historico-atendimentos': {
       id: '/app/historico-atendimentos'
       path: '/historico-atendimentos'
@@ -440,6 +459,7 @@ interface AppRouteChildren {
   AppConfiguracoesRoute: typeof AppConfiguracoesRouteWithChildren
   AppFilaRoute: typeof AppFilaRoute
   AppHistoricoAtendimentosRoute: typeof AppHistoricoAtendimentosRoute
+  AppMeuPerfilRoute: typeof AppMeuPerfilRoute
   AppPacientesRoute: typeof AppPacientesRoute
   AppProfissionaisRoute: typeof AppProfissionaisRoute
   AppRelatoriosRoute: typeof AppRelatoriosRoute
@@ -455,6 +475,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppConfiguracoesRoute: AppConfiguracoesRouteWithChildren,
   AppFilaRoute: AppFilaRoute,
   AppHistoricoAtendimentosRoute: AppHistoricoAtendimentosRoute,
+  AppMeuPerfilRoute: AppMeuPerfilRoute,
   AppPacientesRoute: AppPacientesRoute,
   AppProfissionaisRoute: AppProfissionaisRoute,
   AppRelatoriosRoute: AppRelatoriosRoute,
