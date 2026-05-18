@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, AlertTriangle, Loader2, Download, Trash2, Megaphone, CalendarClock, History, Zap, Paperclip, ListOrdered, Stethoscope, LogIn, Activity, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, Loader2, Download, Trash2, Megaphone, CalendarClock, History, Zap, Paperclip, ListOrdered, Stethoscope, LogIn, Activity, Clock, Video } from "lucide-react";
 import { ConsultorioDialog } from "@/components/consultorio/consultorio-dialog";
 import { LoadingState } from "@/components/loading-state";
 import { PullToRefresh } from "@/components/pull-to-refresh";
@@ -47,6 +47,7 @@ const _UnusedAgendaDiaRoute = ({
 
 function AgendaDiaPage() {
   const search = Route.useSearch();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const { profile, user, isAdmin, isMedico, can } = useAuth();
   const [data, setData] = useState(search.data || format(new Date(), "yyyy-MM-dd"));
@@ -424,6 +425,11 @@ function AgendaDiaPage() {
                       )}
                       {canManage && !a.is_encaixe && a.slot_id && (
                         <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Reagendar" onClick={() => setReagendar(a)}><CalendarClock className="h-4 w-4" /></Button>
+                      )}
+                      {(canManage || isMedico) && a.status !== "cancelado" && (
+                        <Button size="sm" variant="outline" className="h-9 gap-1 px-2.5 border-sky-300 text-sky-700 dark:text-sky-300 hover:bg-sky-500/10" title="Abrir teleconsulta" onClick={() => navigate({ to: "/app/tele/$agendamentoId", params: { agendamentoId: a.id } })}>
+                          <Video className="h-4 w-4" /> <span className="hidden sm:inline">Tele</span>
+                        </Button>
                       )}
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Anexos" onClick={() => setAnexos(a)}><Paperclip className="h-4 w-4" /></Button>
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Histórico" onClick={() => setHistorico(a)}><History className="h-4 w-4" /></Button>
