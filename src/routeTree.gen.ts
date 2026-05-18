@@ -16,6 +16,7 @@ import { Route as CidadaoRouteImport } from './routes/cidadao'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppTriagemRouteImport } from './routes/app.triagem'
 import { Route as AppSessoesRouteImport } from './routes/app.sessoes'
 import { Route as AppRelatoriosRouteImport } from './routes/app.relatorios'
 import { Route as AppRecepcaoRouteImport } from './routes/app.recepcao'
@@ -65,6 +66,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTriagemRoute = AppTriagemRouteImport.update({
+  id: '/triagem',
+  path: '/triagem',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSessoesRoute = AppSessoesRouteImport.update({
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/app/recepcao': typeof AppRecepcaoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
+  '/app/triagem': typeof AppTriagemRoute
   '/app/': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/app/recepcao': typeof AppRecepcaoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
+  '/app/triagem': typeof AppTriagemRoute
   '/app': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/app/recepcao': typeof AppRecepcaoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
+  '/app/triagem': typeof AppTriagemRoute
   '/app/': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
@@ -238,6 +247,7 @@ export interface FileRouteTypes {
     | '/app/recepcao'
     | '/app/relatorios'
     | '/app/sessoes'
+    | '/app/triagem'
     | '/app/'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
@@ -261,6 +271,7 @@ export interface FileRouteTypes {
     | '/app/recepcao'
     | '/app/relatorios'
     | '/app/sessoes'
+    | '/app/triagem'
     | '/app'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
@@ -285,6 +296,7 @@ export interface FileRouteTypes {
     | '/app/recepcao'
     | '/app/relatorios'
     | '/app/sessoes'
+    | '/app/triagem'
     | '/app/'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
@@ -349,6 +361,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/triagem': {
+      id: '/app/triagem'
+      path: '/triagem'
+      fullPath: '/app/triagem'
+      preLoaderRoute: typeof AppTriagemRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/sessoes': {
@@ -484,6 +503,7 @@ interface AppRouteChildren {
   AppRecepcaoRoute: typeof AppRecepcaoRoute
   AppRelatoriosRoute: typeof AppRelatoriosRoute
   AppSessoesRoute: typeof AppSessoesRoute
+  AppTriagemRoute: typeof AppTriagemRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -501,6 +521,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppRecepcaoRoute: AppRecepcaoRoute,
   AppRelatoriosRoute: AppRelatoriosRoute,
   AppSessoesRoute: AppSessoesRoute,
+  AppTriagemRoute: AppTriagemRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

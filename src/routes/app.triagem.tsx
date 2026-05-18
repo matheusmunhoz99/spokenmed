@@ -224,7 +224,7 @@ function TriagemDialog({ agendamento, onClose }: { agendamento: any; onClose: ()
     const { error: e1 } = await supabase.from("triagens").upsert(payload, { onConflict: "agendamento_id" });
     if (e1) { toast.error("Erro ao salvar triagem: " + e1.message); setSaving(false); return; }
     const { error: e2 } = await supabase.from("agendamentos")
-      .update({ status: "triado", classificacao_risco: classificacao, triado_em: new Date().toISOString() })
+      .update({ status: "triado", classificacao_risco: classificacao as any, triado_em: new Date().toISOString() })
       .eq("id", agendamento.id);
     if (e2) { toast.error(e2.message); setSaving(false); return; }
     toast.success("Triagem registrada");
