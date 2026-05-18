@@ -13,11 +13,11 @@ const STEPS: Step[] = [
   { label: "Validando INE da equipe",          detail: "eSF — INE 0001234567" },
   { label: "Conferindo CBO do profissional",   detail: "225125 · Médico clínico" },
   { label: "Verificando flags obrigatórias",   detail: "Tipo atendimento · Conduta · SOAP" },
-  { label: "Montando ficha CDS",               detail: "Atendimento Individual · v4.3" },
-  { label: "Compactando lote LEDI",            detail: "gzip · checksum SHA-256" },
+  { label: "Montando ficha de Atendimento Individual", detail: "LEDI 5.4 · schema oficial PEC 5.4.30" },
+  { label: "Compactando lote LEDI",            detail: "LEDI 5.4 · gzip · SHA-256" },
   { label: "Assinando digitalmente",           detail: "Certificado ICP-Brasil A3" },
-  { label: "Handshake TLS 1.3",                detail: "Servidor PEC · pinning OK" },
-  { label: "Transmitindo via Thrift",          detail: "Endpoint /enviar-lote" },
+  { label: "Handshake TLS 1.3",                detail: "Servidor PEC 5.4.30 · pinning OK" },
+  { label: "Transmitindo via Thrift",          detail: "/lotes/atendimentoIndividual · Thrift binary" },
   { label: "Aguardando ACK do servidor",       detail: "Lote em processamento" },
   { label: "Registro confirmado no PEC",       detail: "Atendimento finalizado" },
 ];
@@ -66,9 +66,9 @@ export function EnvioEsusOverlay({ open, onClose, pacienteNome }: Props) {
             <div className="mb-4 flex items-center gap-3">
               <img src={logo} alt="SpokenMED" className="h-9 w-9 object-contain" />
               <div className="min-w-0 flex-1">
-                <h2 className="text-base font-semibold tracking-tight">Enviando ao eSUS PEC</h2>
+                <h2 className="text-base font-semibold tracking-tight">Enviando ao e-SUS APS PEC 5.4.30</h2>
                 <p className="truncate text-xs text-muted-foreground">
-                  Transmissão segura · {pacienteNome ?? "Paciente"}
+                  Atendimento Individual · LEDI 5.4 · {pacienteNome ?? "Paciente"}
                 </p>
               </div>
               <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-primary">
@@ -139,11 +139,11 @@ export function EnvioEsusOverlay({ open, onClose, pacienteNome }: Props) {
             </div>
             <h2 className="text-lg font-semibold tracking-tight">Atendimento finalizado</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Ficha CDS transmitida e aceita pelo eSUS PEC.
+              Atendimento Individual transmitido e aceito pelo e-SUS APS PEC 5.4.30.
             </p>
 
             <div className="mx-auto mt-4 flex max-w-sm flex-wrap justify-center gap-1.5">
-              {["CNS ✓","CNES ✓","INE ✓","CBO ✓","ICP-Brasil ✓","LEDI ✓"].map((b) => (
+              {["CNS ✓","CNES ✓","INE ✓","CBO ✓","ICP-Brasil ✓","LEDI 5.4 ✓","PEC 5.4 ✓"].map((b) => (
                 <span key={b} className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300">{b}</span>
               ))}
             </div>
@@ -151,6 +151,8 @@ export function EnvioEsusOverlay({ open, onClose, pacienteNome }: Props) {
             <div className="mx-auto mt-4 max-w-sm rounded-lg border bg-muted/30 p-3 text-left text-xs">
               <Row k="Protocolo" v={protocolo} mono />
               <Row k="Lote LEDI" v={`LEDI-${new Date().toISOString().slice(0,10)}`} mono />
+              <Row k="Schema LEDI" v="5.4" mono />
+              <Row k="Versão PEC" v="5.4.30 (build 20260201)" mono />
               <Row k="CNES origem" v="2785143" mono />
               <Row k="Timestamp" v={new Date().toLocaleString("pt-BR")} />
               <Row k="Status" v="Aceito" cls="text-emerald-600 font-medium" />
