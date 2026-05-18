@@ -379,9 +379,12 @@ function NovoDomicilioPage() {
         </CardContent>
       </Card>
 
-      <div className="sticky bottom-0 bg-background/95 backdrop-blur border-t p-3 -mx-4 flex gap-2">
-        <Button variant="outline" onClick={() => nav({ to: "/app/domicilios" })} className="flex-1">Cancelar</Button>
-        <Button onClick={salvar} disabled={saving} className="flex-1"><Save className="mr-1 h-4 w-4" />{saving ? "Salvando..." : "Salvar domicílio"}</Button>
+      <div
+        className="sticky bottom-0 bg-background/95 backdrop-blur border-t p-3 -mx-4 flex gap-2 z-10"
+        style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+      >
+        <Button variant="outline" onClick={() => nav({ to: "/app/domicilios" })} className="flex-1 h-11">Cancelar</Button>
+        <Button onClick={salvar} disabled={saving} className="flex-1 h-11"><Save className="mr-1 h-4 w-4" />{saving ? "Salvando..." : "Salvar domicílio"}</Button>
       </div>
     </div>
   );
