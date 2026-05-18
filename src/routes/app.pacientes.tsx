@@ -355,21 +355,37 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
       if (!r.ok) {
         console.warn("[cadsus] erro:", r.error);
         const msgs: Record<string, string> = {
-          cpf_nao_encontrado: "CPF não encontrado no CadSUS.",
+          cpf_nao_encontrado: "CPF não encontrado no CadSUS. Se acabou de cadastrar no Fiorilli, renove a sessão.",
           config_ausente: "Integração CadSUS não configurada (faltam credenciais).",
           browser_indisponivel: "Browser Rendering indisponível neste ambiente.",
-          login_invalido: "Login Fiorilli rejeitado — verifique usuário/senha.",
+          login_invalido: "Login Fiorilli rejeitado — verifique usuário/senha em /capture.",
           lookup_sem_resposta: "Fiorilli respondeu, mas sem dados do paciente.",
-          timeout: "Tempo esgotado ao consultar o Fiorilli.",
+          timeout: "Tempo esgotado ao consultar o Fiorilli. Tente de novo ou renove a sessão.",
           rede: "Falha de rede ao acessar o Fiorilli.",
-          sessao_ausente: "Sessão do CadSUS não configurada. Avise o administrador para renovar em /capture.",
-          sessao_expirada: "Sessão do CadSUS expirou. Avise o administrador para renovar em /capture.",
+          sessao_ausente: "Sessão do CadSUS não configurada. Renove em /capture para preencher automaticamente.",
+          sessao_expirada: "Sessão do CadSUS expirou. Renove em /capture para preencher automaticamente.",
           unauthorized: "Acesso ao CadSUS negado. Verifique a API key.",
           grid_invalida: "CadSUS devolveu resposta inesperada. Tente outro CPF ou renove a sessão.",
         };
         const msg = msgs[r.error] ?? `CadSUS indisponível (${r.error}).`;
-        if (r.error === "cpf_nao_encontrado") toast.info(msg);
-        else toast.error(msg);
+        // Erros que se resolvem renovando a sessão Fiorilli ganham botão de ação.
+        const sessionErrors = new Set([
+          "sessao_ausente",
+          "sessao_expirada",
+          "login_invalido",
+          "cpf_nao_encontrado",
+          "grid_invalida",
+          "timeout",
+          "lookup_sem_resposta",
+        ]);
+        const action = sessionErrors.has(r.error)
+          ? {
+              label: "Renovar sessão",
+              onClick: () => window.open("/capture", "_blank", "noopener,noreferrer"),
+            }
+          : undefined;
+        if (r.error === "cpf_nao_encontrado") toast.info(msg, { action, duration: 8000 });
+        else toast.error(msg, { action, duration: 8000 });
         return;
       }
       const dados = r.dados;
