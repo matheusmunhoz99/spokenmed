@@ -29,6 +29,8 @@ const modules: Module[] = [
       { title: "Painel", url: "/app", icon: LayoutDashboard },
       { title: "Agenda do Dia", url: "/app/agenda-dia", icon: CalendarDays, module: "agenda_dia" },
       { title: "Recepção", url: "/app/recepcao", icon: ClipboardList, module: "recepcao" },
+      { title: "Triagem", url: "/app/triagem", icon: HeartPulse, module: "triagem" },
+      { title: "Visitas Domiciliares", url: "/app/visitas", icon: Home, module: "visitas" },
       { title: "Agendar Consulta", url: "/app/agendar", icon: CalendarPlus, module: "agendar" },
       { title: "Fila de Espera", url: "/app/fila", icon: ListOrdered, module: "fila" },
       { title: "Painel de Chamada", url: "/painel", icon: MonitorPlay, module: "painel" },
