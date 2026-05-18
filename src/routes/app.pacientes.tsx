@@ -468,7 +468,7 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Nome da mãe" className="md:col-span-2">
+          <Field label="Nome da mãe" className="md:col-span-3">
             <Input data-field="nome_mae" className={hl("nome_mae")} value={form.nome_mae ?? ""} onChange={(e) => set("nome_mae", e.target.value)} />
           </Field>
           <Field label="CPF" className="md:col-span-2">
