@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_COLORS, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
+import { registrarDocumento } from "./documento-registry";
 
 export type AtestadoOpts = {
   paciente: { nome: string; cpf?: string; cns?: string };
