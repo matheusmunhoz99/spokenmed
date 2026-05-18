@@ -249,7 +249,7 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
   const [dup, setDup] = useState<{ paciente: Paciente; reason: string; origem: "save" | "cadsus" } | null>(null);
   const buscarCadSus = useServerFn(buscarPacienteCpf);
   const [form, setForm] = useState<any>(editing ?? {
-    nome: "", cpf: "", cns: "", rg: "", data_nascimento: "", sexo: "",
+    nome: "", cpf: "", cns: "", cns_secundario: "", outro_cns: "", rg: "", data_nascimento: "", sexo: "",
     nome_mae: "", telefone: "", email: "",
     cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "",
     observacoes: "",
