@@ -313,6 +313,9 @@ function FilaPage() {
               {filaFiltrada.map((f: any) => {
                 const dias = differenceInDays(new Date(), new Date(f.created_at));
                 const urg = (f.urgencia ?? "normal") as Urgencia;
+                const classif = (f.classificacao_risco ?? null) as ClassRisco | null;
+                const tmeDias = classif ? tmeFor(f.especialidade_id, classif, f.unidade_id) : null;
+                const dentroTme = tmeDias === null || dias <= tmeDias;
                 const isAgendado = f.status === "agendado";
                 return (
                   <li key={f.id} className="flex flex-col gap-3 py-3 md:flex-row md:items-center md:gap-4">
@@ -329,6 +332,11 @@ function FilaPage() {
                       <div className="min-w-0 flex-1 md:min-w-[220px]">
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="truncate text-sm font-medium">{f.pacientes?.nome}</div>
+                          {classif && (
+                            <Badge className={`text-[10px] uppercase ${riscoBadgeClass(classif)}`} title={RISCO_LABEL[classif]}>
+                              {classif}
+                            </Badge>
+                          )}
                           <Badge className={`text-[10px] uppercase ${urgenciaBadgeClass(urg)}`}>
                             {urg === "urgente" && <AlertTriangle className="mr-1 h-3 w-3" />}
                             {URGENCIA_LABEL[urg]}
@@ -338,6 +346,9 @@ function FilaPage() {
                           {f.especialidades?.nome && <span><span className="font-medium text-foreground/70">Especialidade:</span> {f.especialidades.nome}</span>}
                           {f.unidades?.nome && <span><span className="font-medium text-foreground/70">Unidade:</span> {f.unidades.nome}</span>}
                           {f.pacientes?.cpf && <span><span className="font-medium text-foreground/70">CPF:</span> {formatCPF(f.pacientes.cpf)}</span>}
+                          {f.cid10 && <span><span className="font-medium text-foreground/70">CID-10:</span> {f.cid10}</span>}
+                          {f.procedimentos?.codigo_sigtap && <span><span className="font-medium text-foreground/70">SIGTAP:</span> {f.procedimentos.codigo_sigtap}</span>}
+                          {f.solicitante_nome && <span><span className="font-medium text-foreground/70">Solicitante:</span> {f.solicitante_nome}{f.solicitante_cns ? ` · CNS ${f.solicitante_cns}` : ""}</span>}
                           {f.pacientes?.data_nascimento && (
                             <span>
                               <span className="font-medium text-foreground/70">Nasc.:</span> {formatDate(f.pacientes.data_nascimento)}
@@ -351,9 +362,12 @@ function FilaPage() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-2 md:contents">
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <div className={`flex items-center gap-1 text-xs ${dentroTme ? "text-muted-foreground" : "text-destructive font-medium"}`}>
                         <Clock className="h-3.5 w-3.5" />
                         {dias === 0 ? "hoje" : `${dias} dia${dias > 1 ? "s" : ""}`}
+                        {tmeDias !== null && Number.isFinite(tmeDias) && (
+                          <span className="ml-1 opacity-80">/ TME {tmeDias}d{!dentroTme ? " · ESTOURADO" : ""}</span>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {!isAgendado && (
