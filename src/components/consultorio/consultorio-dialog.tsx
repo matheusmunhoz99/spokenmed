@@ -112,6 +112,60 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 
   const elapsedFmt = `${String(Math.floor(elapsed/60)).padStart(2,"0")}:${String(elapsed%60).padStart(2,"0")}`;
 
+  // ===== Rascunho: restaurar ao abrir =====
+  const draftKey = agendamento ? `consultorio:draft:${agendamento.id}` : null;
+  useEffect(() => {
+    if (!open || !draftKey || restored) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) { setRestored(true); return; }
+      const d = JSON.parse(raw);
+      setS(d.s ?? ""); setO(d.o ?? ""); setA(d.a ?? ""); setP(d.p ?? "");
+      setPa(d.pa ?? ""); setFc(d.fc ?? ""); setFr(d.fr ?? ""); setTemp(d.temp ?? "");
+      setSat(d.sat ?? ""); setPeso(d.peso ?? ""); setAltura(d.altura ?? "");
+      if (Array.isArray(d.cids)) setCids(d.cids);
+      if (Array.isArray(d.alergias)) setAlergias(d.alergias);
+      if (Array.isArray(d.meds)) setMeds(d.meds);
+      if (d.recTipo) setRecTipo(d.recTipo);
+      if (typeof d.recOri === "string") setRecOri(d.recOri);
+      if (Array.isArray(d.sadt)) setSadt(d.sadt);
+      if (d.sadtCarater) setSadtCarater(d.sadtCarater);
+      if (typeof d.sadtIndic === "string") setSadtIndic(d.sadtIndic);
+      if (typeof d.atDias === "string") setAtDias(d.atDias);
+      if (typeof d.atCid === "string") setAtCid(d.atCid);
+      if (typeof d.atRepouso === "boolean") setAtRepouso(d.atRepouso);
+      if (typeof d.atMencCid === "boolean") setAtMencCid(d.atMencCid);
+      if (d.savedAt) setSavedAt(new Date(d.savedAt));
+      toast.success("Rascunho restaurado", { description: "Continuamos de onde você parou." });
+    } catch { /* ignore */ }
+    setRestored(true);
+  }, [open, draftKey, restored]);
+
+  useEffect(() => { if (!open) setRestored(false); }, [open]);
+
+  // ===== Auto-save (debounced) =====
+  useEffect(() => {
+    if (!open || !draftKey || !restored) return;
+    const t = setTimeout(() => {
+      try {
+        const payload = {
+          s, o, a, p, pa, fc, fr, temp, sat, peso, altura,
+          cids, alergias, meds, recTipo, recOri,
+          sadt, sadtCarater, sadtIndic,
+          atDias, atCid, atRepouso, atMencCid,
+          savedAt: new Date().toISOString(),
+        };
+        localStorage.setItem(draftKey, JSON.stringify(payload));
+        setSavedAt(new Date());
+      } catch { /* quota / ignore */ }
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [open, draftKey, restored, s, o, a, p, pa, fc, fr, temp, sat, peso, altura, cids, alergias, meds, recTipo, recOri, sadt, sadtCarater, sadtIndic, atDias, atCid, atRepouso, atMencCid]);
+
+  const savedAtFmt = savedAt
+    ? `Rascunho salvo às ${String(savedAt.getHours()).padStart(2,"0")}:${String(savedAt.getMinutes()).padStart(2,"0")}`
+    : "Auto-save ativo";
+
   const cidFiltrado = useMemo(() => {
     const q = cidBusca.trim().toLowerCase();
     if (!q) return CID10.slice(0, 12);
