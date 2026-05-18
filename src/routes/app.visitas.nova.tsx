@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Save, Upload, X, Home, Users, User, ChevronLeft } from "lucide-react";
+import { Save, Upload, X, Home, Users, User, ChevronLeft, CheckCircle2, Calendar, MapPin, ClipboardList, FileSignature, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { SemAcesso } from "@/components/sem-acesso";
@@ -73,6 +73,11 @@ function NovaVisitaPage() {
   const [fotos, setFotos] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [askReplicar, setAskReplicar] = useState(false);
+  const [resumo, setResumo] = useState<null | {
+    pacientes: { id: string; nome: string }[];
+    replicado: boolean;
+    fotosCount: number;
+  }>(null);
 
   // 1) Domicílios do ACS
   const { data: domicilios } = useQuery({
@@ -216,12 +221,16 @@ function NovaVisitaPage() {
       const { error } = await supabase.from("visitas_domiciliares").insert(rows);
       if (error) throw new Error(error.message);
 
+      const pacientesAlvo = (membros ?? [])
+        .filter((m) => alvos.includes(m.paciente_id))
+        .map((m) => ({ id: m.paciente_id, nome: m.pacientes?.nome ?? "—" }));
+
       toast.success(
         rows.length > 1
           ? `Visita registrada para ${rows.length} pacientes da família`
           : "Visita registrada com sucesso",
       );
-      nav({ to: "/app/visitas" });
+      setResumo({ pacientes: pacientesAlvo, replicado: replicar, fotosCount: fotosMeta.length });
     } catch (e: any) {
       toast.error(e.message ?? "Erro ao salvar");
     } finally {
@@ -500,15 +509,18 @@ function NovaVisitaPage() {
         </>
       )}
 
-      <div className="sticky bottom-0 bg-background/95 backdrop-blur border-t p-3 -mx-4 flex gap-2">
-        <Button variant="outline" onClick={() => nav({ to: "/app/visitas" })} className="flex-1">Cancelar</Button>
-        <Button onClick={onClickSalvar} disabled={saving || !pacienteId} className="flex-1">
+      <div
+        className="sticky bottom-0 bg-background/95 backdrop-blur border-t p-3 -mx-4 flex gap-2 z-10"
+        style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+      >
+        <Button variant="outline" onClick={() => nav({ to: "/app/visitas" })} className="flex-1 h-11">Cancelar</Button>
+        <Button onClick={onClickSalvar} disabled={saving || !pacienteId} className="flex-1 h-11">
           <Save className="mr-1 h-4 w-4" />{saving ? "Salvando..." : "Salvar visita"}
         </Button>
       </div>
 
       <AlertDialog open={askReplicar} onOpenChange={setAskReplicar}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Replicar para a família?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -517,8 +529,8 @@ function NovaVisitaPage() {
               <strong>{pacienteSelecionado?.nome}</strong>?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => void salvar(false)}>
+          <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => void salvar(false)} className="mt-0">
               Apenas {pacienteSelecionado?.nome?.split(" ")[0]}
             </AlertDialogCancel>
             <AlertDialogAction onClick={() => void salvar(true)}>
@@ -527,6 +539,117 @@ function NovaVisitaPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Resumo pós-salvamento */}
+      <AlertDialog open={!!resumo} onOpenChange={(o) => { if (!o) { setResumo(null); nav({ to: "/app/visitas" }); } }}>
+        <AlertDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-success">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              Visita registrada
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 text-left">
+                <div className="text-sm">
+                  {resumo?.replicado
+                    ? <>A visita foi <strong>replicada para {resumo?.pacientes.length} membros</strong> da família. Cada paciente recebeu seu próprio registro individual.</>
+                    : <>Registro individual criado para <strong>{resumo?.pacientes[0]?.nome}</strong>.</>}
+                </div>
+
+                {/* Membros */}
+                <section className="rounded-md border">
+                  <header className="flex items-center gap-2 px-3 py-2 bg-muted/40 border-b text-xs font-semibold uppercase tracking-wide">
+                    <Users className="h-3.5 w-3.5" /> Pacientes incluídos ({resumo?.pacientes.length})
+                  </header>
+                  <ul className="divide-y">
+                    {resumo?.pacientes.map((p) => (
+                      <li key={p.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                        <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                        <span className="truncate">{p.nome}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+
+                {/* Campos compartilhados */}
+                <section className="rounded-md border">
+                  <header className="flex items-center gap-2 px-3 py-2 bg-muted/40 border-b text-xs font-semibold uppercase tracking-wide">
+                    <ClipboardList className="h-3.5 w-3.5" /> Campos compartilhados em todos os registros
+                  </header>
+                  <dl className="px-3 py-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                    <ResumoItem icon={<Calendar className="h-3.5 w-3.5" />} label="Data" value={dataVisita} />
+                    <ResumoItem label="Turno" value={TURNOS.find((t) => t.value === turno)?.label} />
+                    <ResumoItem label="Desfecho" value={DESFECHOS.find((d) => d.value === desfecho)?.label} />
+                    <ResumoItem label="Microárea" value={domicilio?.microarea ?? "—"} />
+                    <ResumoItem icon={<MapPin className="h-3.5 w-3.5" />} label="Endereço" value={endereco || enderecoDom} className="sm:col-span-2" />
+                    <ResumoItem label="GPS" value={geo ? `${geo.latitude.toFixed(5)}, ${geo.longitude.toFixed(5)}` : "—"} className="sm:col-span-2" />
+                    <ResumoItem
+                      label="Motivos"
+                      value={motivos.map((v) => MOTIVOS_VISITA.find((m) => m.value === v)?.label).filter(Boolean).join(", ") || "—"}
+                      className="sm:col-span-2"
+                    />
+                    {acomps.length > 0 && (
+                      <ResumoItem
+                        label="Acompanhamentos"
+                        value={acomps.map((v) => ACOMPANHAMENTOS.find((m) => m.value === v)?.label).filter(Boolean).join(", ")}
+                        className="sm:col-span-2"
+                      />
+                    )}
+                    {ctrlAmb.length > 0 && (
+                      <ResumoItem
+                        label="Controle vetorial"
+                        value={ctrlAmb.map((v) => CONTROLE_AMBIENTAL.find((m) => m.value === v)?.label).filter(Boolean).join(", ")}
+                        className="sm:col-span-2"
+                      />
+                    )}
+                    {(peso || altura) && (
+                      <ResumoItem label="Antropometria" value={`${peso || "—"} kg · ${altura || "—"} m`} />
+                    )}
+                    {(pasis || padia) && (
+                      <ResumoItem label="PA" value={`${pasis || "—"} / ${padia || "—"} mmHg`} />
+                    )}
+                    <ResumoItem
+                      icon={<FileSignature className="h-3.5 w-3.5" />}
+                      label="Assinatura"
+                      value={recusou ? `Recusada: ${motivoRecusa}` : (assinatura ? "Coletada" : "—")}
+                      className="sm:col-span-2"
+                    />
+                    {resumo && resumo.fotosCount > 0 && (
+                      <ResumoItem icon={<Camera className="h-3.5 w-3.5" />} label="Fotos" value={`${resumo.fotosCount} anexada(s)`} />
+                    )}
+                  </dl>
+                </section>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => { setResumo(null); nav({ to: "/app/visitas" }); }}>
+              Concluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function ResumoItem({
+  icon,
+  label,
+  value,
+  className = "",
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-col ${className}`}>
+      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+        {icon}{label}
+      </dt>
+      <dd className="text-sm break-words">{value || "—"}</dd>
     </div>
   );
 }
