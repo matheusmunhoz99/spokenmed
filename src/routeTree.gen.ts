@@ -31,6 +31,7 @@ import { Route as AppAuditoriaRouteImport } from './routes/app.auditoria'
 import { Route as AppAgendasRouteImport } from './routes/app.agendas'
 import { Route as AppAgendarRouteImport } from './routes/app.agendar'
 import { Route as AppAgendaDiaRouteImport } from './routes/app.agenda-dia'
+import { Route as AppVisitasIndexRouteImport } from './routes/app.visitas.index'
 import { Route as AppVisitasNovaRouteImport } from './routes/app.visitas.nova'
 import { Route as AppConfiguracoesSistemaRouteImport } from './routes/app.configuracoes.sistema'
 import { Route as ApiPublicVersionRouteImport } from './routes/api/public/version'
@@ -146,6 +147,11 @@ const AppAgendaDiaRoute = AppAgendaDiaRouteImport.update({
   path: '/agenda-dia',
   getParentRoute: () => AppRoute,
 } as any)
+const AppVisitasIndexRoute = AppVisitasIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppVisitasRoute,
+} as any)
 const AppVisitasNovaRoute = AppVisitasNovaRouteImport.update({
   id: '/nova',
   path: '/nova',
@@ -188,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
+  '/app/visitas/': typeof AppVisitasIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -209,11 +216,11 @@ export interface FileRoutesByTo {
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
   '/app/triagem': typeof AppTriagemRoute
-  '/app/visitas': typeof AppVisitasRouteWithChildren
   '/app': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
+  '/app/visitas': typeof AppVisitasIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -242,6 +249,7 @@ export interface FileRoutesById {
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
+  '/app/visitas/': typeof AppVisitasIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -271,6 +279,7 @@ export interface FileRouteTypes {
     | '/api/public/version'
     | '/app/configuracoes/sistema'
     | '/app/visitas/nova'
+    | '/app/visitas/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -292,11 +301,11 @@ export interface FileRouteTypes {
     | '/app/relatorios'
     | '/app/sessoes'
     | '/app/triagem'
-    | '/app/visitas'
     | '/app'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
     | '/app/visitas/nova'
+    | '/app/visitas'
   id:
     | '__root__'
     | '/'
@@ -324,6 +333,7 @@ export interface FileRouteTypes {
     | '/api/public/version'
     | '/app/configuracoes/sistema'
     | '/app/visitas/nova'
+    | '/app/visitas/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -492,6 +502,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAgendaDiaRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/visitas/': {
+      id: '/app/visitas/'
+      path: '/'
+      fullPath: '/app/visitas/'
+      preLoaderRoute: typeof AppVisitasIndexRouteImport
+      parentRoute: typeof AppVisitasRoute
+    }
     '/app/visitas/nova': {
       id: '/app/visitas/nova'
       path: '/nova'
@@ -529,10 +546,12 @@ const AppConfiguracoesRouteWithChildren =
 
 interface AppVisitasRouteChildren {
   AppVisitasNovaRoute: typeof AppVisitasNovaRoute
+  AppVisitasIndexRoute: typeof AppVisitasIndexRoute
 }
 
 const AppVisitasRouteChildren: AppVisitasRouteChildren = {
   AppVisitasNovaRoute: AppVisitasNovaRoute,
+  AppVisitasIndexRoute: AppVisitasIndexRoute,
 }
 
 const AppVisitasRouteWithChildren = AppVisitasRoute._addFileChildren(
@@ -591,3 +610,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
