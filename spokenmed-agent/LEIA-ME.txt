@@ -55,7 +55,7 @@ REINICIAR / PARAR
 SOLUÇÃO DE PROBLEMAS
 ────────────────────
 "login NÃO autenticado — credencial inválida"
-  → Senha mudou. Edite runtime/agent.py.
+  → Usuário/senha do Fiorilli estão errados. Edite agent.cfg.
 
 "POST /session/update — status=401"
   → WORKER_API_KEY errada em agent.cfg.
