@@ -88,9 +88,12 @@ _console = logging.StreamHandler(sys.stdout)
 _console.setFormatter(_fmt)
 log.addHandler(_console)
 try:
-    _file = RotatingFileHandler(_log_dir() / "agent.log", maxBytes=1_000_000, backupCount=3, encoding="utf-8")
+    _file = RotatingFileHandler(_log_dir() / "agent.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8")
     _file.setFormatter(_fmt)
+    _file.setLevel(logging.DEBUG)   # arquivo guarda DEBUG; console fica em INFO
     log.addHandler(_file)
+    log.setLevel(logging.DEBUG)     # logger raiz precisa estar em DEBUG p/ o handler de arquivo ver
+    _console.setLevel(logging.INFO)
 except Exception as e:  # pasta read-only? só console então.
     log.warning("não foi possível abrir agent.log: %s", e)
 
@@ -259,10 +262,109 @@ def login_e_captura_sid() -> tuple[str, str, str] | None:
     else:
         log.warning("20 polls e ainda pedindo _dummy_ — seguindo mesmo assim")
 
+    log.info("✓ /sis/ login OK — abrindo sub-app ambulatorio…")
+
+    # 7) clicar no item de menu O106 id=1 — dispara o window.open do ambulatorio
+    itemclick = (
+        f"Ajax=1&IsEvent=1&Obj=O106&Evt=itemclick&id=1"
+        f"&_S_ID={sid}&_seq_={next_seq:x}&_uo_=OCC"
+    )
+    r_ic = _post(next_seq, itemclick, "O106 itemclick id=1 (abrir ambulatorio)")
+    if r_ic is None:
+        return None
+    next_seq += 1
+    log.debug("itemclick resp (%s bytes): %s", len(r_ic.text), r_ic.text[:800])
+
+    # extrai a URL /ambulatorio/...?user=<token> da resposta JS uniGUI
+    m_url = re.search(r'(/?ambulatorio/ambulatorio\.dll/\?user=[0-9A-Fa-f]+)', r_ic.text)
+    if not m_url:
+        log.error("não achei URL do ambulatorio na resposta do itemclick. resp=%s", r_ic.text[:600])
+        return None
+    amb_path = m_url.group(1)
+    if not amb_path.startswith("/"):
+        amb_path = "/" + amb_path
+    amb_url = OPP_BASE + amb_path
+    log.info("   → URL ambulatorio capturada (%s chars)", len(amb_path))
+
+    # 8) GET no ambulatorio — mesmo cookie jar, mesmo domínio
+    log.info("→ GET /ambulatorio (SSO via token)")
+    r_amb = s.get(amb_url, headers={"Referer": OPP_BASE + "/sis/"}, timeout=HTTP_TIMEOUT)
+    if r_amb.status_code != 200:
+        log.error("GET ambulatorio falhou: status=%s", r_amb.status_code)
+        return None
+    m_sid2 = re.search(r'_S_ID=([A-Za-z0-9_]+)', r_amb.text)
+    if not m_sid2:
+        log.error("não achei _S_ID no HTML do ambulatorio (len=%s)", len(r_amb.text))
+        log.debug("html head: %s", r_amb.text[:500])
+        return None
+    sid_amb = m_sid2.group(1)
+    log.info("   _S_ID ambulatorio = %s…%s", sid_amb[:4], sid_amb[-4:])
+
+    # headers ajax para o ambulatorio (Referer e Origin diferentes)
+    amb_handle = OPP_BASE + "/ambulatorio/ambulatorio.dll/HandleEvent"
+    amb_headers = {
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": OPP_BASE + "/ambulatorio/ambulatorio.dll/",
+        "Origin": OPP_BASE,
+        "Accept": "*/*",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    }
+
+    def _post_amb(seq: int, body: str, label: str) -> requests.Response | None:
+        log.info("→ POST [amb] %s (seq=%x)", label, seq)
+        rr = s.post(amb_handle, data=body, headers=amb_headers, timeout=HTTP_TIMEOUT)
+        if rr.status_code >= 400:
+            log.error("[amb] %s falhou: status=%s", label, rr.status_code)
+            log.debug("body: %s", rr.text[:400])
+            return None
+        log.debug("[amb] %s resp (%s bytes): %s", label, len(rr.text), rr.text[:400])
+        return rr
+
+    # 9) inicialização do ambulatorio: cinfo + afterrender + resize
+    amb_seq = 0
+    cinfo_amb = (
+        f"Ajax=1&IsEvent=1&Obj=O0&Evt=cinfo&ci={ci_val}"
+        f"&_S_ID={sid_amb}&_seq_={amb_seq:x}&_uo_=O0"
+    )
+    if _post_amb(amb_seq, cinfo_amb, "cinfo") is None:
+        return None
+    amb_seq += 1
+
+    ar = (f"Ajax=1&IsEvent=1&Obj=O8&Evt=afterrender&this=O8"
+          f"&_S_ID={sid_amb}&_seq_={amb_seq:x}&_uo_=O0")
+    if _post_amb(amb_seq, ar, "afterrender") is None:
+        return None
+    amb_seq += 1
+
+    resize = (f"Ajax=1&IsEvent=1&Obj=OCB&Evt=resize"
+              f"&w%3D1280&h%3D720"
+              f"&_S_ID={sid_amb}&_seq_={amb_seq:x}&_a_=1&_uo_=O0")
+    if _post_amb(amb_seq, resize, "resize") is None:
+        return None
+    amb_seq += 1
+
+    # 10) polls _dummy_ no O8 até o ambulatorio terminar de montar o shell
+    for i in range(15):
+        body = (f"Ajax=1&IsEvent=1&Obj=O8&Evt=_dummy_"
+                f"&_S_ID={sid_amb}&_seq_={amb_seq:x}&_a_=1&_uo_=O0")
+        rr = _post_amb(amb_seq, body, f"_dummy_ #{i+1}")
+        if rr is None:
+            return None
+        amb_seq += 1
+        low = rr.text.lower()
+        if "_dummy_" not in low:
+            log.info("   [amb] shell pronto (%s bytes)", len(rr.text))
+            break
+
+    # FASE A: por enquanto enviamos o sid do ambulatorio pro Worker assim mesmo.
+    # Se O117A ainda não existir (CADSUS não foi aberto), a busca vai falhar e
+    # vamos precisar adicionar os cliques de navegação (passo 10 do plano) com base
+    # nos logs DEBUG acima. Vide .lovable/plan.md.
     cookies = "; ".join(f"{c.name}={c.value}" for c in s.cookies)
-    last_seq_hex = f"{next_seq - 1:x}"
-    log.info("✓ login OK — sessão pronta (último seq usado=%s)", last_seq_hex)
-    return sid, cookies, last_seq_hex
+    last_seq_hex = f"{amb_seq - 1:x}"
+    log.info("✓ ambulatorio pronto — sid=%s…%s seq=%s",
+             sid_amb[:4], sid_amb[-4:], last_seq_hex)
+    return sid_amb, cookies, last_seq_hex
 
 
 # ─────────────────────────────────────────────────────────────────────────────

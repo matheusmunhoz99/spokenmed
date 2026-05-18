@@ -1,45 +1,61 @@
-## Diagnóstico
+## O que o HAR revelou
 
-A sessão do Fiorilli está sendo enviada corretamente pelo agente Python para o Worker (`/session` mostra `hasSession:true, sId len=19, seq=12`). O problema é **outro**: a busca de CPF (`/cpf?cpf=34691780890`) responde `cpf_nao_encontrado` mesmo para CPF válido.
+O CADSUS **não fica no app `/sis/`** (onde o agente loga). Ele fica em **outro app uniGUI**, montado em `/ambulatorio/ambulatorio.dll/`, com **sessão própria** (outro `_S_ID`, outra sequência de objetos).
 
-### Por que está acontecendo
+Sequência real do navegador (resumida do seu HAR):
 
-O Worker (`cloudflare-worker/src/index.js`) envia para o Fiorilli um clique no objeto `O117A` (botão Pesquisar do CADSUS), preenchendo o campo `O1162` (CPF) e lendo o grid `O11B2` + campos `O11CB…O11F3`.
+```text
+1. GET  /sis/                              → _S_ID = UFE1s6yRno...   (sis)
+2. POST /sis/sis.dll/HandleEvent           → cinfo / activate / show / login click / dummies
+3. POST O106 Evt=itemclick id=1            → o servidor responde com um window.open
+                                             para /ambulatorio/ambulatorio.dll/?user=<token-SSO>
+4. GET  /ambulatorio/ambulatorio.dll/?user=<token>
+                                           → _S_ID = 0_eSOxbjHxoG... (ambulatorio, NOVO)
+5. POST /ambulatorio/ambulatorio.dll/HandleEvent  (~100 eventos)
+   cinfo → activate → tabchanges → cliques em itens de menu (O670, O7B3…)
+   até a tela CADSUS abrir (O112A activate, O11B2 load)
+6. Só depois disso O117A (botão Pesquisar) existe e o clique funciona.
+```
 
-Esses IDs de objeto uniGUI **só existem na sessão depois que a tela "Cadastro do Cidadão" (CADSUS) é aberta no menu**. O agente Python hoje faz apenas:
+O Worker (`cloudflare-worker/src/index.js`) já chama o endpoint certo (`/ambulatorio/ambulatorio.dll/HandleEvent`) — mas está recebendo do agente o `_S_ID` do **/sis/**, que naquele sub-app não vale nada → `O117A` não existe → grid vazio → `cpf_nao_encontrado`.
 
-1. GET inicial (pega `_S_ID`)
-2. `cinfo` / `activate` / `show`
-3. clique no botão **Entrar** (`O40`)
-4. polls `_dummy_` até a validação terminar
+## Plano de mudança no `spokenmed-agent/agent.py`
 
-Depois disso o agente para — a sessão fica no shell do menu, mas a tela CADSUS nunca foi aberta. Quando o Worker dispara o clique em `O117A`, o servidor não conhece esse objeto naquela sessão, então o `setText` nunca vem e o grid volta vazio → o Worker classifica como `cpf_nao_encontrado`.
+Manter os passos 1–6 atuais (login no `/sis/`). Depois adicionar:
 
-Funcionava antes via `/capture` porque você copiava o cURL **já navegando dentro do CADSUS no seu navegador**, ou seja, esses objetos já tinham sido instanciados.
+**7. Disparar o item de menu que abre o ambulatorio (`O106 itemclick id=1`)**
+- POST em `/sis/sis.dll/HandleEvent` com `Obj=O106&Evt=itemclick&id=1&_S_ID=<sid_sis>&_seq_=<próximo>&_uo_=OCC`.
+- A resposta é JS uniGUI; extrair com regex a URL `/ambulatorio/ambulatorio.dll/?user=<hex_token>` (vem dentro de algo tipo `window.open("…")`).
 
-## O que precisa ser feito
+**8. GET na URL do ambulatorio**
+- Carregar `https://saudeteresopolis.oppcloud.com.br/ambulatorio/ambulatorio.dll/?user=<token>` reaproveitando os cookies da `requests.Session()` (a mesma cookie jar serve os dois apps — mesmo domínio).
+- Capturar o **novo** `_S_ID` no HTML (`_S_ID=…`). A partir daqui esse é o sid que vai pro Worker.
 
-Adicionar no `agent.py`, depois dos polls `_dummy_`, a sequência de POSTs `HandleEvent` que abrem o módulo "Cadastro do Cidadão" (CADSUS) — o mesmo conjunto de cliques que o navegador faz quando você entra nessa tela.
+**9. Inicialização do app ambulatorio**
+- POST `Obj=O0&Evt=cinfo&ci=br%3D33%3Bos%3D4%3Bbv%3D146%3Bww%3D1920%3Bwh%3D1080&_S_ID=<sid_amb>&_seq_=0&_uo_=O0`
+- POST `Obj=O8&Evt=afterrender&_seq_=1&_uo_=O0`
+- POST `Obj=OCB&Evt=resize&w=1280&h=800&_seq_=…&_uo_=O0` (tamanho qualquer, mesmo do navegador)
 
-Esses IDs (`Obj=...`, `Evt=click`, `_uo_=...`) são específicos da instalação do Fiorilli de Teresópolis e **não dá pra adivinhar** — precisamos capturar do navegador.
+**10. Navegação até a tela CADSUS**
+- Replay determinístico dos cliques que o HAR mostra entre `_seq_=4d` e `_seq_=5d` (basicamente: `O670 click` → `O7B3 click`). Esses IDs (`O670`, `O7B3`, depois `O112A`/`O11B2`/`O117A`) são gerados pelo servidor em ordem de instanciação — se o agente replica os mesmos eventos na mesma ordem, os IDs batem.
+- Parar quando a resposta indicar `O11B2` carregado (grid CADSUS pronto). Se 5 polls `_dummy_` em `O8` passarem sem novidade, segue.
 
-## Próximo passo (precisa de você)
+**11. POST `/session/update` no Worker**
+- Enviar `s_id = sid_amb`, `cookies = <jar concatenado>`, `seq = <último seq usado no ambulatorio em hex>`.
 
-Capturar um HAR **curto** com apenas a navegação até o CADSUS:
+## Detalhes técnicos
 
-1. Faça login no Fiorilli normalmente no Chrome.
-2. Abra DevTools (F12) → aba **Network** → ative **Preserve log** → clique no ícone de gravar (bolinha) e em **Clear** (🚫) pra zerar.
-3. **A partir desse ponto**, navegue no menu até abrir a tela **"Cadastro do Cidadão"** (a tela onde tem o campo "CPF" e o botão "Pesquisar"). Pare assim que a tela aparecer — **não pesquise nada ainda**.
-4. Na aba Network, botão direito em qualquer linha → **Save all as HAR with content** → me envia o arquivo.
+- A cookie jar do `requests.Session()` serve os dois apps porque ambos estão em `saudeteresopolis.oppcloud.com.br` — não precisa separar.
+- O HAR exportado **não tem corpos de resposta** (limitação de export do Chrome sem "Preserve log + bodies"). O agente precisa **logar a resposta do `itemclick`** na primeira execução pra confirmar o formato exato da URL retornada (provavelmente `_uw_(…)` ou `window.open("…")`). Já deixo um `log.debug("itemclick resp = %s", text[:500])` no código pra a gente ajustar a regex se vier diferente.
+- Risco real: se a sequência de cliques `O670 → O7B3` não for determinística (ex.: depender de qual item do submenu o usuário clicou no dia da captura), o replay vai abrir tela errada. Mitigação: ao final do passo 10, validar que a resposta contém `O117A` antes de mandar pro Worker; senão, falha o ciclo e o agente loga "CADSUS não abriu — recapturar HAR".
+- Worker e código do app web (`opp-client.server.ts`, `cadsus.functions.ts`) **não mudam**.
 
-Com esse HAR eu identifico a sequência exata de cliques (`Obj=...&Evt=click&...`) e adiciono no `agent.py` logo depois do passo 6 (polls `_dummy_`), antes do `return sid, cookies, last_seq_hex`. Depois disso a sessão chega no Worker já "armada" na tela do CADSUS e a busca passa a funcionar.
+## Risco aberto que preciso confirmar com você
 
-### Alternativa (sem HAR novo)
+Olhando o HAR, depois do `O106 itemclick id=1` (que abre o ambulatorio) ainda há vários cliques **dentro** do ambulatorio (`O670`, `O7B3`) até CADSUS abrir. Não dá pra ter 100% de certeza, só com este HAR, se esses cliques são sempre os mesmos ou se dependem do estado da sessão. **A forma 100% segura** é eu implementar primeiro o passo 7–9 (abrir o ambulatorio e logar a resposta dos eventos), rodar uma vez, e te pedir os 5 primeiros bytes de log pra confirmar os IDs antes de hardcodar os cliques do passo 10.
 
-Se você não conseguir capturar agora, posso tentar uma heurística: deixar o agente abrir a URL do menu CADSUS direto e fazer os cliques mais comuns do uniGUI (`activate`/`show` no form principal do módulo). Tem chance de funcionar, mas é tentativa-e-erro — o HAR resolve de primeira.
+Te peço aprovação pra eu seguir nessa abordagem em **2 fases**:
+- **Fase A:** implemento passos 7–9 (abre ambulatorio, captura sid novo) + logging detalhado dos próximos eventos. Você roda uma vez e me cola o `agent.log`.
+- **Fase B:** com base no log da fase A, eu hardcodo a sequência exata do passo 10 e fechamos o fluxo.
 
-## Resumo técnico
-
-- **Arquivo a alterar:** `spokenmed-agent/agent.py` — função `login_e_captura_sid`, adicionar bloco "7) abrir CADSUS" depois dos polls.
-- **Sem alteração no Worker:** ele já está correto, só está sendo chamado antes da hora.
-- **Sem alteração no app web:** `src/lib/opp-client.server.ts` e `src/lib/cadsus.functions.ts` continuam iguais.
+Se preferir, implemento já tudo num shot só assumindo que `O670 → O7B3` é determinístico — mais rápido, mas com chance maior de precisar de 1 ajuste depois.
