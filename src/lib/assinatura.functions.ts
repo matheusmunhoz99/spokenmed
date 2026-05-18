@@ -121,10 +121,3 @@ export const verificarAssinatura = createServerFn({ method: "POST" })
       : { valido: false, motivo: "Assinatura inválida — documento pode ter sido adulterado." };
   });
 
-/**
- * Helper exportado para uso em browser code para calcular o hash do conteúdo do PDF
- * antes de chamar assinarDocumento.
- */
-export function hashConteudo(input: string): string {
-  return sha256Hex(input);
-}
