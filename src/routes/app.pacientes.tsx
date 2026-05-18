@@ -242,6 +242,7 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
   const [cadsusLoading, setCadsusLoading] = useState(false);
   const [cpfErro, setCpfErro] = useState<string | null>(null);
   const [highlightField, setHighlightField] = useState<string | null>(null);
+  const [autoCadsusDone, setAutoCadsusDone] = useState<string | null>(null);
   const hl = (n: string) =>
     highlightField === n
       ? "ring-2 ring-primary/70 shadow-[0_0_0_4px_hsl(var(--primary)/0.18)] transition-shadow duration-300"
@@ -254,6 +255,7 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
     cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "",
     observacoes: "",
   });
+
 
   // procura paciente já cadastrado. Retorna o primeiro match (CPF tem prioridade).
   const findDuplicate = async (opts: { cpfDigits?: string; nome?: string; data?: string }): Promise<{ paciente: Paciente; reason: string } | null> => {
