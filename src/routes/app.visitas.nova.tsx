@@ -650,6 +650,14 @@ function NovaVisitaPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SignatureDialog
+        open={askAssinatura}
+        onOpenChange={setAskAssinatura}
+        title="Assinatura do paciente / responsável"
+        description="Confirme a assinatura para concluir o registro da visita."
+        onConfirm={handleAssinaturaConfirmada}
+      />
     </div>
   );
 }
