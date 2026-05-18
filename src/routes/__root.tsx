@@ -104,6 +104,7 @@ function RootComponent() {
         <Outlet />
         <Toaster richColors position="top-center" mobileOffset={{ top: 8 }} />
         <InstallPwaPrompt />
+        <UpdateAvailableBanner />
       </AuthProvider>
     </QueryClientProvider>
   );
