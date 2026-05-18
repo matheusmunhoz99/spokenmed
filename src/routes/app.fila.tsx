@@ -58,6 +58,7 @@ const FILA_TABLE = "fila_espera" as const;
 
 type Urgencia = "normal" | "prioritaria" | "urgente";
 type StatusFila = "aguardando" | "agendado" | "cancelado";
+type ClassRisco = "vermelho" | "laranja" | "amarelo" | "verde" | "azul";
 
 const URGENCIA_LABEL: Record<Urgencia, string> = {
   normal: "Normal",
@@ -65,6 +66,24 @@ const URGENCIA_LABEL: Record<Urgencia, string> = {
   urgente: "Urgente",
 };
 const URGENCIA_RANK: Record<Urgencia, number> = { urgente: 0, prioritaria: 1, normal: 2 };
+
+const RISCO_LABEL: Record<ClassRisco, string> = {
+  vermelho: "Vermelho · Emergência",
+  laranja: "Laranja · Muito urgente",
+  amarelo: "Amarelo · Urgente",
+  verde: "Verde · Pouco urgente",
+  azul: "Azul · Não urgente",
+};
+const RISCO_RANK: Record<ClassRisco, number> = { vermelho: 0, laranja: 1, amarelo: 2, verde: 3, azul: 4 };
+const RISCO_TME_DEFAULT: Record<ClassRisco, number> = { vermelho: 1, laranja: 7, amarelo: 30, verde: 90, azul: 180 };
+
+function riscoBadgeClass(r: ClassRisco) {
+  if (r === "vermelho") return "bg-red-600 text-white hover:bg-red-600";
+  if (r === "laranja") return "bg-orange-500 text-white hover:bg-orange-500";
+  if (r === "amarelo") return "bg-yellow-400 text-black hover:bg-yellow-400";
+  if (r === "verde") return "bg-emerald-500 text-white hover:bg-emerald-500";
+  return "bg-sky-500 text-white hover:bg-sky-500";
+}
 
 function urgenciaBadgeClass(u: Urgencia) {
   if (u === "urgente") return "bg-destructive text-destructive-foreground hover:bg-destructive";
