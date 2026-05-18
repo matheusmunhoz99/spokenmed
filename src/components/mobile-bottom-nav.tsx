@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, CalendarDays, CalendarPlus, Users, Menu, ListOrdered, ClipboardList } from "lucide-react";
+import { LayoutDashboard, CalendarDays, CalendarPlus, Users, Menu, ListOrdered, ClipboardList, HeartPulse, Home } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { haptic } from "@/hooks/use-haptics";
@@ -11,6 +11,8 @@ const allItems: Item[] = [
   { title: "Início", url: "/app", icon: LayoutDashboard, exact: true },
   { title: "Agenda", url: "/app/agenda-dia", icon: CalendarDays, module: "agenda_dia" },
   { title: "Recepção", url: "/app/recepcao", icon: ClipboardList, module: "recepcao" },
+  { title: "Triagem", url: "/app/triagem", icon: HeartPulse, module: "triagem" },
+  { title: "Visitas", url: "/app/visitas", icon: Home, module: "visitas" },
   { title: "Agendar", url: "/app/agendar", icon: CalendarPlus, module: "agendar" },
   { title: "Fila", url: "/app/fila", icon: ListOrdered, module: "fila" },
   { title: "Pacientes", url: "/app/pacientes", icon: Users, module: "pacientes" },
