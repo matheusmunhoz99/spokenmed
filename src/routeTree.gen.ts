@@ -35,6 +35,7 @@ import { Route as AppAgendaDiaRouteImport } from './routes/app.agenda-dia'
 import { Route as AppVisitasIndexRouteImport } from './routes/app.visitas.index'
 import { Route as AppDomiciliosIndexRouteImport } from './routes/app.domicilios.index'
 import { Route as AppVisitasNovaRouteImport } from './routes/app.visitas.nova'
+import { Route as AppDomiciliosNovoRouteImport } from './routes/app.domicilios.novo'
 import { Route as AppConfiguracoesSistemaRouteImport } from './routes/app.configuracoes.sistema'
 import { Route as ApiPublicVersionRouteImport } from './routes/api/public/version'
 
@@ -169,6 +170,11 @@ const AppVisitasNovaRoute = AppVisitasNovaRouteImport.update({
   path: '/nova',
   getParentRoute: () => AppVisitasRoute,
 } as any)
+const AppDomiciliosNovoRoute = AppDomiciliosNovoRouteImport.update({
+  id: '/novo',
+  path: '/novo',
+  getParentRoute: () => AppDomiciliosRoute,
+} as any)
 const AppConfiguracoesSistemaRoute = AppConfiguracoesSistemaRouteImport.update({
   id: '/sistema',
   path: '/sistema',
@@ -206,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
+  '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
   '/app/domicilios/': typeof AppDomiciliosIndexRoute
   '/app/visitas/': typeof AppVisitasIndexRoute
@@ -233,6 +240,7 @@ export interface FileRoutesByTo {
   '/app': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
+  '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
   '/app/domicilios': typeof AppDomiciliosIndexRoute
   '/app/visitas': typeof AppVisitasIndexRoute
@@ -264,6 +272,7 @@ export interface FileRoutesById {
   '/app/': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
+  '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
   '/app/domicilios/': typeof AppDomiciliosIndexRoute
   '/app/visitas/': typeof AppVisitasIndexRoute
@@ -296,6 +305,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
+    | '/app/domicilios/novo'
     | '/app/visitas/nova'
     | '/app/domicilios/'
     | '/app/visitas/'
@@ -323,6 +333,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
+    | '/app/domicilios/novo'
     | '/app/visitas/nova'
     | '/app/domicilios'
     | '/app/visitas'
@@ -353,6 +364,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
+    | '/app/domicilios/novo'
     | '/app/visitas/nova'
     | '/app/domicilios/'
     | '/app/visitas/'
@@ -552,6 +564,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVisitasNovaRouteImport
       parentRoute: typeof AppVisitasRoute
     }
+    '/app/domicilios/novo': {
+      id: '/app/domicilios/novo'
+      path: '/novo'
+      fullPath: '/app/domicilios/novo'
+      preLoaderRoute: typeof AppDomiciliosNovoRouteImport
+      parentRoute: typeof AppDomiciliosRoute
+    }
     '/app/configuracoes/sistema': {
       id: '/app/configuracoes/sistema'
       path: '/sistema'
@@ -581,10 +600,12 @@ const AppConfiguracoesRouteWithChildren =
   AppConfiguracoesRoute._addFileChildren(AppConfiguracoesRouteChildren)
 
 interface AppDomiciliosRouteChildren {
+  AppDomiciliosNovoRoute: typeof AppDomiciliosNovoRoute
   AppDomiciliosIndexRoute: typeof AppDomiciliosIndexRoute
 }
 
 const AppDomiciliosRouteChildren: AppDomiciliosRouteChildren = {
+  AppDomiciliosNovoRoute: AppDomiciliosNovoRoute,
   AppDomiciliosIndexRoute: AppDomiciliosIndexRoute,
 }
 
