@@ -60,6 +60,7 @@ const modules: Module[] = [
     title: "Conta",
     icon: UserCog,
     items: [
+      { title: "Meu Perfil", url: "/app/meu-perfil", icon: UserCog },
       { title: "Segurança & Sessões", url: "/app/sessoes", icon: KeyRound },
     ],
   },
