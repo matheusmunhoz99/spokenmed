@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity, AlertTriangle, CalendarClock, ClipboardList, FileSignature, FileText, FlaskConical,
   HeartPulse, Pill, Plus, Printer, Send, Stethoscope, Trash2, User, X, Timer, BadgeCheck, Workflow,
+  Save, Check, ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,8 @@ import { gerarAtestadoPdf } from "@/lib/pdf-atestado";
 import { useAuth } from "@/hooks/use-auth";
 import { saveHistorico } from "@/lib/historico-atendimentos";
 import logoUrl from "@/assets/spokenmed-logo.png";
+import { loadDraft, clearDraft, useConsultorioAutoSave } from "./use-consultorio-draft";
+
 
 interface Agendamento {
   id: string;
