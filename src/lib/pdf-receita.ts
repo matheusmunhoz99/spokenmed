@@ -180,17 +180,230 @@ function drawVia(doc: jsPDF, opts: GerarReceitaOpts, viaLabel: string | null, lo
   }
 }
 
+// ===== Notificação de Receita A (amarela) / B (azul) — Portaria SVS/MS 344/98 =====
+function numeroPorExtenso(qtd: string): string {
+  const n = parseInt(qtd.replace(/\D/g, ""), 10);
+  if (!n || isNaN(n)) return "";
+  const u = ["zero","uma","duas","três","quatro","cinco","seis","sete","oito","nove","dez",
+    "onze","doze","treze","catorze","quinze","dezesseis","dezessete","dezoito","dezenove","vinte"];
+  if (n <= 20) return u[n];
+  if (n < 100) {
+    const d = ["","","vinte","trinta","quarenta","cinquenta","sessenta","setenta","oitenta","noventa"];
+    return n % 10 === 0 ? d[Math.floor(n/10)] : `${d[Math.floor(n/10)]} e ${u[n%10]}`;
+  }
+  return String(n);
+}
+
+function drawNotificacao(
+  doc: jsPDF,
+  opts: GerarReceitaOpts,
+  variante: "A" | "B",
+  viaLabel: string,
+  logo: any,
+) {
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const cor: [number, number, number] = variante === "A" ? [255, 247, 204] : [214, 230, 255];
+  const corBorda: [number, number, number] = variante === "A" ? [204, 168, 0] : [37, 99, 235];
+
+  // Fundo colorido em toda a página
+  doc.setFillColor(...cor);
+  doc.rect(0, 0, pageW, pageH, "F");
+
+  // Faixa título
+  doc.setFillColor(...corBorda);
+  doc.rect(0, 0, pageW, 56, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.text(`NOTIFICAÇÃO DE RECEITA ${variante}`, 36, 26);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text(
+    variante === "A"
+      ? "Entorpecentes e psicotrópicos — Listas A1, A2 e A3 (Portaria 344/98 SVS/MS)"
+      : "Psicotrópicos — Listas B1 e B2 (Portaria 344/98 SVS/MS)",
+    36, 42,
+  );
+
+  // Número sequencial (faixa direita)
+  const numero = opts.notificacao?.numero || "________";
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.text(`Nº ${numero}`, pageW - 36, 30, { align: "right" });
+  doc.setFontSize(8);
+  doc.text(viaLabel, pageW - 36, 46, { align: "right" });
+
+  doc.setTextColor(0, 0, 0);
+  let y = 80;
+
+  // Identificação do emitente (obrigatório)
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(...corBorda);
+  doc.setLineWidth(0.8);
+  doc.roundedRect(36, y, pageW - 72, 64, 4, 4, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...corBorda);
+  doc.text("IDENTIFICAÇÃO DO EMITENTE", 44, y + 12);
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.text(opts.profissional.nome, 44, y + 26);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const emitMeta: string[] = [];
+  if (opts.profissional.crm) emitMeta.push(`CRM ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}`);
+  if (opts.profissional.cbo) emitMeta.push(`CBO ${opts.profissional.cbo}`);
+  doc.text(emitMeta.join("   ·   "), 44, y + 38);
+  const unidLinha: string[] = [];
+  if (opts.unidade?.nome) unidLinha.push(opts.unidade.nome);
+  if (opts.unidade?.endereco) unidLinha.push(opts.unidade.endereco);
+  if (opts.unidade?.telefone) unidLinha.push(`Tel: ${opts.unidade.telefone}`);
+  doc.setFontSize(8);
+  doc.setTextColor(80, 80, 80);
+  doc.text(doc.splitTextToSize(unidLinha.join("   ·   "), pageW - 96), 44, y + 50);
+  y += 76;
+
+  // Paciente
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(36, y, pageW - 72, 44, 4, 4, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...corBorda);
+  doc.text("PACIENTE", 44, y + 12);
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  doc.text(opts.paciente.nome, 44, y + 26);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(80, 80, 80);
+  const pacLinha: string[] = [];
+  if (opts.paciente.cpf) pacLinha.push(`CPF ${opts.paciente.cpf}`);
+  if (opts.paciente.cns) pacLinha.push(`CNS ${opts.paciente.cns}`);
+  if (opts.paciente.endereco) pacLinha.push(opts.paciente.endereco);
+  doc.text(pacLinha.join("   ·   ") || "—", 44, y + 38);
+  y += 56;
+
+  // Prescrição com quantidade por extenso
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...corBorda);
+  doc.text("PRESCRIÇÃO", 36, y);
+  y += 12;
+  doc.setTextColor(0, 0, 0);
+  opts.medicamentos.forEach((m, i) => {
+    if (y > pageH - PDF_FOOTER_MARGIN - 140) { doc.addPage(); y = 60; }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    const titulo = `${i + 1}. ${m.nome}${m.apresentacao ? ` — ${m.apresentacao}` : ""}`;
+    const tLines = doc.splitTextToSize(titulo, pageW - 90);
+    doc.text(tLines, 36, y);
+    y += tLines.length * 13;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(60, 60, 60);
+    doc.text(`Posologia: ${m.posologia || "conforme orientação"}`, 52, y);
+    y += 12;
+    if (m.qtd) {
+      const ext = numeroPorExtenso(m.qtd);
+      doc.text(`Quantidade: ${m.qtd}${ext ? ` (${ext})` : ""}`, 52, y);
+      y += 12;
+    }
+    if (m.duracao) { doc.text(`Duração: ${m.duracao}`, 52, y); y += 12; }
+    doc.setTextColor(0, 0, 0);
+    y += 6;
+  });
+
+  if (opts.orientacoes?.trim()) {
+    if (y > pageH - PDF_FOOTER_MARGIN - 120) { doc.addPage(); y = 60; }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...corBorda);
+    doc.text("ORIENTAÇÕES", 36, y);
+    y += 12;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    const oLines = doc.splitTextToSize(opts.orientacoes, pageW - 72);
+    doc.text(oLines, 36, y);
+    y += oLines.length * 11 + 8;
+  }
+
+  // Identificação do comprador
+  if (y > pageH - PDF_FOOTER_MARGIN - 110) { doc.addPage(); y = 60; }
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(...corBorda);
+  doc.roundedRect(36, y, pageW - 72, 52, 4, 4, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...corBorda);
+  doc.text("IDENTIFICAÇÃO DO COMPRADOR", 44, y + 12);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text(`Nome: ${opts.comprador?.nome ?? "_________________________________________________"}`, 44, y + 26);
+  doc.text(`RG: ${opts.comprador?.rg ?? "______________________"}    Endereço: ${opts.comprador?.endereco ?? "____________________________"}`, 44, y + 40);
+  y += 60;
+
+  // Identificação do fornecedor (farmácia)
+  doc.roundedRect(36, y, pageW - 72, 36, 4, 4, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...corBorda);
+  doc.text("IDENTIFICAÇÃO DO FORNECEDOR (FARMÁCIA)", 44, y + 12);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("Nome do farmacêutico: ____________________   CRF: __________   Data: __/__/____", 44, y + 26);
+  y += 48;
+
+  // Assinatura + validade
+  const sigY = y + 24;
+  doc.setDrawColor(0, 0, 0);
+  doc.line(pageW / 2 - 130, sigY, pageW / 2 + 130, sigY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(opts.profissional.nome, pageW / 2, sigY + 12, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  if (opts.profissional.crm) {
+    doc.text(`CRM ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}`, pageW / 2, sigY + 24, { align: "center" });
+  }
+  doc.setFontSize(7.5);
+  doc.setTextColor(80, 80, 80);
+  const validade = opts.notificacao?.validade_dias ?? 30;
+  const uf = opts.notificacao?.uf_emissao || opts.profissional.uf || "—";
+  doc.text(
+    `Validade: ${validade} dias a contar da data de emissão · Válida somente no estado de ${uf}`,
+    pageW / 2, sigY + 38, { align: "center" },
+  );
+  doc.text(`Emitido em: ${dataExt()}`, pageW / 2, sigY + 50, { align: "center" });
+}
+
 export async function gerarReceitaPdf(opts: GerarReceitaOpts) {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
   const logo = await loadLogo();
-  const duasVias = opts.tipo !== "comum";
-  if (duasVias) {
-    drawVia(doc, opts, "1ª via — Paciente", logo);
+  const isNotif = opts.tipo === "notificacao_a" || opts.tipo === "notificacao_b";
+
+  if (isNotif) {
+    if (!opts.notificacao?.numero || !opts.notificacao?.uf_emissao) {
+      throw new Error("Notificação de Receita requer número sequencial e UF de emissão.");
+    }
+    const variante = opts.tipo === "notificacao_a" ? "A" : "B";
+    drawNotificacao(doc, opts, variante, "1ª via — Retenção em Farmácia", logo);
     doc.addPage();
-    drawVia(doc, opts, "2ª via — Farmácia", logo);
+    drawNotificacao(doc, opts, variante, "2ª via — Paciente", logo);
   } else {
-    drawVia(doc, opts, null, logo);
+    const duasVias = opts.tipo !== "comum";
+    if (duasVias) {
+      drawVia(doc, opts, "1ª via — Paciente", logo);
+      doc.addPage();
+      drawVia(doc, opts, "2ª via — Farmácia", logo);
+    } else {
+      drawVia(doc, opts, null, logo);
+    }
   }
+
   const protocolo = gerarProtocolo("RECT");
   const qr = await buildQrDataUrl(buildVerifyUrl(protocolo));
   drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
@@ -200,7 +413,11 @@ export async function gerarReceitaPdf(opts: GerarReceitaOpts) {
     paciente: { nome: opts.paciente.nome, cpf: opts.paciente.cpf },
     profissional: opts.profissional,
     unidade: { nome: opts.unidade?.nome, cnes: opts.unidade?.cnes },
-    metadata: { tipo_receita: opts.tipo, qtd_medicamentos: opts.medicamentos.length },
+    metadata: {
+      tipo_receita: opts.tipo,
+      qtd_medicamentos: opts.medicamentos.length,
+      ...(opts.notificacao ? { notificacao_numero: opts.notificacao.numero, uf_emissao: opts.notificacao.uf_emissao } : {}),
+    },
   });
   openPdf(doc, `receita-${opts.paciente.nome.replace(/\s+/g, "-").toLowerCase()}.pdf`);
 }
