@@ -184,7 +184,7 @@ export async function gerarLmePdf(opts: LmeOpts) {
   doc.text(`${opts.unidade?.nome ?? "—"}, ${dataExt()}`, pageW / 2, sigY + 28, { align: "center" });
 
   const protocolo = gerarProtocolo("LME");
-  const qr = await buildQrDataUrl(`https://spokenmed.lovable.app/verificar?p=${protocolo}`);
+  const qr = await buildQrDataUrl(buildVerifyUrl(protocolo));
   drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
   await registrarDocumento({

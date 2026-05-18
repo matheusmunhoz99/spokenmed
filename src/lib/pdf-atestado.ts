@@ -76,7 +76,7 @@ export async function gerarAtestadoPdf(opts: AtestadoOpts) {
   doc.text("Documento assinado digitalmente conforme MP 2.200-2/2001 (ICP-Brasil)", pageW / 2, sigY + 44, { align: "center" });
 
   const protocolo = gerarProtocolo("ATEST");
-  const qr = await buildQrDataUrl(`https://spokenmed.lovable.app/verificar?p=${protocolo}`);
+  const qr = await buildQrDataUrl(buildVerifyUrl(protocolo));
   drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
   await registrarDocumento({

@@ -182,7 +182,7 @@ export async function gerarReceitaPdf(opts: GerarReceitaOpts) {
     drawVia(doc, opts, null, logo);
   }
   const protocolo = gerarProtocolo("RECT");
-  const qr = await buildQrDataUrl(`https://spokenmed.lovable.app/verificar?p=${protocolo}`);
+  const qr = await buildQrDataUrl(buildVerifyUrl(protocolo));
   drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
   await registrarDocumento({
