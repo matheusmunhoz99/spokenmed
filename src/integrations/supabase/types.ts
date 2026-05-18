@@ -1048,9 +1048,12 @@ export type Database = {
       verificar_documento: {
         Args: { p_protocolo: string }
         Returns: {
+          assinado_em: string
+          assinatura: string
           emitido_em: string
           paciente_cpf_mask: string
           paciente_nome_iniciais: string
+          profissional_cbo: string
           profissional_conselho: string
           profissional_nome: string
           protocolo: string
