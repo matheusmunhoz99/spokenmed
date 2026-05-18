@@ -24,6 +24,7 @@ export const MODULES: { key: ModuleKey; label: string; manageable: boolean }[] =
   { key: "recepcao", label: "Recepção do dia", manageable: true },
   { key: "triagem", label: "Triagem (Classificação de Risco)", manageable: true },
   { key: "visitas", label: "Visitas Domiciliares (ACS)", manageable: true },
+  { key: "domicilios", label: "Cadastro Domiciliar (CDS)", manageable: true },
   { key: "pacientes", label: "Pacientes", manageable: true },
   { key: "profissionais", label: "Profissionais", manageable: true },
   { key: "agendas", label: "Agendas (configuração)", manageable: true },
