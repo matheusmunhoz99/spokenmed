@@ -261,21 +261,54 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
   };
   const unidade = { nome: agendamento?.unidades?.nome || "UBS", cnes: CNES_FAKE, ine: INE_FAKE, endereco: "Rua das Acácias, 123 — Centro" };
 
-  const handlePrintReceita = () => {
+  const handlePrintReceita = async () => {
     if (!checkConselho()) return;
     if (meds.length === 0) { toast.error("Adicione ao menos um medicamento."); return; }
     const isNotif = recTipo === "notificacao_a" || recTipo === "notificacao_b";
-    if (isNotif && (!notifNum.trim() || !notifUf.trim())) {
-      toast.error("Informe o número da Notificação e a UF de emissão.");
+    const ufFinal = (notifUf || profile?.conselho_uf || "").trim().toUpperCase();
+    if (isNotif && ufFinal.length !== 2) {
+      toast.error("Cadastre a UF do conselho em Meu Perfil ou informe a UF de emissão.");
       return;
     }
-    gerarReceitaPdf({
-      tipo: recTipo, paciente: { nome: paciente, cpf, cns: CNS_FAKE, endereco: "—" },
-      profissional, unidade,
-      medicamentos: meds.map(m => ({ nome: m.nome, apresentacao: m.apresentacao, posologia: m.posologia, qtd: m.qtd, duracao: m.duracao })),
-      orientacoes: recOri, usuarioNome: profile?.nome || user?.email,
-      ...(isNotif ? { notificacao: { numero: notifNum.trim(), uf_emissao: notifUf.trim().toUpperCase(), validade_dias: 30 } } : {}),
-    });
+    const medsPayload = meds.map((m) => ({ nome: m.nome, apresentacao: m.apresentacao, posologia: m.posologia, qtd: m.qtd, duracao: m.duracao }));
+    try {
+      let notificacao: any = undefined;
+      if (isNotif) {
+        setEmitindo(true);
+        const serie = recTipo === "notificacao_a" ? "A" : "B";
+        const res = await emitirReceitaFn({
+          data: {
+            serie, uf: ufFinal,
+            paciente_id: agendamento?.paciente_id ?? null,
+            paciente_nome: paciente, paciente_cpf: cpf || null,
+            unidade_id: agendamento?.unidade_id ?? null,
+            unidade_nome: agendamento?.unidades?.nome ?? null,
+            agendamento_id: agendamento?.id ?? null,
+            medicamentos: medsPayload as any,
+            orientacoes: recOri || null,
+            validade_dias: 30,
+          },
+        });
+        notificacao = {
+          numero: res.numero, uf_emissao: res.uf, validade_dias: res.validade_dias,
+          sequencia: res.sequencia, hash_conteudo: res.hash_conteudo,
+          assinatura: res.assinatura, assinatura_curta: res.assinatura_curta,
+          emitido_em: res.emitido_em, status: "valida" as const,
+        };
+        toast.success(`Receita ${res.numero} emitida e registrada com hash digital.`);
+      }
+      await gerarReceitaPdf({
+        tipo: recTipo, paciente: { nome: paciente, cpf, cns: CNS_FAKE, endereco: "—" },
+        profissional, unidade,
+        medicamentos: medsPayload,
+        orientacoes: recOri, usuarioNome: profile?.nome || user?.email,
+        ...(notificacao ? { notificacao } : {}),
+      });
+    } catch (err: any) {
+      toast.error(err?.message || "Falha ao emitir receita.");
+    } finally {
+      setEmitindo(false);
+    }
   };
   const handlePrintSadt = () => {
     if (!checkConselho()) return;
