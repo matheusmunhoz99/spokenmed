@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { createMeeting, deleteMeeting } from "./tele-whereby.server";
+import { generateLkToken, deleteLkRoom, makeRoomName } from "./tele-livekit.server";
 import crypto from "crypto";
 
 function randomToken() {
@@ -12,7 +12,7 @@ function randomToken() {
 const SALA_COLS =
   "id, agendamento_id, daily_room_name, daily_room_url, host_room_url, whereby_meeting_id, token_paciente, gravar, status, consentimento_gravacao";
 
-/** Cria sala (idempotente: retorna existente) e marca agendamento como teleconsulta. */
+/** Cria sala LiveKit (idempotente). */
 export const criarSalaTele = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { agendamento_id: string; gravar?: boolean }) =>
@@ -33,21 +33,18 @@ export const criarSalaTele = createServerFn({ method: "POST" })
       .maybeSingle();
     if (existing) return { sala: existing };
 
-    const inicioMs = new Date(`${ag.data}T${ag.hora_inicio}`).getTime();
-    const endsInSeconds = Math.max(3600, Math.floor((inicioMs - Date.now()) / 1000) + 4 * 3600);
-    const meeting = await createMeeting({ endsInSeconds });
-
+    const roomName = makeRoomName(data.agendamento_id);
     const token = randomToken();
     const { data: sala, error } = await supabaseAdmin
       .from("teleconsulta_salas")
       .insert({
         agendamento_id: data.agendamento_id,
-        daily_room_name: meeting.roomName,        // legado: armazena room name
-        daily_room_url: meeting.roomUrl,          // URL do paciente (guest)
-        host_room_url: meeting.hostRoomUrl,       // URL do médico (host)
-        whereby_meeting_id: meeting.meetingId,
+        daily_room_name: roomName,   // reutilizado p/ guardar nome da sala LiveKit
+        daily_room_url: roomName,    // legado; mantém string não nula
+        host_room_url: roomName,     // legado; mantém string não nula
+        whereby_meeting_id: null,
         token_paciente: token,
-        gravar: false, // gravação em nuvem requer plano pago no Whereby
+        gravar: false,
       })
       .select(SALA_COLS)
       .single();
@@ -60,31 +57,36 @@ export const criarSalaTele = createServerFn({ method: "POST" })
     return { sala };
   });
 
-/** Retorna a URL de host do médico para a sala. */
+/** Médico: gera JWT LiveKit (host) para a sala. */
 export const gerarTokenMedico = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { sala_id: string }) => z.object({ sala_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const { data: sala, error } = await supabase
       .from("teleconsulta_salas")
-      .select("id, host_room_url, daily_room_url")
+      .select("id, daily_room_name, agendamento_id, agendamentos(profissionais(nome))")
       .eq("id", data.sala_id)
       .single();
     if (error || !sala) throw new Error("Sala não encontrada ou sem acesso");
-    const url = (sala as any).host_room_url || sala.daily_room_url;
-    if (!url) throw new Error("Sala sem URL configurada");
-    // Mantemos a forma { token, room_url } para compatibilidade com o front;
-    // no Whereby a URL já é assinada, então retornamos token vazio.
-    return { token: "", room_url: url };
+    const room = (sala as any).daily_room_name as string;
+    const profNome = (sala as any).agendamentos?.profissionais?.nome || "Médico(a)";
+    const { token, url } = await generateLkToken({
+      room,
+      identity: `medico-${userId}`,
+      name: profNome,
+      role: "host",
+    });
+    // mantém forma { token, room_url } por compatibilidade
+    return { token, room_url: url, room };
   });
 
-/** Gravação em nuvem não está disponível no plano Free do Whereby. */
+/** Gravação em nuvem (LiveKit Egress é pago — desabilitado por enquanto). */
 export const iniciarGravacao = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { sala_id: string }) => z.object({ sala_id: z.string().uuid() }).parse(d))
   .handler(async () => {
-    throw new Error("Gravação em nuvem indisponível no plano atual do provedor de vídeo");
+    throw new Error("Gravação em nuvem ainda não habilitada nesta sala");
   });
 
 export const pararGravacao = createServerFn({ method: "POST" })
@@ -101,7 +103,7 @@ export const encerrarSala = createServerFn({ method: "POST" })
     const { supabase } = context;
     const { data: sala } = await supabase
       .from("teleconsulta_salas")
-      .select("id, whereby_meeting_id")
+      .select("id, daily_room_name")
       .eq("id", data.sala_id)
       .maybeSingle();
 
@@ -109,8 +111,8 @@ export const encerrarSala = createServerFn({ method: "POST" })
       status: "encerrada", encerrada_em: new Date().toISOString(),
     }).eq("id", data.sala_id);
 
-    if ((sala as any)?.whereby_meeting_id) {
-      await deleteMeeting((sala as any).whereby_meeting_id);
+    if ((sala as any)?.daily_room_name) {
+      await deleteLkRoom((sala as any).daily_room_name);
     }
     return { ok: true };
   });
@@ -142,7 +144,7 @@ export const salvarResumo = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Paciente: troca token por URL de convidado (guest) do Whereby. */
+/** Paciente: troca token mágico por JWT LiveKit (guest). */
 export const pacienteEntrar = createServerFn({ method: "POST" })
   .inputValidator((d: { token: string }) => z.object({ token: z.string().min(16).max(80) }).parse(d))
   .handler(async ({ data }) => {
@@ -151,10 +153,28 @@ export const pacienteEntrar = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     const row = (rpc as any[])?.[0];
     if (!row) throw new Error("Link inválido ou expirado");
+
+    // Busca o nome da sala LiveKit
+    const { data: sala } = await supabaseAdmin
+      .from("teleconsulta_salas")
+      .select("daily_room_name")
+      .eq("id", row.sala_id)
+      .single();
+    const room = (sala as any)?.daily_room_name as string;
+    if (!room) throw new Error("Sala sem identificador");
+
+    const { token, url } = await generateLkToken({
+      room,
+      identity: `paciente-${row.sala_id}`,
+      name: row.paciente_nome || "Paciente",
+      role: "guest",
+    });
+
     return {
       sala_id: row.sala_id,
-      room_url: row.room_url,
-      meeting_token: "", // não usado no Whereby
+      room_url: url,
+      meeting_token: token,
+      room,
       paciente_nome: row.paciente_nome,
       profissional_nome: row.profissional_nome,
       data: row.data,
