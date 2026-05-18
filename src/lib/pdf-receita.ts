@@ -420,9 +420,9 @@ export async function gerarReceitaPdf(opts: GerarReceitaOpts) {
     metadata: {
       tipo_receita: opts.tipo,
       qtd_medicamentos: opts.medicamentos.length,
+      conteudo_hash: conteudoHash,
       ...(opts.notificacao ? { notificacao_numero: opts.notificacao.numero, uf_emissao: opts.notificacao.uf_emissao } : {}),
-    , conteudo_hash: conteudoHash },
-  ,
+    },
     assinatura: sig?.assinatura ?? null,
     assinatura_payload_sha: sig?.assinatura_payload_sha ?? null,
     assinado_em: sig?.assinado_em ?? null,
