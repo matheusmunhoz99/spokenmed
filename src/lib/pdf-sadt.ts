@@ -2,6 +2,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_COLORS, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
 import { buildVerifyUrl } from "./verificacao-url";
+import { tentarAssinar } from "./documento-registry";
+import { hashConteudoClient } from "./assinatura-client";
 import { registrarDocumento } from "./documento-registry";
 
 export type SadtOpts = {
@@ -180,8 +182,10 @@ export async function gerarSadtPdf(opts: SadtOpts) {
   doc.text("Solicitação eletrônica · SISREG / eSUS PEC · Assinada digitalmente (ICP-Brasil)", pageW / 2, sigY + 42, { align: "center" });
 
   const protocolo = gerarProtocolo("SADT");
+  const conteudoHash = await hashConteudoClient(protocolo + '|' + opts.paciente.nome);
+  const sig = await tentarAssinar({ protocolo, tipo: 'sadt', conteudo_hash: conteudoHash });
   const qr = await buildQrDataUrl(buildVerifyUrl(protocolo));
-  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
+  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr , assinatura: sig?.assinatura, assinadoEm: sig?.assinado_em });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
   await registrarDocumento({
     protocolo, tipo: "sadt",

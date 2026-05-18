@@ -2,6 +2,8 @@ import jsPDF from "jspdf";
 import { formatCPF, formatPhone, formatTime } from "./format";
 import { PDF_COLORS, drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
 import { buildVerifyUrl } from "./verificacao-url";
+import { tentarAssinar } from "./documento-registry";
+import { hashConteudoClient } from "./assinatura-client";
 import { registrarDocumento } from "./documento-registry";
 
 export type ComprovanteData = {
@@ -127,8 +129,10 @@ export async function gerarComprovante(c: ComprovanteData) {
   doc.text("• Em caso de impossibilidade, entre em contato com pelo menos 24h de antecedência.", marginX + 14, y + 52);
 
   const protocolo = gerarProtocolo("AGEN");
+  const conteudoHash = await hashConteudoClient(protocolo + '|' + opts.paciente.nome);
+  const sig = await tentarAssinar({ protocolo, tipo: 'comprovante', conteudo_hash: conteudoHash });
   const qr = await buildQrDataUrl(buildVerifyUrl(protocolo, { c: c.codigo }));
-  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
+  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr , assinatura: sig?.assinatura, assinadoEm: sig?.assinado_em });
   drawFooterAllPages(doc, { emitidoPor: c.emitidoPor, logo });
   await registrarDocumento({
     protocolo, tipo: "comprovante",

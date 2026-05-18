@@ -1,6 +1,8 @@
 import jsPDF from "jspdf";
 import { drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_COLORS, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
 import { buildVerifyUrl } from "./verificacao-url";
+import { tentarAssinar } from "./documento-registry";
+import { hashConteudoClient } from "./assinatura-client";
 import { registrarDocumento } from "./documento-registry";
 
 export type AtestadoOpts = {
@@ -77,8 +79,10 @@ export async function gerarAtestadoPdf(opts: AtestadoOpts) {
   doc.text("Documento assinado digitalmente conforme MP 2.200-2/2001 (ICP-Brasil)", pageW / 2, sigY + 44, { align: "center" });
 
   const protocolo = gerarProtocolo("ATEST");
+  const conteudoHash = await hashConteudoClient(protocolo + '|' + opts.paciente.nome);
+  const sig = await tentarAssinar({ protocolo, tipo: 'atestado', conteudo_hash: conteudoHash });
   const qr = await buildQrDataUrl(buildVerifyUrl(protocolo));
-  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
+  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr , assinatura: sig?.assinatura, assinadoEm: sig?.assinado_em });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
   await registrarDocumento({
     protocolo, tipo: "atestado",
