@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import { drawHeader, drawFooterAllPages, loadLogo, openPdf, PDF_COLORS, PDF_FOOTER_MARGIN } from "./pdf-shared";
+import { drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_COLORS, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
 
 export type ReceitaMed = {
   nome: string;
