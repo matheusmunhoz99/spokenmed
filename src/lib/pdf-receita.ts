@@ -180,6 +180,9 @@ export async function gerarReceitaPdf(opts: GerarReceitaOpts) {
   } else {
     drawVia(doc, opts, null, logo);
   }
+  const protocolo = gerarProtocolo("RECT");
+  const qr = await buildQrDataUrl(`https://spokenmed.lovable.app/verificar?p=${protocolo}`);
+  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
   openPdf(doc, `receita-${opts.paciente.nome.replace(/\s+/g, "-").toLowerCase()}.pdf`);
 }
