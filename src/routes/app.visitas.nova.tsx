@@ -55,7 +55,7 @@ function NovaVisitaPage() {
 
   const [dataVisita, setDataVisita] = useState(format(new Date(), "yyyy-MM-dd"));
   const [turno, setTurno] = useState("manha");
-  const [desfecho, setDesfecho] = useState("realizada");
+  const [desfecho, setDesfecho] = useState("visita_realizada");
   const [motivos, setMotivos] = useState<string[]>([]);
   const [acomps, setAcomps] = useState<string[]>([]);
   const [ctrlAmb, setCtrlAmb] = useState<string[]>([]);
@@ -73,6 +73,7 @@ function NovaVisitaPage() {
   const [fotos, setFotos] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [askReplicar, setAskReplicar] = useState(false);
+  const [askAssinatura, setAskAssinatura] = useState(false);
   const [resumo, setResumo] = useState<null | {
     pacientes: { id: string; nome: string }[];
     replicado: boolean;
