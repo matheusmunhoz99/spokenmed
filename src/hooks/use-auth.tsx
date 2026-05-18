@@ -15,6 +15,8 @@ type AuthContextType = {
   isAdmin: boolean;
   isMedico: boolean;
   isAdministrativo: boolean;
+  isTriagem: boolean;
+  isAcs: boolean;
   can: (module: ModuleKey, action?: "view" | "manage") => boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, nome: string, cargo?: string) => Promise<{ error: string | null }>;
