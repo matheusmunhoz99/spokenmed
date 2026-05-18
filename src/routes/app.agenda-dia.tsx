@@ -48,7 +48,7 @@ const _UnusedAgendaDiaRoute = ({
 function AgendaDiaPage() {
   const search = Route.useSearch();
   const qc = useQueryClient();
-  const { profile, user, isAdmin } = useAuth();
+  const { profile, user, isAdmin, isMedico, can } = useAuth();
   const [data, setData] = useState(search.data || format(new Date(), "yyyy-MM-dd"));
   const [unidadeId, setUnidadeId] = useState<string>("all");
   const [profId, setProfId] = useState<string>("all");
@@ -61,8 +61,17 @@ function AgendaDiaPage() {
   const [encaixeOpen, setEncaixeOpen] = useState(false);
   const [anexos, setAnexos] = useState<any>(null);
   const [consultorio, setConsultorio] = useState<any>(null);
-  const [atendidosSim, setAtendidosSim] = useState<Record<string, string>>({});
-  const isMedicoSimulado = user?.email === "admin@opportunity.com";
+  const canManage = can("agenda_dia", "manage");
+
+  // Profissional vinculado ao usuário logado (se for médico)
+  const { data: meuProf } = useQuery({
+    queryKey: ["meu-profissional", user?.id],
+    enabled: !!user?.id && isMedico,
+    queryFn: async () => {
+      const { data } = await supabase.from("profissionais").select("id").eq("user_id", user!.id).maybeSingle();
+      return data?.id ?? null;
+    },
+  });
 
   const { data: unidades } = useAllowedUnidades();
   const allowedIds = useMemo(() => (unidades ?? []).map((u: any) => u.id), [unidades]);
