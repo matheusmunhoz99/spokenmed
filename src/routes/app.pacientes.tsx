@@ -364,23 +364,30 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
         const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
         return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
       };
-      setForm((f: any) => ({
-        ...f,
-        nome: dados.nome ?? f.nome,
-        cns: dados.cns ?? f.cns,
-        telefone: dados.telefone ?? f.telefone,
-        logradouro: dados.logradouro ?? f.logradouro,
-        numero: dados.numero ?? f.numero,
-        bairro: dados.bairro ?? f.bairro,
-        cidade: dados.cidade ?? f.cidade,
-        uf: dados.uf ?? f.uf,
-        cep: dados.cep ?? f.cep,
-        data_nascimento: parseDate(dados.data_nascimento) || f.data_nascimento,
-        sexo: dados.sexo ?? f.sexo,
-        nome_mae: dados.nome_mae ?? f.nome_mae,
-      }));
+      // preenchimento "mágico" — campo por campo, com destaque visual
+      const pairs: [string, any][] = [
+        ["nome", dados.nome],
+        ["nome_mae", dados.nome_mae],
+        ["data_nascimento", parseDate(dados.data_nascimento)],
+        ["sexo", dados.sexo],
+        ["cns", dados.cns],
+        ["telefone", dados.telefone],
+        ["cep", dados.cep],
+        ["logradouro", dados.logradouro],
+        ["numero", dados.numero],
+        ["bairro", dados.bairro],
+        ["cidade", dados.cidade],
+        ["uf", dados.uf],
+      ];
       setCpfErro(null);
       toast.success("Dados do CadSUS importados.");
+      for (const [k, v] of pairs) {
+        if (v == null || v === "") continue;
+        set(k, v);
+        setHighlightField(k);
+        await new Promise((res) => setTimeout(res, 130));
+      }
+      setTimeout(() => setHighlightField(null), 600);
     } catch (e) {
       toast.error("Falha ao consultar CadSUS.");
     } finally {
