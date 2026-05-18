@@ -58,6 +58,7 @@ const FILA_TABLE = "fila_espera" as const;
 
 type Urgencia = "normal" | "prioritaria" | "urgente";
 type StatusFila = "aguardando" | "agendado" | "cancelado";
+type ClassRisco = "vermelho" | "laranja" | "amarelo" | "verde" | "azul";
 
 const URGENCIA_LABEL: Record<Urgencia, string> = {
   normal: "Normal",
@@ -65,6 +66,24 @@ const URGENCIA_LABEL: Record<Urgencia, string> = {
   urgente: "Urgente",
 };
 const URGENCIA_RANK: Record<Urgencia, number> = { urgente: 0, prioritaria: 1, normal: 2 };
+
+const RISCO_LABEL: Record<ClassRisco, string> = {
+  vermelho: "Vermelho · Emergência",
+  laranja: "Laranja · Muito urgente",
+  amarelo: "Amarelo · Urgente",
+  verde: "Verde · Pouco urgente",
+  azul: "Azul · Não urgente",
+};
+const RISCO_RANK: Record<ClassRisco, number> = { vermelho: 0, laranja: 1, amarelo: 2, verde: 3, azul: 4 };
+const RISCO_TME_DEFAULT: Record<ClassRisco, number> = { vermelho: 1, laranja: 7, amarelo: 30, verde: 90, azul: 180 };
+
+function riscoBadgeClass(r: ClassRisco) {
+  if (r === "vermelho") return "bg-red-600 text-white hover:bg-red-600";
+  if (r === "laranja") return "bg-orange-500 text-white hover:bg-orange-500";
+  if (r === "amarelo") return "bg-yellow-400 text-black hover:bg-yellow-400";
+  if (r === "verde") return "bg-emerald-500 text-white hover:bg-emerald-500";
+  return "bg-sky-500 text-white hover:bg-sky-500";
+}
 
 function urgenciaBadgeClass(u: Urgencia) {
   if (u === "urgente") return "bg-destructive text-destructive-foreground hover:bg-destructive";
@@ -114,7 +133,7 @@ function FilaPage() {
     enabled: !!unidadeId,
     queryFn: async () => {
       let q = (supabase.from(FILA_TABLE as any) as any)
-        .select("id, created_at, observacoes, paciente_id, especialidade_id, unidade_id, status, urgencia, agendamento_id, pacientes(id, nome, cpf, telefone, data_nascimento), especialidades(id, nome), unidades(id, nome)")
+        .select("id, created_at, observacoes, paciente_id, especialidade_id, unidade_id, status, urgencia, agendamento_id, classificacao_risco, cid10, solicitante_nome, solicitante_cns, solicitante_cbo, solicitante_cnes, procedimento_id, pacientes(id, nome, cpf, cns, telefone, data_nascimento), especialidades(id, nome), unidades(id, nome), procedimentos(id, codigo_sigtap, nome)")
         .eq("unidade_id", unidadeId)
         .in("status", statusFiltro === "todos" ? ["aguardando", "agendado"] : [statusFiltro])
         .order("created_at", { ascending: true });
@@ -124,6 +143,24 @@ function FilaPage() {
       return (data ?? []) as any[];
     },
   });
+
+  // TME: regras vigentes (default + customizadas) — usadas para classificar prazo
+  const { data: tmeRows } = useQuery({
+    queryKey: ["tme-config"],
+    queryFn: async () => (await (supabase.from("tme_config" as any) as any).select("especialidade_id, unidade_id, classificacao_risco, tme_dias")).data ?? [],
+  });
+
+  function tmeFor(especId: string | null, classif: ClassRisco | null, unId: string | null): number {
+    if (!classif) return Infinity;
+    const rows = (tmeRows ?? []) as any[];
+    const matches = rows.filter((r) => r.classificacao_risco === classif
+      && (r.especialidade_id === especId || r.especialidade_id === null)
+      && (r.unidade_id === unId || r.unidade_id === null));
+    if (matches.length === 0) return RISCO_TME_DEFAULT[classif];
+    matches.sort((a, b) => (Number(b.especialidade_id !== null) - Number(a.especialidade_id !== null))
+      || (Number(b.unidade_id !== null) - Number(a.unidade_id !== null)));
+    return matches[0].tme_dias;
+  }
 
   // Realtime → invalida toda vez que a tabela muda nessa unidade
   useEffect(() => {
@@ -137,14 +174,16 @@ function FilaPage() {
     return () => { supabase.removeChannel(ch); };
   }, [unidadeId, qc]);
 
-  // Ordena por (status aguardando primeiro, urgência, created_at) e calcula posição
-  // entre os "aguardando", particionada por especialidade.
+  // Ordena por (aguardando primeiro, classificação de risco SUS, urgência legacy, created_at)
   const filaOrdenada = useMemo(() => {
     if (!fila) return [];
     const arr = [...fila].sort((a, b) => {
       const sa = a.status === "aguardando" ? 0 : 1;
       const sb = b.status === "aguardando" ? 0 : 1;
       if (sa !== sb) return sa - sb;
+      const ra = RISCO_RANK[a.classificacao_risco as ClassRisco] ?? 99;
+      const rb = RISCO_RANK[b.classificacao_risco as ClassRisco] ?? 99;
+      if (ra !== rb) return ra - rb;
       const ua = URGENCIA_RANK[a.urgencia as Urgencia] ?? 2;
       const ub = URGENCIA_RANK[b.urgencia as Urgencia] ?? 2;
       if (ua !== ub) return ua - ub;
@@ -274,6 +313,9 @@ function FilaPage() {
               {filaFiltrada.map((f: any) => {
                 const dias = differenceInDays(new Date(), new Date(f.created_at));
                 const urg = (f.urgencia ?? "normal") as Urgencia;
+                const classif = (f.classificacao_risco ?? null) as ClassRisco | null;
+                const tmeDias = classif ? tmeFor(f.especialidade_id, classif, f.unidade_id) : null;
+                const dentroTme = tmeDias === null || dias <= tmeDias;
                 const isAgendado = f.status === "agendado";
                 return (
                   <li key={f.id} className="flex flex-col gap-3 py-3 md:flex-row md:items-center md:gap-4">
@@ -290,6 +332,11 @@ function FilaPage() {
                       <div className="min-w-0 flex-1 md:min-w-[220px]">
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="truncate text-sm font-medium">{f.pacientes?.nome}</div>
+                          {classif && (
+                            <Badge className={`text-[10px] uppercase ${riscoBadgeClass(classif)}`} title={RISCO_LABEL[classif]}>
+                              {classif}
+                            </Badge>
+                          )}
                           <Badge className={`text-[10px] uppercase ${urgenciaBadgeClass(urg)}`}>
                             {urg === "urgente" && <AlertTriangle className="mr-1 h-3 w-3" />}
                             {URGENCIA_LABEL[urg]}
@@ -299,6 +346,9 @@ function FilaPage() {
                           {f.especialidades?.nome && <span><span className="font-medium text-foreground/70">Especialidade:</span> {f.especialidades.nome}</span>}
                           {f.unidades?.nome && <span><span className="font-medium text-foreground/70">Unidade:</span> {f.unidades.nome}</span>}
                           {f.pacientes?.cpf && <span><span className="font-medium text-foreground/70">CPF:</span> {formatCPF(f.pacientes.cpf)}</span>}
+                          {f.cid10 && <span><span className="font-medium text-foreground/70">CID-10:</span> {f.cid10}</span>}
+                          {f.procedimentos?.codigo_sigtap && <span><span className="font-medium text-foreground/70">SIGTAP:</span> {f.procedimentos.codigo_sigtap}</span>}
+                          {f.solicitante_nome && <span><span className="font-medium text-foreground/70">Solicitante:</span> {f.solicitante_nome}{f.solicitante_cns ? ` · CNS ${f.solicitante_cns}` : ""}</span>}
                           {f.pacientes?.data_nascimento && (
                             <span>
                               <span className="font-medium text-foreground/70">Nasc.:</span> {formatDate(f.pacientes.data_nascimento)}
@@ -312,9 +362,12 @@ function FilaPage() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-2 md:contents">
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <div className={`flex items-center gap-1 text-xs ${dentroTme ? "text-muted-foreground" : "text-destructive font-medium"}`}>
                         <Clock className="h-3.5 w-3.5" />
                         {dias === 0 ? "hoje" : `${dias} dia${dias > 1 ? "s" : ""}`}
+                        {tmeDias !== null && Number.isFinite(tmeDias) && (
+                          <span className="ml-1 opacity-80">/ TME {tmeDias}d{!dentroTme ? " · ESTOURADO" : ""}</span>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {!isAgendado && (
@@ -452,12 +505,21 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
   const [paciente, setPaciente] = useState<any>(null);
   const [especialidadeId, setEspecialidadeId] = useState("");
   const [urgencia, setUrgencia] = useState<Urgencia>("normal");
+  const [classif, setClassif] = useState<ClassRisco | "">("");
+  const [cid10, setCid10] = useState("");
+  const [procedimentoId, setProcedimentoId] = useState("");
+  const [solNome, setSolNome] = useState("");
+  const [solCns, setSolCns] = useState("");
+  const [solCbo, setSolCbo] = useState("");
+  const [solCnes, setSolCnes] = useState("");
   const [obs, setObs] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) {
-      setSearch(""); setPaciente(null); setEspecialidadeId(""); setUrgencia("normal"); setObs("");
+      setSearch(""); setPaciente(null); setEspecialidadeId(""); setUrgencia("normal");
+      setClassif(""); setCid10(""); setProcedimentoId("");
+      setSolNome(""); setSolCns(""); setSolCbo(""); setSolCnes(""); setObs("");
     }
   }, [open]);
 
@@ -467,18 +529,24 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
     queryFn: async () => {
       const term = search.trim();
       const digits = onlyDigits(term);
-      let q = supabase.from("pacientes").select("id, nome, cpf, telefone").limit(10);
+      let q = supabase.from("pacientes").select("id, nome, cpf, cns, telefone").limit(10);
       if (digits.length >= 3) q = q.or(`cpf.ilike.%${digits}%,cns.ilike.%${digits}%`);
       else q = q.ilike("nome", `%${term}%`);
       return (await q).data ?? [];
     },
   });
 
+  const { data: procedimentos } = useQuery({
+    queryKey: ["fila-procedimentos"],
+    queryFn: async () => (await supabase.from("procedimentos").select("id, codigo_sigtap, nome").eq("ativo", true).order("codigo_sigtap")).data ?? [],
+  });
+
   const handleSalvar = async () => {
     if (!paciente || !especialidadeId || !unidadeId) return;
+    if (!paciente.cns) return toast.error("CNS do paciente é obrigatório para entrar na regulação. Cadastre o CNS antes.");
+    if (!classif) return toast.error("Selecione a classificação de risco.");
     setSubmitting(true);
 
-    // Checa duplicidade em aberto
     const { data: dup } = await (supabase.from(FILA_TABLE as any) as any)
       .select("id")
       .eq("paciente_id", paciente.id)
@@ -497,12 +565,20 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
       unidade_id: unidadeId,
       especialidade_id: especialidadeId,
       urgencia,
+      classificacao_risco: classif,
+      cid10: cid10.trim().toUpperCase() || null,
+      procedimento_id: procedimentoId || null,
+      solicitante_nome: solNome.trim() || null,
+      solicitante_cns: onlyDigits(solCns) || null,
+      solicitante_cbo: onlyDigits(solCbo) || null,
+      solicitante_cnes: onlyDigits(solCnes) || null,
       observacoes: obs || null,
       criado_por: userId ?? null,
     });
     setSubmitting(false);
     if (error) {
       if ((error as any).code === "23505") return toast.error("Paciente já está na fila desta especialidade.");
+      if (error.message?.includes("cns_obrigatorio_para_fila")) return toast.error("CNS do paciente é obrigatório.");
       return toast.error(error.message);
     }
     toast.success("Paciente adicionado à fila");
@@ -523,7 +599,13 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
             {paciente ? (
               <div className="rounded-md border bg-accent/40 p-3">
                 <div className="text-sm font-medium">{paciente.nome}</div>
-                <div className="text-xs text-muted-foreground">{paciente.cpf ? formatCPF(paciente.cpf) : ""}</div>
+                <div className="text-xs text-muted-foreground">
+                  {paciente.cpf ? formatCPF(paciente.cpf) : ""}
+                  {paciente.cns ? ` · CNS ${paciente.cns}` : " · sem CNS"}
+                </div>
+                {!paciente.cns && (
+                  <div className="mt-1 text-xs text-destructive">CNS obrigatório para regulação SUS — cadastre antes.</div>
+                )}
                 <Button variant="link" size="sm" className="px-0 h-auto" onClick={() => setPaciente(null)}>Trocar paciente</Button>
               </div>
             ) : (
@@ -538,7 +620,7 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
                       <li key={p.id}>
                         <button type="button" onClick={() => setPaciente(p)} className="w-full text-left px-3 py-2 hover:bg-accent">
                           <div className="text-sm font-medium">{p.nome}</div>
-                          <div className="text-xs text-muted-foreground">{p.cpf ? formatCPF(p.cpf) : ""}</div>
+                          <div className="text-xs text-muted-foreground">{p.cpf ? formatCPF(p.cpf) : ""}{p.cns ? ` · CNS ${p.cns}` : " · sem CNS"}</div>
                         </button>
                       </li>
                     ))}
@@ -559,7 +641,47 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">Urgência</Label>
+            <Label className="text-xs">Classificação de risco (SUS) <span className="text-destructive">*</span></Label>
+            <Select value={classif} onValueChange={(v) => setClassif(v as ClassRisco)}>
+              <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+              <SelectContent>
+                {(["vermelho","laranja","amarelo","verde","azul"] as ClassRisco[]).map((r) => (
+                  <SelectItem key={r} value={r}>{RISCO_LABEL[r]} · TME {RISCO_TME_DEFAULT[r]}d</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">CID-10</Label>
+              <Input value={cid10} onChange={(e) => setCid10(e.target.value.toUpperCase().slice(0, 7))} placeholder="Ex.: I10" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Procedimento SIGTAP</Label>
+              <Select value={procedimentoId} onValueChange={setProcedimentoId}>
+                <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
+                <SelectContent>
+                  {(procedimentos ?? []).map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>{p.codigo_sigtap} · {p.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="rounded-md border p-3 space-y-2">
+            <div className="text-xs font-medium uppercase text-muted-foreground">Médico solicitante</div>
+            <Input placeholder="Nome completo" value={solNome} onChange={(e) => setSolNome(e.target.value)} />
+            <div className="grid grid-cols-3 gap-2">
+              <Input placeholder="CNS" value={solCns} onChange={(e) => setSolCns(e.target.value)} maxLength={15} />
+              <Input placeholder="CBO" value={solCbo} onChange={(e) => setSolCbo(e.target.value)} maxLength={6} />
+              <Input placeholder="CNES" value={solCnes} onChange={(e) => setSolCnes(e.target.value)} maxLength={7} />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Urgência operacional</Label>
             <RadioGroup value={urgencia} onValueChange={(v) => setUrgencia(v as Urgencia)} className="grid grid-cols-3 gap-2">
               {(["normal", "prioritaria", "urgente"] as Urgencia[]).map((u) => (
                 <label key={u} className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition ${urgencia === u ? "border-primary bg-accent" : "border-input hover:bg-accent/50"}`}>
@@ -572,7 +694,7 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
 
           <div className="space-y-1.5">
             <Label className="text-xs">Observações / encaminhamento</Label>
-            <Textarea rows={3} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Opcional" />
+            <Textarea rows={2} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Opcional" />
           </div>
         </div>
         <DialogFooter>
