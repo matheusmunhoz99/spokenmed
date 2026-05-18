@@ -371,6 +371,8 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
         ["data_nascimento", parseDate(dados.data_nascimento)],
         ["sexo", dados.sexo],
         ["cns", dados.cns],
+        ["cns_secundario", (dados as any).cns_secundario],
+        ["outro_cns", (dados as any).outro_cns],
         ["telefone", dados.telefone],
         ["cep", dados.cep],
         ["logradouro", dados.logradouro],
