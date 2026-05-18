@@ -619,11 +619,11 @@ export type Database = {
           esgoto: string | null
           foto_fachada: string | null
           gps_accuracy: number | null
-          gps_capturado_em: string
+          gps_capturado_em: string | null
           id: string
-          latitude: number
+          latitude: number | null
           logradouro: string
-          longitude: number
+          longitude: number | null
           material_paredes: string | null
           microarea: string | null
           num_comodos: number | null
@@ -657,11 +657,11 @@ export type Database = {
           esgoto?: string | null
           foto_fachada?: string | null
           gps_accuracy?: number | null
-          gps_capturado_em: string
+          gps_capturado_em?: string | null
           id?: string
-          latitude: number
+          latitude?: number | null
           logradouro: string
-          longitude: number
+          longitude?: number | null
           material_paredes?: string | null
           microarea?: string | null
           num_comodos?: number | null
@@ -695,11 +695,11 @@ export type Database = {
           esgoto?: string | null
           foto_fachada?: string | null
           gps_accuracy?: number | null
-          gps_capturado_em?: string
+          gps_capturado_em?: string | null
           id?: string
-          latitude?: number
+          latitude?: number | null
           logradouro?: string
-          longitude?: number
+          longitude?: number | null
           material_paredes?: string | null
           microarea?: string | null
           num_comodos?: number | null
