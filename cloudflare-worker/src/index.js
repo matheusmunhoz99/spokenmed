@@ -343,6 +343,19 @@ export default {
       });
     }
 
+    // Endpoint enxuto pro agente fazer heartbeat (1x por minuto).
+    // Devolve idade da sessão em segundos pra ele decidir se precisa relogar.
+    if (url.pathname === "/session/health" && request.method === "GET") {
+      const s = await loadSession(env);
+      const ageSec = s.updatedAt ? Math.floor((Date.now() - s.updatedAt) / 1000) : null;
+      return json({
+        ok: true,
+        healthy: !!s.sId,
+        age_seconds: ageSec,
+        sId: mask(s.sId),
+      });
+    }
+
     if (url.pathname === "/session/update" && request.method === "POST") {
       let payload;
       try {
