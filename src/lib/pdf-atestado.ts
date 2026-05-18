@@ -89,7 +89,11 @@ export async function gerarAtestadoPdf(opts: AtestadoOpts) {
     paciente: { nome: opts.paciente.nome, cpf: opts.paciente.cpf },
     profissional: opts.profissional,
     unidade: { nome: opts.unidade?.nome, cnes: opts.unidade?.cnes },
-    metadata: { dias: opts.dias, cid: opts.cid ?? null, mencionarCid: opts.mencionarCid, repouso: opts.repouso },
+    metadata: { dias: opts.dias, cid: opts.cid ?? null, mencionarCid: opts.mencionarCid, repouso: opts.repouso , conteudo_hash: conteudoHash },
+  ,
+    assinatura: sig?.assinatura ?? null,
+    assinatura_payload_sha: sig?.assinatura_payload_sha ?? null,
+    assinado_em: sig?.assinado_em ?? null,
   });
   openPdf(doc, `atestado-${opts.paciente.nome.replace(/\s+/g, "-").toLowerCase()}.pdf`);
 }

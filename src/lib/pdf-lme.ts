@@ -197,7 +197,11 @@ export async function gerarLmePdf(opts: LmeOpts) {
     paciente: { nome: opts.paciente.nome, cpf: opts.paciente.cpf },
     profissional: opts.profissional,
     unidade: { nome: opts.unidade?.nome, cnes: opts.unidade?.cnes },
-    metadata: { cid: opts.cid10, qtd_meds: opts.medicamentos.length },
+    metadata: { cid: opts.cid10, qtd_meds: opts.medicamentos.length , conteudo_hash: conteudoHash },
+  ,
+    assinatura: sig?.assinatura ?? null,
+    assinatura_payload_sha: sig?.assinatura_payload_sha ?? null,
+    assinado_em: sig?.assinado_em ?? null,
   });
   openPdf(doc, `lme-${opts.paciente.nome.replace(/\s+/g, "-").toLowerCase()}.pdf`);
 }

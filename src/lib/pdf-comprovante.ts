@@ -139,7 +139,11 @@ export async function gerarComprovante(c: ComprovanteData) {
     paciente: { nome: c.paciente.nome, cpf: c.paciente.cpf },
     profissional: { nome: c.profissional.nome, cbo: c.profissional.cbo },
     unidade: { nome: c.unidade.nome, cnes: c.unidade.cnes },
-    metadata: { codigo: c.codigo, data: c.data, hora: c.hora },
+    metadata: { codigo: c.codigo, data: c.data, hora: c.hora , conteudo_hash: conteudoHash },
+  ,
+    assinatura: sig?.assinatura ?? null,
+    assinatura_payload_sha: sig?.assinatura_payload_sha ?? null,
+    assinado_em: sig?.assinado_em ?? null,
   });
   openPdf(doc, `comprovante_${c.codigo.slice(0, 8)}.pdf`);
 }
