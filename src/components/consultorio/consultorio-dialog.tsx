@@ -139,7 +139,7 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 
   const reset = () => {
     setAtend(ATENDIMENTO_DEFAULT); setConduta(CONDUTA_DEFAULT);
-    setS(""); setO(""); setA(""); setP(""); setPa(""); setFc(""); setTemp(""); setSat(""); setPeso("");
+    setS(""); setO(""); setA(""); setP(""); setPa(""); setFc(""); setFr(""); setTemp(""); setSat(""); setPeso(""); setAltura("");
     setCids([]); setCidBusca(""); setAlergias([]); setASub(""); setAReac(""); setAGrav("moderada");
     setAtDias("2"); setAtCid(""); setAtRepouso(true); setAtMencCid(false);
     setMeds([]); setMedNome(""); setMedApres(""); setMedPos(""); setMedQtd(""); setMedDur(""); setRecTipo("comum"); setRecOri("");
@@ -148,6 +148,7 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
     setLmeMed(""); setLmeApres(""); setLmeCid(""); setLmePos(""); setLmeQtd(""); setLmeTempo(""); setLmeAnam(""); setLmeExames("");
     setTab("atendimento");
   };
+
 
   const profissional = {
     nome: profile?.nome || agendamento?.profissionais?.nome || user?.email || "Médico(a)",
