@@ -37,10 +37,12 @@ function TelePage() {
   const { token } = Route.useParams();
   const navigate = useNavigate();
   const entrar = useServerFn(pacienteEntrar);
+  const stageRef = useRef<CallStageHandle | null>(null);
   const [sessao, setSessao] = useState<Sessao | null>(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [emChamada, setEmChamada] = useState(false);
+  const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
   const [consentimentoOk, setConsentimentoOk] = useState(false);
 
   const handleEntrar = async () => {
@@ -68,24 +70,39 @@ function TelePage() {
   };
 
   useEffect(() => {
-    // entra automaticamente na sala de espera
     handleEntrar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (emChamada && sessao) {
+    const sairAvaliar = () => navigate({ to: "/tele/$token/avaliar", params: { token } });
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-background p-2 sm:p-4">
-        <div className="flex-1 min-h-0">
-          <DailyEmbed
-            url={sessao.room_url}
-            token={sessao.meeting_token}
-            onLeft={() => navigate({ to: "/tele/$token/avaliar", params: { token } })}
-          />
-        </div>
+      <div className="fixed inset-0 z-50 bg-black">
+        <CallStage
+          ref={stageRef}
+          url={sessao.room_url}
+          token={sessao.meeting_token}
+          peerName={sessao.profissional_nome}
+          selfName={sessao.paciente_nome}
+          onJoined={() => setCallStartedAt(Date.now())}
+          onLeft={sairAvaliar}
+          topLeft={
+            <div className="flex items-center gap-3 rounded-full bg-black/40 py-1.5 pl-1.5 pr-3 backdrop-blur">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-sm font-semibold text-white">
+                {sessao.profissional_nome.charAt(0).toUpperCase()}
+              </div>
+              <div className="leading-tight text-white">
+                <div className="text-sm font-semibold">{sessao.profissional_nome}</div>
+                <div className="text-[11px] opacity-70">Teleconsulta</div>
+              </div>
+              <CallDurationBadge startedAt={callStartedAt} />
+            </div>
+          }
+        />
       </div>
     );
   }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/40 px-4 py-8">
