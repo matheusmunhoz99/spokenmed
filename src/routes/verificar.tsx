@@ -78,9 +78,10 @@ function VerificarPage() {
   const [doc, setDoc] = useState<Documento | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const consultar = async (proto: string) => {
-    const p = proto.trim().toUpperCase();
+    const p = extrairProtocolo(proto);
     if (!p) return;
     setLoading(true);
     setDoc(null);
@@ -109,8 +110,28 @@ function VerificarPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate({ search: { p: codigo.trim().toUpperCase() }, replace: true });
-    consultar(codigo);
+    const p = extrairProtocolo(codigo);
+    setCodigo(p);
+    navigate({ search: { p }, replace: true });
+    consultar(p);
+  };
+
+  const handleScanned = (text: string) => {
+    const p = extrairProtocolo(text);
+    setScannerOpen(false);
+    setCodigo(p);
+    navigate({ search: { p }, replace: true });
+    consultar(p);
+  };
+
+  const copiarProtocolo = async () => {
+    if (!doc) return;
+    try {
+      await navigator.clipboard.writeText(doc.protocolo);
+      toast.success("Protocolo copiado");
+    } catch {
+      toast.error("Não foi possível copiar");
+    }
   };
 
   return (
