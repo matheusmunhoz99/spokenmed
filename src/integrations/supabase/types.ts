@@ -868,6 +868,179 @@ export type Database = {
           },
         ]
       }
+      receita_contadores: {
+        Row: {
+          serie: string
+          uf: string
+          ultimo_numero: number
+          updated_at: string
+        }
+        Insert: {
+          serie: string
+          uf: string
+          ultimo_numero?: number
+          updated_at?: string
+        }
+        Update: {
+          serie?: string
+          uf?: string
+          ultimo_numero?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      receita_logs: {
+        Row: {
+          created_at: string
+          evento: string
+          id: string
+          ip: unknown
+          metadata: Json
+          receita_id: string
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          evento: string
+          id?: string
+          ip?: unknown
+          metadata?: Json
+          receita_id: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          evento?: string
+          id?: string
+          ip?: unknown
+          metadata?: Json
+          receita_id?: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receita_logs_receita_id_fkey"
+            columns: ["receita_id"]
+            isOneToOne: false
+            referencedRelation: "receitas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receitas: {
+        Row: {
+          agendamento_id: string | null
+          assinado_em: string | null
+          assinatura: string | null
+          assinatura_payload_sha: string | null
+          cancelado_em: string | null
+          cancelado_motivo: string | null
+          created_at: string
+          emitido_em: string
+          emitido_por: string | null
+          hash_conteudo: string
+          id: string
+          medicamentos: Json
+          numero: string
+          orientacoes: string | null
+          paciente_cpf_mask: string | null
+          paciente_id: string | null
+          paciente_nome: string
+          profissional_cbo: string | null
+          profissional_conselho_tipo: string | null
+          profissional_crm: string | null
+          profissional_id: string | null
+          profissional_nome: string
+          profissional_uf: string | null
+          sequencia: number
+          serie: string
+          status: string
+          uf: string
+          unidade_cnes: string | null
+          unidade_id: string | null
+          unidade_nome: string | null
+          updated_at: string
+          utilizado_em: string | null
+          validade_dias: number
+        }
+        Insert: {
+          agendamento_id?: string | null
+          assinado_em?: string | null
+          assinatura?: string | null
+          assinatura_payload_sha?: string | null
+          cancelado_em?: string | null
+          cancelado_motivo?: string | null
+          created_at?: string
+          emitido_em?: string
+          emitido_por?: string | null
+          hash_conteudo: string
+          id?: string
+          medicamentos?: Json
+          numero: string
+          orientacoes?: string | null
+          paciente_cpf_mask?: string | null
+          paciente_id?: string | null
+          paciente_nome: string
+          profissional_cbo?: string | null
+          profissional_conselho_tipo?: string | null
+          profissional_crm?: string | null
+          profissional_id?: string | null
+          profissional_nome: string
+          profissional_uf?: string | null
+          sequencia: number
+          serie: string
+          status?: string
+          uf: string
+          unidade_cnes?: string | null
+          unidade_id?: string | null
+          unidade_nome?: string | null
+          updated_at?: string
+          utilizado_em?: string | null
+          validade_dias?: number
+        }
+        Update: {
+          agendamento_id?: string | null
+          assinado_em?: string | null
+          assinatura?: string | null
+          assinatura_payload_sha?: string | null
+          cancelado_em?: string | null
+          cancelado_motivo?: string | null
+          created_at?: string
+          emitido_em?: string
+          emitido_por?: string | null
+          hash_conteudo?: string
+          id?: string
+          medicamentos?: Json
+          numero?: string
+          orientacoes?: string | null
+          paciente_cpf_mask?: string | null
+          paciente_id?: string | null
+          paciente_nome?: string
+          profissional_cbo?: string | null
+          profissional_conselho_tipo?: string | null
+          profissional_crm?: string | null
+          profissional_id?: string | null
+          profissional_nome?: string
+          profissional_uf?: string | null
+          sequencia?: number
+          serie?: string
+          status?: string
+          uf?: string
+          unidade_cnes?: string | null
+          unidade_id?: string | null
+          unidade_nome?: string | null
+          updated_at?: string
+          utilizado_em?: string | null
+          validade_dias?: number
+        }
+        Relationships: []
+      }
       slots: {
         Row: {
           agenda_config_id: string | null
@@ -1061,6 +1234,13 @@ export type Database = {
         }[]
       }
       gen_agendamento_codigo: { Args: never; Returns: string }
+      gerar_numero_receita: {
+        Args: { p_serie: string; p_uf: string }
+        Returns: {
+          numero: string
+          sequencia: number
+        }[]
+      }
       gerar_slots: { Args: { _config_id: string }; Returns: number }
       log_auth: {
         Args: { p_acao: string; p_ip?: string; p_ua?: string }
@@ -1105,6 +1285,31 @@ export type Database = {
           tipo: string
           unidade_cnes: string
           unidade_nome: string
+        }[]
+      }
+      verificar_receita: {
+        Args: { p_numero: string }
+        Returns: {
+          assinatura_curta: string
+          cancelado_em: string
+          cancelado_motivo: string
+          emitido_em: string
+          eventos: Json
+          hash_conteudo: string
+          medicamentos: Json
+          numero: string
+          paciente_mascarado: string
+          profissional_conselho_tipo: string
+          profissional_crm: string
+          profissional_nome: string
+          profissional_uf: string
+          serie: string
+          status: string
+          uf: string
+          unidade_nome: string
+          utilizado_em: string
+          validade_ate: string
+          validade_dias: number
         }[]
       }
     }

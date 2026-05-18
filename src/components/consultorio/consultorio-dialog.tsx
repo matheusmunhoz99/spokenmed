@@ -25,6 +25,8 @@ import { TabAtendimento, ATENDIMENTO_DEFAULT, type AtendimentoFlags } from "./ta
 import { TabConduta, CONDUTA_DEFAULT, type CondutaFlags } from "./tab-conduta";
 import { formatTime } from "@/lib/format";
 import { gerarReceitaPdf, type ReceitaTipo } from "@/lib/pdf-receita";
+import { emitirReceita } from "@/lib/receitas.functions";
+import { useServerFn } from "@tanstack/react-start";
 import { gerarSadtPdf } from "@/lib/pdf-sadt";
 import { gerarLmePdf } from "@/lib/pdf-lme";
 import { gerarAtestadoPdf } from "@/lib/pdf-atestado";
@@ -87,8 +89,9 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
   // Receita
   const [recTipo, setRecTipo] = useState<ReceitaTipo>("comum");
   const [recOri, setRecOri] = useState("");
-  const [notifNum, setNotifNum] = useState("");
-  const [notifUf, setNotifUf] = useState("RJ");
+  const [notifUf, setNotifUf] = useState("");
+  const [emitindo, setEmitindo] = useState(false);
+  const emitirReceitaFn = useServerFn(emitirReceita);
   const [meds, setMeds] = useState<MedItem[]>([]);
   const [medNome, setMedNome] = useState(""); const [medApres, setMedApres] = useState(""); const [medPos, setMedPos] = useState(""); const [medQtd, setMedQtd] = useState(""); const [medDur, setMedDur] = useState("");
 
@@ -258,21 +261,54 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
   };
   const unidade = { nome: agendamento?.unidades?.nome || "UBS", cnes: CNES_FAKE, ine: INE_FAKE, endereco: "Rua das Acácias, 123 — Centro" };
 
-  const handlePrintReceita = () => {
+  const handlePrintReceita = async () => {
     if (!checkConselho()) return;
     if (meds.length === 0) { toast.error("Adicione ao menos um medicamento."); return; }
     const isNotif = recTipo === "notificacao_a" || recTipo === "notificacao_b";
-    if (isNotif && (!notifNum.trim() || !notifUf.trim())) {
-      toast.error("Informe o número da Notificação e a UF de emissão.");
+    const ufFinal = (notifUf || profile?.conselho_uf || "").trim().toUpperCase();
+    if (isNotif && ufFinal.length !== 2) {
+      toast.error("Cadastre a UF do conselho em Meu Perfil ou informe a UF de emissão.");
       return;
     }
-    gerarReceitaPdf({
-      tipo: recTipo, paciente: { nome: paciente, cpf, cns: CNS_FAKE, endereco: "—" },
-      profissional, unidade,
-      medicamentos: meds.map(m => ({ nome: m.nome, apresentacao: m.apresentacao, posologia: m.posologia, qtd: m.qtd, duracao: m.duracao })),
-      orientacoes: recOri, usuarioNome: profile?.nome || user?.email,
-      ...(isNotif ? { notificacao: { numero: notifNum.trim(), uf_emissao: notifUf.trim().toUpperCase(), validade_dias: 30 } } : {}),
-    });
+    const medsPayload = meds.map((m) => ({ nome: m.nome, apresentacao: m.apresentacao, posologia: m.posologia, qtd: m.qtd, duracao: m.duracao }));
+    try {
+      let notificacao: any = undefined;
+      if (isNotif) {
+        setEmitindo(true);
+        const serie = recTipo === "notificacao_a" ? "A" : "B";
+        const res = await emitirReceitaFn({
+          data: {
+            serie, uf: ufFinal,
+            paciente_id: (agendamento as any)?.paciente_id ?? null,
+            paciente_nome: paciente, paciente_cpf: cpf || null,
+            unidade_id: (agendamento as any)?.unidade_id ?? null,
+            unidade_nome: agendamento?.unidades?.nome ?? null,
+            agendamento_id: agendamento?.id ?? null,
+            medicamentos: medsPayload as any,
+            orientacoes: recOri || null,
+            validade_dias: 30,
+          },
+        });
+        notificacao = {
+          numero: res.numero, uf_emissao: res.uf, validade_dias: res.validade_dias,
+          sequencia: res.sequencia, hash_conteudo: res.hash_conteudo,
+          assinatura: res.assinatura, assinatura_curta: res.assinatura_curta,
+          emitido_em: res.emitido_em, status: "valida" as const,
+        };
+        toast.success(`Receita ${res.numero} emitida e registrada com hash digital.`);
+      }
+      await gerarReceitaPdf({
+        tipo: recTipo, paciente: { nome: paciente, cpf, cns: CNS_FAKE, endereco: "—" },
+        profissional, unidade,
+        medicamentos: medsPayload,
+        orientacoes: recOri, usuarioNome: profile?.nome || user?.email,
+        ...(notificacao ? { notificacao } : {}),
+      });
+    } catch (err: any) {
+      toast.error(err?.message || "Falha ao emitir receita.");
+    } finally {
+      setEmitindo(false);
+    }
   };
   const handlePrintSadt = () => {
     if (!checkConselho()) return;
@@ -678,20 +714,22 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
                       </button>
                     ))}
                   </div>
-                  <Button size="sm" variant="outline" onClick={handlePrintReceita} disabled={meds.length===0}>
-                    <Printer className="mr-1.5 h-4 w-4" />Imprimir receita
+                  <Button size="sm" variant="outline" onClick={handlePrintReceita} disabled={meds.length===0 || emitindo}>
+                    <Printer className="mr-1.5 h-4 w-4" />{emitindo ? "Emitindo…" : "Imprimir receita"}
                   </Button>
                 </div>
 
                 {(recTipo === "notificacao_a" || recTipo === "notificacao_b") && (
                   <div className={`rounded-lg border p-3 ${recTipo === "notificacao_a" ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-950/20" : "border-blue-400 bg-blue-50 dark:bg-blue-950/20"}`}>
-                    <Label className="text-xs font-semibold">Dados da Notificação de Receita (Portaria 344/98)</Label>
+                    <Label className="text-xs font-semibold">Notificação de Receita {recTipo === "notificacao_a" ? "A (amarela)" : "B (azul)"} — Portaria 344/98</Label>
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      Informe o número sequencial impresso no talonário oficial fornecido pela Vigilância Sanitária.
+                      O número será gerado automaticamente pelo sistema no formato <span className="font-mono font-semibold">{(notifUf || profile?.conselho_uf || "UF").toUpperCase()}-{recTipo === "notificacao_a" ? "A" : "B"}-000000</span>, registrado no banco com hash SHA-256 e assinatura digital HMAC. Imutável após a emissão e validável por QR Code.
                     </p>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-[2fr_1fr]">
-                      <Input placeholder="Nº da Notificação (do talão)" value={notifNum} onChange={(e) => setNotifNum(e.target.value)} />
-                      <Input placeholder="UF de emissão (ex: RJ)" maxLength={2} value={notifUf} onChange={(e) => setNotifUf(e.target.value.toUpperCase())} />
+                    <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_2fr]">
+                      <Input placeholder={`UF de emissão (ex: ${profile?.conselho_uf || "RJ"})`} maxLength={2} value={notifUf} onChange={(e) => setNotifUf(e.target.value.toUpperCase())} />
+                      <div className="flex items-center text-[11px] text-muted-foreground">
+                        Padrão a partir do seu cadastro: <span className="ml-1 font-mono">{(profile?.conselho_uf || "—").toUpperCase()}</span>
+                      </div>
                     </div>
                   </div>
                 )}
