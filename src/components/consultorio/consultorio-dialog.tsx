@@ -25,6 +25,8 @@ import { TabAtendimento, ATENDIMENTO_DEFAULT, type AtendimentoFlags } from "./ta
 import { TabConduta, CONDUTA_DEFAULT, type CondutaFlags } from "./tab-conduta";
 import { formatTime } from "@/lib/format";
 import { gerarReceitaPdf, type ReceitaTipo } from "@/lib/pdf-receita";
+import { emitirReceita } from "@/lib/receitas.functions";
+import { useServerFn } from "@tanstack/react-start";
 import { gerarSadtPdf } from "@/lib/pdf-sadt";
 import { gerarLmePdf } from "@/lib/pdf-lme";
 import { gerarAtestadoPdf } from "@/lib/pdf-atestado";
