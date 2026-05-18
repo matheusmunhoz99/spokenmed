@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import logoUrl from "@/assets/spokenmed-logo.png";
+import { VERIFY_DISPLAY } from "./verificacao-url";
 
 // ===== Verificação / QR =====
 export function gerarProtocolo(prefixo = "DOC"): string {
@@ -88,7 +89,7 @@ export function drawVerificationBox(doc: jsPDF, opts: VerificationOpts) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6);
   doc.setTextColor(...PDF_COLORS.muted);
-  const url = opts.verifyUrl ?? "spokenmed.lovable.app/verificar";
+  const url = opts.verifyUrl ?? VERIFY_DISPLAY;
   doc.text(url, tx, qrY + 42);
   doc.setTextColor(0, 0, 0);
 
@@ -139,7 +140,7 @@ export function drawVerificationBox(doc: jsPDF, opts: VerificationOpts) {
       : "";
     doc.text(`HMAC-SHA256 · ${quando}`, txtX, sigY + 42);
     doc.text("Assinatura eletrônica avançada — Lei 14.063/2020", txtX, sigY + 50);
-    doc.text("Verifique em spokenmed.lovable.app/verificar", txtX, sigY + 58);
+    doc.text(`Verifique em ${VERIFY_DISPLAY}`, txtX, sigY + 58);
     doc.setTextColor(0, 0, 0);
   }
 }

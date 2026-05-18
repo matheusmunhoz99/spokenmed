@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_COLORS, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
+import { buildVerifyUrl } from "./verificacao-url";
 import { registrarDocumento } from "./documento-registry";
 
 export type SadtOpts = {
@@ -179,7 +180,7 @@ export async function gerarSadtPdf(opts: SadtOpts) {
   doc.text("Solicitação eletrônica · SISREG / eSUS PEC · Assinada digitalmente (ICP-Brasil)", pageW / 2, sigY + 42, { align: "center" });
 
   const protocolo = gerarProtocolo("SADT");
-  const qr = await buildQrDataUrl(`https://spokenmed.lovable.app/verificar?p=${protocolo}`);
+  const qr = await buildQrDataUrl(buildVerifyUrl(protocolo));
   drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
   await registrarDocumento({

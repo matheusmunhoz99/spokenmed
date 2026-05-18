@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_COLORS, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
+import { buildVerifyUrl } from "./verificacao-url";
 import { registrarDocumento } from "./documento-registry";
 
 export type LmeOpts = {
@@ -184,7 +185,7 @@ export async function gerarLmePdf(opts: LmeOpts) {
   doc.text(`${opts.unidade?.nome ?? "—"}, ${dataExt()}`, pageW / 2, sigY + 28, { align: "center" });
 
   const protocolo = gerarProtocolo("LME");
-  const qr = await buildQrDataUrl(`https://spokenmed.lovable.app/verificar?p=${protocolo}`);
+  const qr = await buildQrDataUrl(buildVerifyUrl(protocolo));
   drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
   await registrarDocumento({

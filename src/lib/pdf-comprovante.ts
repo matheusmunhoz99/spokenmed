@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import { formatCPF, formatPhone, formatTime } from "./format";
 import { PDF_COLORS, drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
+import { buildVerifyUrl } from "./verificacao-url";
 import { registrarDocumento } from "./documento-registry";
 
 export type ComprovanteData = {
@@ -126,7 +127,7 @@ export async function gerarComprovante(c: ComprovanteData) {
   doc.text("• Em caso de impossibilidade, entre em contato com pelo menos 24h de antecedência.", marginX + 14, y + 52);
 
   const protocolo = gerarProtocolo("AGEN");
-  const qr = await buildQrDataUrl(`https://spokenmed.lovable.app/verificar?p=${protocolo}&c=${c.codigo}`);
+  const qr = await buildQrDataUrl(buildVerifyUrl(protocolo, { c: c.codigo }));
   drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
   drawFooterAllPages(doc, { emitidoPor: c.emitidoPor, logo });
   await registrarDocumento({
