@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { pacienteEntrar } from "@/lib/tele.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Video, Calendar, User, AlertCircle, Check } from "lucide-react";
-import { DailyEmbed } from "@/components/tele/DailyEmbed";
+import { CallStage, CallDurationBadge, type CallStageHandle } from "@/components/tele/CallStage";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import logo from "@/assets/spokenmed-logo.png";
