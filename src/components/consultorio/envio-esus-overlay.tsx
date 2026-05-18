@@ -66,9 +66,9 @@ export function EnvioEsusOverlay({ open, onClose, pacienteNome }: Props) {
             <div className="mb-4 flex items-center gap-3">
               <img src={logo} alt="SpokenMED" className="h-9 w-9 object-contain" />
               <div className="min-w-0 flex-1">
-                <h2 className="text-base font-semibold tracking-tight">Enviando ao eSUS PEC</h2>
+                <h2 className="text-base font-semibold tracking-tight">Enviando ao e-SUS APS PEC 5.4.30</h2>
                 <p className="truncate text-xs text-muted-foreground">
-                  Transmissão segura · {pacienteNome ?? "Paciente"}
+                  Atendimento Individual · LEDI 5.4 · {pacienteNome ?? "Paciente"}
                 </p>
               </div>
               <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-primary">
