@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Activity, AlertTriangle, CalendarClock, ClipboardList, FileSignature, FileText, FlaskConical,
-  HeartPulse, Pill, Plus, Printer, Send, Stethoscope, Trash2, User, X, Timer, BadgeCheck, Workflow,
+  HeartPulse, Pill, Plus, Printer, Save, Send, Stethoscope, Trash2, User, X, Timer, BadgeCheck, Workflow,
 } from "lucide-react";
 
 import { toast } from "sonner";
