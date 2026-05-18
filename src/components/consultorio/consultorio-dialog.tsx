@@ -342,9 +342,24 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
               <div className="grid grid-cols-2 gap-2">
                 <Field label="PA (mmHg)" v={pa} onChange={setPa} placeholder="120x80" />
                 <Field label="FC (bpm)" v={fc} onChange={setFc} placeholder="78" />
+                <Field label="FR (irpm)" v={fr} onChange={setFr} placeholder="16" />
                 <Field label="Temp (°C)" v={temp} onChange={setTemp} placeholder="36,5" />
                 <Field label="SatO₂ (%)" v={sat} onChange={setSat} placeholder="98" />
                 <Field label="Peso (kg)" v={peso} onChange={setPeso} placeholder="70" />
+                <Field label="Altura (cm)" v={altura} onChange={setAltura} placeholder="170" />
+                {(() => {
+                  const pesoN = parseFloat(peso.replace(",", "."));
+                  const altN = parseFloat(altura.replace(",", ".")) / 100;
+                  const imc = pesoN > 0 && altN > 0 ? (pesoN / (altN * altN)).toFixed(1) : "";
+                  return (
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">IMC</Label>
+                      <div className="grid h-8 place-items-center rounded-md border bg-muted/30 text-sm font-semibold tabular-nums">
+                        {imc || "—"}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </Card>
 
