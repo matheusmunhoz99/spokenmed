@@ -596,41 +596,34 @@ def manda_sessao_pro_worker(sid: str, cookies: str, seq_hex: str = "") -> bool:
     return True
 
 
-def sessao_atual_do_worker_ainda_vale() -> bool:
-    """Heurística: pergunta ao Worker se a sessão atual ainda responde.
-    Faz um lookup de CPF dummy (00000000000) e considera 'sessao_expirada' como morto."""
+def sessao_health() -> tuple[bool, int]:
+    """Pergunta ao Worker o estado da sessão.
+    Retorna (healthy, age_seconds). Em caso de erro, retorna (False, 999999)."""
     try:
         r = requests.get(
-            f"{WORKER_URL.rstrip('/')}/cpf",
-            params={"cpf": "00000000000", "api_key": WORKER_API_KEY},
-            timeout=HTTP_TIMEOUT,
+            f"{WORKER_URL.rstrip('/')}/session/health",
+            params={"api_key": WORKER_API_KEY},
+            timeout=10,
         )
         if r.status_code != 200:
-            return False
-        body = r.json() if r.headers.get("content-type","").startswith("application/json") else {}
-        # se o erro for 'sessao_expirada' ou 'sessao_ausente', precisa relogar
-        err = body.get("error")
-        if err in ("sessao_expirada", "sessao_ausente", "unauthorized"):
-            log.info("Worker reporta sessão %s — relogar.", err)
-            return False
-        # qualquer outro resultado (ok=true OU cpf_nao_encontrado etc) significa
-        # que a sessão tá funcionando.
-        return True
+            return False, 999999
+        body = r.json()
+        return bool(body.get("healthy")), int(body.get("age_seconds") or 999999)
     except Exception as e:
-        log.warning("check de sessão falhou (%s) — vou relogar pra garantir.", e)
-        return False
+        log.warning("heartbeat falhou (%s) — assumindo sessão morta.", e)
+        return False, 999999
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Loop principal
+# Loop principal — heartbeat curto (60s) com auto-relogin
 # ─────────────────────────────────────────────────────────────────────────────
+HEARTBEAT_SEC = 60
+MAX_AGE_SEC = INTERVAL_MINUTES * 60  # refresh preventivo a cada 30min
+
+
 def ciclo() -> bool:
-    """Um ciclo: SEMPRE faz login novo e atualiza o Worker.
-
-    A checagem 'sessao_atual_ainda_vale' foi removida porque o uniGUI às vezes
-    responde 'cpf_nao_encontrado' mesmo com sessão morta, mascarando a expiração.
-    Login fresco a cada 30min custa ~1s e garante que o Worker nunca sirva uma
-    sessão zumbi pro frontend."""
+    """Faz login novo e atualiza o Worker. Chamado quando heartbeat indica
+    que a sessão expirou ou ficou velha demais."""
     creds = login_e_captura_sid()
     if not creds:
         return False
@@ -640,30 +633,44 @@ def ciclo() -> bool:
 
 def main() -> None:
     log.info("════════════════════════════════════════════════════════════")
-    log.info("SpokenMED Agent iniciado (intervalo=%s min, worker=%s)",
-             INTERVAL_MINUTES, WORKER_URL)
+    log.info("SpokenMED Agent iniciado (heartbeat=%ss, refresh=%smin, worker=%s)",
+             HEARTBEAT_SEC, INTERVAL_MINUTES, WORKER_URL)
     log.info("Logs em: %s", _log_dir() / "agent.log")
     log.info("════════════════════════════════════════════════════════════")
 
     _acquire_lock()
     try:
-        backoff = 60  # segundos em caso de falha
+        backoff = 60
+        # primeiro ciclo: sempre faz login pra garantir sessão fresca ao iniciar
+        precisa_logar = True
         while True:
-            try:
-                ok = ciclo()
-            except Exception:
-                log.error("erro inesperado no ciclo:\n%s", traceback.format_exc())
-                ok = False
+            if precisa_logar:
+                try:
+                    ok = ciclo()
+                except Exception:
+                    log.error("erro inesperado no ciclo:\n%s", traceback.format_exc())
+                    ok = False
 
-            if ok:
-                sleep_s = INTERVAL_MINUTES * 60
-                backoff = 60
+                if ok:
+                    backoff = 60
+                    precisa_logar = False
+                else:
+                    log.warning("ciclo falhou — nova tentativa em %ss (backoff)", backoff)
+                    time.sleep(backoff)
+                    backoff = min(backoff * 2, MAX_AGE_SEC)
+                    continue
+
+            # heartbeat curto
+            time.sleep(HEARTBEAT_SEC)
+            healthy, age = sessao_health()
+            if not healthy:
+                log.info("⚡ Worker reporta sessão morta — relogar agora.")
+                precisa_logar = True
+            elif age >= MAX_AGE_SEC:
+                log.info("⏰ Sessão tem %ss (≥ %ss) — refresh preventivo.", age, MAX_AGE_SEC)
+                precisa_logar = True
             else:
-                sleep_s = backoff
-                backoff = min(backoff * 2, INTERVAL_MINUTES * 60)
-                log.warning("ciclo falhou — tentando de novo em %ss (backoff)", sleep_s)
-
-            time.sleep(sleep_s)
+                log.debug("heartbeat ok (age=%ss)", age)
     except KeyboardInterrupt:
         log.info("Encerrando por Ctrl+C.")
     finally:
