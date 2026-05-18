@@ -28,12 +28,10 @@ import requests
 # Configuração (hardcoded — comodato pro cliente; basta recompilar pra trocar)
 # ─────────────────────────────────────────────────────────────────────────────
 WORKER_URL     = "https://spokenmed.meyssiner.workers.dev"
-# WORKER_API_KEY é lido de agent.cfg (ao lado do .exe) — vide _read_api_key().
+# WORKER_API_KEY e credenciais Fiorilli são lidos de agent.cfg (ao lado do .exe).
 OPP_BASE       = "https://saudeteresopolis.oppcloud.com.br"
 OPP_LOGIN_PATH = "/sis/"
 OPP_HANDLE     = "/sis/sis.dll/HandleEvent"
-OPP_USERNAME   = "admin"
-OPP_PASSWORD   = "123"
 
 INTERVAL_MINUTES = 30
 HTTP_TIMEOUT     = 30
@@ -57,29 +55,55 @@ def _log_dir() -> Path:
     return base
 
 
-def _read_api_key() -> str:
-    """Lê WORKER_API_KEY de agent.cfg (formato KEY=VALOR) ao lado do .exe."""
+def _read_config() -> dict[str, str]:
+    """Lê agent.cfg (formato KEY=VALOR) ao lado do .exe/runtime."""
     cfg_path = _log_dir() / "agent.cfg"
     if not cfg_path.exists():
         print(f"\n❌ Arquivo agent.cfg não encontrado em {cfg_path}\n"
               f"   Crie um arquivo com o conteúdo:\n\n"
-              f"   WORKER_API_KEY=SuaApiKeyAqui\n", file=sys.stderr)
+              f"   WORKER_API_KEY=SuaApiKeyAqui\n"
+              f"   FIORILLI_USERNAME=SeuUsuario\n"
+              f"   FIORILLI_PASSWORD=SuaSenha\n", file=sys.stderr)
         sys.exit(3)
+    values: dict[str, str] = {}
     for raw in cfg_path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
         if "=" in line:
             k, v = line.split("=", 1)
-            if k.strip() == "WORKER_API_KEY":
-                v = v.strip().strip('"').strip("'")
-                if v:
-                    return v
-    print(f"\n❌ WORKER_API_KEY não definido em {cfg_path}\n", file=sys.stderr)
+            k = k.strip()
+            v = v.strip().strip('"').strip("'")
+            if k and v:
+                values[k] = v
+    return values
+
+
+_CFG = _read_config()
+
+
+def _required_cfg(name: str) -> str:
+    v = _CFG.get(name, "").strip()
+    if v:
+        return v
+    print(f"\n❌ {name} não definido em {_log_dir() / 'agent.cfg'}\n", file=sys.stderr)
     sys.exit(3)
 
 
-WORKER_API_KEY = _read_api_key()
+def _optional_cfg(*names: str, default: str = "") -> str:
+    for name in names:
+        v = _CFG.get(name, "").strip()
+        if v:
+            return v
+    return default
+
+
+WORKER_API_KEY = _required_cfg("WORKER_API_KEY")
+OPP_USERNAME = _optional_cfg("FIORILLI_USERNAME", "OPP_USERNAME", default="admin")
+OPP_PASSWORD = _optional_cfg("FIORILLI_PASSWORD", "OPP_PASSWORD", default="123")
+if not OPP_USERNAME or not OPP_PASSWORD:
+    print(f"\n❌ FIORILLI_USERNAME/FIORILLI_PASSWORD não definidos em {_log_dir() / 'agent.cfg'}\n", file=sys.stderr)
+    sys.exit(3)
 
 log = logging.getLogger("spokenmed-agent")
 log.setLevel(logging.INFO)
