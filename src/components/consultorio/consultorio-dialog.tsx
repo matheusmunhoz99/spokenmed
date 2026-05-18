@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity, AlertTriangle, CalendarClock, ClipboardList, FileSignature, FileText, FlaskConical,
   HeartPulse, Pill, Plus, Printer, Send, Stethoscope, Trash2, User, X, Timer, BadgeCheck, Workflow,
-  Save, Check, ChevronRight,
 } from "lucide-react";
+
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
