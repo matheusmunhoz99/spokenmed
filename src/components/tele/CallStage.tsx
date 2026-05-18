@@ -121,7 +121,7 @@ export const CallStage = forwardRef<CallStageHandle, Props>(function CallStage(
           people="off"
           floatSelf="on"
           subgridLabels="on"
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
+          style={{ position: "absolute", inset: "0", width: "100%", height: "100%", border: "0" }}
         />
       ) : !error ? (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/60 backdrop-blur-sm">
