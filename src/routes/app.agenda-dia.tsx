@@ -47,6 +47,7 @@ const _UnusedAgendaDiaRoute = ({
 
 function AgendaDiaPage() {
   const search = Route.useSearch();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const { profile, user, isAdmin, isMedico, can } = useAuth();
   const [data, setData] = useState(search.data || format(new Date(), "yyyy-MM-dd"));
