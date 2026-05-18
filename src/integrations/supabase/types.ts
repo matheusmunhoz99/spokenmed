@@ -136,6 +136,7 @@ export type Database = {
           reagendado_em: string | null
           slot_id: string | null
           status: Database["public"]["Enums"]["agendamento_status"]
+          triado_em: string | null
           triagem_em: string | null
           triagem_por: string | null
           unidade_id: string | null
@@ -164,6 +165,7 @@ export type Database = {
           reagendado_em?: string | null
           slot_id?: string | null
           status?: Database["public"]["Enums"]["agendamento_status"]
+          triado_em?: string | null
           triagem_em?: string | null
           triagem_por?: string | null
           unidade_id?: string | null
@@ -192,6 +194,7 @@ export type Database = {
           reagendado_em?: string | null
           slot_id?: string | null
           status?: Database["public"]["Enums"]["agendamento_status"]
+          triado_em?: string | null
           triagem_em?: string | null
           triagem_por?: string | null
           unidade_id?: string | null
@@ -1114,6 +1117,7 @@ export type Database = {
         | "cancelado"
         | "chegou"
         | "em_triagem"
+        | "triado"
       anexo_categoria:
         | "pedido_medico"
         | "exame"
@@ -1260,6 +1264,7 @@ export const Constants = {
         "cancelado",
         "chegou",
         "em_triagem",
+        "triado",
       ],
       anexo_categoria: ["pedido_medico", "exame", "documento", "foto", "outro"],
       app_role: ["admin", "recepcionista", "medico"],

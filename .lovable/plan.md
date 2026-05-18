@@ -1,89 +1,90 @@
-## O que está errado hoje
+## O que está errado / faltando
 
-1. **Botão "Atender" só aparece pro email `admin@opportunity.com`** — o código usa `isMedicoSimulado = user?.email === "admin@opportunity.com"`. Dr. Carlos (médico real) nunca vê o botão. Vale trocar pela role `medico` de verdade.
-2. **Existe um botão "Atendido" (UserCheck) que muda o status manualmente** — precisa sumir. O status `atendido` só pode ser gravado quando o médico finalizar a consulta no consultório (SOAP + CID + conduta).
-3. **Não existe controle de chegada / triagem** — recepcionista não tem onde marcar "paciente chegou", enfermagem não tem onde marcar "triado", e não há painel mostrando ordem de chegada.
+1. **Médico não sabe quem está em triagem.** Hoje os status `chegou` e `em_triagem` aparecem com badge igual pra todo mundo. O médico precisa ver claramente "Já triado, aguardando você" pra chamar o próximo da fila certo.
+2. **Médico chama paciente que ainda está em triagem.** O `ConsultorioDialog` abre/atende independente do status. Tem que bloquear: se o paciente está `em_triagem`, o botão "Atender" precisa estar desabilitado (com tooltip "Aguardando triagem"). Só libera quando a enfermagem finalizar a triagem (status volta a `chegou` ou avança para `confirmado` = "Pronto pra consulta").
+3. **Não tem o passo "Triagem finalizada".** Hoje a enfermagem só consegue mover `chegou → em_triagem`. Falta o terceiro botão `em_triagem → triado` (paciente pronto pro médico). Sem isso o médico nunca sabe que pode chamar.
+4. **Recepção/sala de espera mal apresentadas.** Tela atual é só uma tabela densa, sem visão de kanban prometida no plano, sem responsivo decente em mobile (overflow horizontal), KPIs sem ícone, ações apertadas.
 
 ## O que vou construir
 
-### 1. Botão "Atender" para todo médico (agenda do dia)
-- Remover a gambiarra `isMedicoSimulado`; usar `isMedico` do `useAuth`.
-- Mostrar o botão **Atender** (abre o `ConsultorioDialog`) em **qualquer linha da agenda do dia** quando o usuário for médico **e** o agendamento for dele (`profissional.user_id === user.id`), com status diferente de `cancelado`/`atendido`.
-- Mesma regra aplicada na lista de "Próximos agendamentos" do dashboard `/app` (é a outra "agenda" que o médico vê hoje).
+### 1. Novo status `triado` (paciente liberado da triagem, esperando médico)
 
-### 2. Status "atendido" 100% automático
-- Remover o botão UserCheck "Atendido" da agenda do dia.
-- Ao concluir `finalizar()` no `ConsultorioDialog` (depois do envio eSUS), fazer `UPDATE agendamentos SET status='atendido', atendido_em=now() WHERE id=...` e invalidar as queries de agenda/recepção.
-- Manter os botões de **Confirmar / Faltou / Cancelar** (esses continuam manuais, são da recepção).
+Adicionar `triado` ao enum `agendamento_status` + coluna `triado_em timestamptz` em `agendamentos`. Trigger `fn_ag_carimbos` carimba quando entra nesse status.
 
-### 3. Novos estados de fluxo do dia
-Adicionar dois valores ao enum `agendamento_status`:
-- `chegou` — recepcionista bateu a chegada
-- `em_triagem` — enfermagem chamou pra triagem
-
-Adicionar colunas em `agendamentos`:
-- `chegou_em timestamptz` (carimbo da chegada — base da ordem)
-- `triagem_em timestamptz`
-- `atendido_em timestamptz`
-- `triagem_por uuid` (quem triou)
-- Trigger para preencher cada carimbo quando o status muda pro respectivo valor.
-
-### 4. Nova tela **Recepção do dia** (`/app/recepcao`)
-Visão única que a recepcionista e a enfermagem usam o dia inteiro. Layout em 4 colunas (kanban) + tabela com filtros embaixo:
-
+Fluxo final:
 ```text
-┌──────────────┬──────────────┬──────────────┬──────────────┐
-│ Aguardando   │ Chegou       │ Em triagem   │ Atendidos    │
-│ recepção (N) │ (N) ⏱ tempo  │ (N) ⏱ tempo  │ (N)          │
-├──────────────┼──────────────┼──────────────┼──────────────┤
-│ [Marcar      │ [Chamar p/   │ [Liberar p/  │ Histórico    │
-│  chegada]    │  triagem]    │  atendimento]│ do dia       │
-└──────────────┴──────────────┴──────────────┴──────────────┘
+agendado/confirmado → chegou → em_triagem → triado → atendido
+                       (recep)   (enferm)    (enferm) (médico)
 ```
 
-Cabeçalho com contadores ao vivo: **Agendados · Chegaram · Triados · Atendidos · Faltaram**.
+`StatusBadge` (em `app.index.tsx`) ganha cor/label nova pro `triado` ("Pronto p/ consulta", verde-âmbar — fica óbvio pro médico).
 
-Tabela detalhada abaixo com:
-- Ordem (1, 2, 3… pela ordem de chegada — `chegou_em` ASC)
-- Hora marcada · Paciente · Idade · Profissional · Status · Tempo de espera (live)
-- **Filtros**: por status, por unidade, por profissional
-- **Ordenação**: ordem de chegada (default), nome, idade, hora marcada
-- **Busca**: nome ou CPF
-- Botão de **chamar no painel** continua disponível em cada linha
+### 2. Médico só atende quando o paciente está pronto
 
-Atualização em tempo real via Supabase Realtime na tabela `agendamentos`.
+Em `src/routes/app.agenda-dia.tsx` e no card "Próximos atendimentos" do dashboard:
 
-### 5. Permissões
-- Novo módulo `recepcao` no enum de permissões.
-- Default por papel:
-  - `recepcionista` → view + manage (é o painel principal dela)
-  - `medico` → view (acompanhar quem chegou)
-  - `admin` → tudo
-- Item no sidebar "Recepção do dia" pra quem tem `can("recepcao")`.
+- Botão **Atender** fica **desabilitado** quando o status é `chegou` ou `em_triagem`, com `title` explicando ("Aguardando recepção"/"Em triagem com a enfermagem").
+- Quando o status é `triado` ou `confirmado`/`agendado` (caso a unidade não use triagem), o botão fica **destacado** (pulse leve + cor primária) e o `ConsultorioDialog` abre normalmente.
+- Adicionar um banner pequeno no topo da agenda do médico mostrando: "X pacientes prontos pra você atender" (count de `status='triado'` + `profissional_id = meuProf`).
+
+### 3. Enfermagem libera o paciente
+
+Na agenda do dia e na recepção:
+- Botão atual `em_triagem → confirmado` vira `em_triagem → triado` (label "Liberar pra consulta", ícone Stethoscope).
+- Mantém os botões `Chegou` e `Triagem` como já estão.
+
+### 4. Recepção/Sala de espera repaginadas (`/app/recepcao`)
+
+Reescrita visual (mesma lógica de dados):
+
+```text
+┌──────────────────────────────────────────────────────────────────────────┐
+│  KPIs (cards com ícone + cor)                                            │
+│  [📅 Agendados] [➡ Chegaram] [💉 Em triagem] [✓ Prontos] [🩺 Atendidos] │
+├──────────────────────────────────────────────────────────────────────────┤
+│  Kanban responsivo (4 colunas em ≥lg, scroll-x em md, stack em sm)       │
+│  ┌─────────┬─────────┬─────────┬─────────┐                              │
+│  │Aguard.  │Chegou   │Triagem  │Prontos  │                              │
+│  │recepção │         │         │/Atendid.│                              │
+│  │ (cards) │ (cards) │ (cards) │ (cards) │                              │
+│  └─────────┴─────────┴─────────┴─────────┘                              │
+│  Cada card: hora · nome · idade · profissional · espera (live)           │
+│  Ações inline no card (chegou/triagem/liberar/chamar)                    │
+├──────────────────────────────────────────────────────────────────────────┤
+│  Filtros + busca (collapse em mobile dentro de Sheet)                    │
+│  Tabela detalhada (mantida, com overflow-x e colunas sticky)             │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+Detalhes visuais:
+- Cards do kanban com `bg-card`, borda colorida na lateral (sky/violet/amber/emerald conforme coluna), tempo de espera com ícone Clock e cor que fica laranja >20min e vermelha >40min.
+- KPIs ganham ícone + label uppercase + número grande, mesma linguagem do dashboard (componente `KPI` já existente).
+- Filtros: em mobile (`<md`) escondidos atrás de um botão "Filtros" abrindo um `Sheet` lateral; em desktop ficam inline como hoje.
+- Tabela responsiva: wrap em `<div className="overflow-x-auto -mx-3 sm:mx-0">`, fontes menores em mobile, coluna "Ações" vira menu dropdown no mobile.
+- Header do `Recepcao` mostra contador "X aguardando você" pro médico logado.
+
+### 5. Painel de chamada (`/painel`) — pequena melhoria
+
+Só impedir que o médico chame paciente em `em_triagem` pelo `ChamarDialog` — desabilitar o atalho de chamar quando status `em_triagem` (na agenda-dia/dashboard, não no painel em si).
+
+## Fora do escopo
+- Drag & drop entre colunas do kanban (continua por botão).
+- Campos clínicos de triagem (PA, peso, temp) — já estava fora.
+- Reescrita do `/painel` em si (só a regra de bloqueio já citada).
 
 ## Detalhes técnicos
 
-- **Migration** (alter enum + colunas + trigger + RLS herda das policies existentes de `agendamentos`):
-  ```sql
-  ALTER TYPE agendamento_status ADD VALUE 'chegou';
-  ALTER TYPE agendamento_status ADD VALUE 'em_triagem';
-  ALTER TABLE agendamentos
-    ADD COLUMN chegou_em timestamptz,
-    ADD COLUMN triagem_em timestamptz,
-    ADD COLUMN atendido_em timestamptz,
-    ADD COLUMN triagem_por uuid;
-  -- trigger fn_ag_carimbos: preenche *_em quando status muda
-  ```
-- **Front**:
-  - `src/routes/app.recepcao.tsx` (nova rota + guard `can("recepcao")`)
-  - `src/routes/app.agenda-dia.tsx`: trocar gate do botão Atender; remover botão "Atendido"
-  - `src/components/consultorio/consultorio-dialog.tsx`: ao finalizar, gravar `status='atendido'` no banco
-  - `src/lib/permissions.ts` + `src/lib/admin-users.functions.ts`: adicionar módulo `recepcao`
-  - `src/components/app-sidebar.tsx` + `src/components/mobile-bottom-nav.tsx`: novo item
-  - `src/components/ui/StatusBadge` (`app.index.tsx`): cores pros novos status
+**Migration:**
+```sql
+ALTER TYPE agendamento_status ADD VALUE IF NOT EXISTS 'triado';
+ALTER TABLE public.agendamentos ADD COLUMN IF NOT EXISTS triado_em timestamptz;
+-- atualizar fn_ag_carimbos para carimbar triado_em quando status='triado'
+```
 
-- **Realtime**: `ALTER PUBLICATION supabase_realtime ADD TABLE agendamentos;` (se ainda não estiver) e subscribe na rota recepção.
-
-## Fora do escopo (avisar)
-- App separado pra enfermagem/triagem (campos de PA, peso, temperatura na triagem) — hoje a tela só marca o status; SOAP completo é com o médico no consultório.
-- Senha automática de chamada por especialidade (continua chamando pelo nome via painel atual).
+**Arquivos:**
+- `src/lib/permissions.ts` — sem mudança (módulo `recepcao` já existe).
+- `src/routes/app.index.tsx` — `StatusBadge` ganha entrada `triado`.
+- `src/routes/app.agenda-dia.tsx` — botão Atender condicional (disabled vs destacado), troca `em_triagem → confirmado` por `em_triagem → triado`, banner "X prontos pra você".
+- `src/routes/app.recepcao.tsx` — reescrita visual: KPIs com ícones, kanban responsivo de 4 colunas, filtros em Sheet no mobile, mesma lógica de dados + nova coluna "Prontos".
+- `src/components/consultorio/consultorio-dialog.tsx` — guard extra: se `status='em_triagem'` no momento de abrir, mostra toast "Paciente ainda em triagem" e fecha. Também ao concluir grava `status='atendido'` (já está).
+- `src/integrations/supabase/types.ts` — regenerado pela migration.
