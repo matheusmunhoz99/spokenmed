@@ -128,6 +128,13 @@ export async function gerarComprovante(c: ComprovanteData) {
   const qr = await buildQrDataUrl(`https://spokenmed.lovable.app/verificar?p=${protocolo}&c=${c.codigo}`);
   drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
   drawFooterAllPages(doc, { emitidoPor: c.emitidoPor, logo });
+  await registrarDocumento({
+    protocolo, tipo: "comprovante",
+    paciente: { nome: c.paciente.nome, cpf: c.paciente.cpf },
+    profissional: { nome: c.profissional.nome, cbo: c.profissional.cbo },
+    unidade: { nome: c.unidade.nome, cnes: c.unidade.cnes },
+    metadata: { codigo: c.codigo, data: c.data, hora: c.hora },
+  });
   openPdf(doc, `comprovante_${c.codigo.slice(0, 8)}.pdf`);
 }
 
