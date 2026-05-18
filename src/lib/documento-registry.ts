@@ -13,10 +13,13 @@ export interface RegistrarDocumentoInput {
   protocolo: string;
   tipo: DocumentoTipo;
   paciente: { nome: string; cpf?: string | null };
-  profissional: { nome: string; crm?: string | null; uf?: string | null; cbo?: string | null };
+  profissional: { nome: string; crm?: string | null; uf?: string | null; cbo?: string | null; conselho?: string | null };
   unidade?: { id?: string | null; nome?: string | null; cnes?: string | null };
   agendamento_id?: string | null;
   metadata?: Record<string, unknown>;
+  assinatura?: string | null;
+  assinatura_payload_sha?: string | null;
+  assinado_em?: string | null;
 }
 
 /**
@@ -26,9 +29,10 @@ export interface RegistrarDocumentoInput {
 export async function registrarDocumento(input: RegistrarDocumentoInput): Promise<void> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    const conselho = input.profissional.crm
-      ? `${input.profissional.crm}${input.profissional.uf ? "/" + input.profissional.uf : ""}`
-      : null;
+    const conselho = input.profissional.conselho
+      ?? (input.profissional.crm
+        ? `${input.profissional.crm}${input.profissional.uf ? "/" + input.profissional.uf : ""}`
+        : null);
 
     await supabase.from("documentos_emitidos").insert({
       protocolo: input.protocolo,
@@ -45,9 +49,30 @@ export async function registrarDocumento(input: RegistrarDocumentoInput): Promis
       metadata: (input.metadata ?? {}) as never,
       emitido_por: user?.id ?? null,
       emitido_por_email: user?.email ?? null,
+      assinatura: input.assinatura ?? null,
+      assinatura_payload_sha: input.assinatura_payload_sha ?? null,
+      assinado_em: input.assinado_em ?? null,
     });
   } catch (err) {
     // Não interrompe a geração do PDF
     console.warn("registrarDocumento falhou:", err);
+  }
+}
+
+/**
+ * Tenta assinar (HMAC-SHA256) o documento via server-fn. Devolve null em falha
+ * para não bloquear a impressão; o pré-check do conselho já é feito antes.
+ */
+export async function tentarAssinar(args: {
+  protocolo: string;
+  tipo: DocumentoTipo;
+  conteudo_hash: string;
+}): Promise<{ assinatura: string; assinatura_payload_sha: string; assinado_em: string; conselho: string } | null> {
+  try {
+    const { assinarDocumento } = await import("./assinatura.functions");
+    return await assinarDocumento({ data: args });
+  } catch (e) {
+    console.warn("Assinatura falhou:", e);
+    return null;
   }
 }

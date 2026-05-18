@@ -242,12 +242,24 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 
 
   const profissional = {
-    nome: profile?.nome || agendamento?.profissionais?.nome || user?.email || "Médico(a)",
-    crm: "123456", uf: "RJ", cbo: CBO_FAKE,
+    nome: profile?.nome || agendamento?.profissionais?.nome || user?.email || "Profissional",
+    crm: profile?.conselho_numero || "",
+    uf: profile?.conselho_uf || "",
+    cbo: profile?.cbo || CBO_FAKE,
+    conselho_tipo: profile?.conselho_tipo || "CRM",
+  };
+  const conselhoOk = !!(profile?.conselho_tipo && profile?.conselho_numero);
+  const checkConselho = () => {
+    if (!conselhoOk) {
+      toast.error("Cadastre seu conselho profissional em Meu Perfil antes de emitir documentos.");
+      return false;
+    }
+    return true;
   };
   const unidade = { nome: agendamento?.unidades?.nome || "UBS", cnes: CNES_FAKE, ine: INE_FAKE, endereco: "Rua das Acácias, 123 — Centro" };
 
   const handlePrintReceita = () => {
+    if (!checkConselho()) return;
     if (meds.length === 0) { toast.error("Adicione ao menos um medicamento."); return; }
     const isNotif = recTipo === "notificacao_a" || recTipo === "notificacao_b";
     if (isNotif && (!notifNum.trim() || !notifUf.trim())) {
@@ -263,6 +275,7 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
     });
   };
   const handlePrintSadt = () => {
+    if (!checkConselho()) return;
     if (sadt.length === 0) { toast.error("Selecione ao menos um exame."); return; }
     const exames = EXAMES_SADT.flatMap(g => g.itens.filter(i => sadt.includes(i)).map(i => ({ grupo: g.grupo, item: i })));
     const principal = cids[0] ? CID10.find(c => c.code === cids[0]) ?? null : null;
@@ -275,6 +288,7 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
     });
   };
   const handlePrintLme = () => {
+    if (!checkConselho()) return;
     if (!lmeMed.trim() || !lmeCid.trim()) { toast.error("Preencha medicamento e CID-10."); return; }
     gerarLmePdf({
       paciente: { nome: paciente, cpf, cns: CNS_FAKE, sexo: "—", dn: "—", raca: "—", mae: "—", telefone: agendamento?.pacientes?.telefone, endereco: "—" },
@@ -286,6 +300,7 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
     });
   };
   const handlePrintAtestado = () => {
+    if (!checkConselho()) return;
     gerarAtestadoPdf({
       paciente: { nome: paciente, cpf, cns: CNS_FAKE },
       profissional, unidade,

@@ -1,11 +1,13 @@
 import jsPDF from "jspdf";
 import { drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_COLORS, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
 import { buildVerifyUrl } from "./verificacao-url";
+import { tentarAssinar } from "./documento-registry";
+import { hashConteudoClient } from "./assinatura-client";
 import { registrarDocumento } from "./documento-registry";
 
 export type AtestadoOpts = {
   paciente: { nome: string; cpf?: string; cns?: string };
-  profissional: { nome: string; crm?: string; uf?: string; cbo?: string };
+  profissional: { nome: string; crm?: string; uf?: string; cbo?: string; conselho_tipo?: string };
   unidade?: { nome?: string; cnes?: string };
   dias: number;
   cid?: string;
@@ -68,7 +70,7 @@ export async function gerarAtestadoPdf(opts: AtestadoOpts) {
   doc.setFontSize(10);
   doc.setTextColor(...PDF_COLORS.muted);
   const meta = [
-    opts.profissional.crm ? `CRM ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}` : null,
+    opts.profissional.crm ? `${opts.profissional.conselho_tipo || "CRM"} ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}` : null,
     opts.profissional.cbo ? `CBO ${opts.profissional.cbo}` : null,
     opts.unidade?.cnes ? `CNES ${opts.unidade.cnes}` : null,
   ].filter(Boolean).join("   ·   ");
@@ -77,15 +79,21 @@ export async function gerarAtestadoPdf(opts: AtestadoOpts) {
   doc.text("Documento assinado digitalmente conforme MP 2.200-2/2001 (ICP-Brasil)", pageW / 2, sigY + 44, { align: "center" });
 
   const protocolo = gerarProtocolo("ATEST");
+  const conteudoHash = await hashConteudoClient(protocolo + '|' + opts.paciente.nome);
+  const sig = await tentarAssinar({ protocolo, tipo: 'atestado', conteudo_hash: conteudoHash });
   const qr = await buildQrDataUrl(buildVerifyUrl(protocolo));
-  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
+  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr , assinatura: sig?.assinatura, assinadoEm: sig?.assinado_em });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
   await registrarDocumento({
     protocolo, tipo: "atestado",
     paciente: { nome: opts.paciente.nome, cpf: opts.paciente.cpf },
     profissional: opts.profissional,
     unidade: { nome: opts.unidade?.nome, cnes: opts.unidade?.cnes },
-    metadata: { dias: opts.dias, cid: opts.cid ?? null, mencionarCid: opts.mencionarCid, repouso: opts.repouso },
+    metadata: { dias: opts.dias, cid: opts.cid ?? null, mencionarCid: opts.mencionarCid, repouso: opts.repouso , conteudo_hash: conteudoHash },
+  ,
+    assinatura: sig?.assinatura ?? null,
+    assinatura_payload_sha: sig?.assinatura_payload_sha ?? null,
+    assinado_em: sig?.assinado_em ?? null,
   });
   openPdf(doc, `atestado-${opts.paciente.nome.replace(/\s+/g, "-").toLowerCase()}.pdf`);
 }

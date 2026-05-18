@@ -1,6 +1,8 @@
 import jsPDF from "jspdf";
 import { drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_COLORS, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
 import { buildVerifyUrl } from "./verificacao-url";
+import { tentarAssinar } from "./documento-registry";
+import { hashConteudoClient } from "./assinatura-client";
 import { registrarDocumento } from "./documento-registry";
 
 export type ReceitaMed = {
@@ -21,7 +23,7 @@ export type ReceitaTipo =
 export type GerarReceitaOpts = {
   tipo: ReceitaTipo;
   paciente: { nome: string; cpf?: string; cns?: string; endereco?: string };
-  profissional: { nome: string; crm?: string; uf?: string; cbo?: string };
+  profissional: { nome: string; crm?: string; uf?: string; cbo?: string; conselho_tipo?: string };
   unidade?: { nome?: string; cnes?: string; endereco?: string; telefone?: string };
   medicamentos: ReceitaMed[];
   orientacoes?: string;
@@ -157,7 +159,7 @@ function drawVia(doc: jsPDF, opts: GerarReceitaOpts, viaLabel: string | null, lo
   doc.setFontSize(9);
   doc.setTextColor(...PDF_COLORS.muted);
   const profMeta = [
-    opts.profissional.crm ? `CRM ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}` : null,
+    opts.profissional.crm ? `${opts.profissional.conselho_tipo || "CRM"} ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}` : null,
     opts.profissional.cbo ? `CBO ${opts.profissional.cbo}` : null,
   ].filter(Boolean).join("   ·   ");
   if (profMeta) doc.text(profMeta, pageW / 2, sigY + 28, { align: "center" });
@@ -252,7 +254,7 @@ function drawNotificacao(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   const emitMeta: string[] = [];
-  if (opts.profissional.crm) emitMeta.push(`CRM ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}`);
+  if (opts.profissional.crm) emitMeta.push(`${opts.profissional.conselho_tipo || "CRM"} ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}`);
   if (opts.profissional.cbo) emitMeta.push(`CBO ${opts.profissional.cbo}`);
   doc.text(emitMeta.join("   ·   "), 44, y + 38);
   const unidLinha: string[] = [];
@@ -367,7 +369,7 @@ function drawNotificacao(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   if (opts.profissional.crm) {
-    doc.text(`CRM ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}`, pageW / 2, sigY + 24, { align: "center" });
+    doc.text(`${opts.profissional.conselho_tipo || "CRM"} ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}`, pageW / 2, sigY + 24, { align: "center" });
   }
   doc.setFontSize(7.5);
   doc.setTextColor(80, 80, 80);
@@ -405,8 +407,10 @@ export async function gerarReceitaPdf(opts: GerarReceitaOpts) {
   }
 
   const protocolo = gerarProtocolo("RECT");
+  const conteudoHash = await hashConteudoClient(protocolo + '|' + opts.paciente.nome);
+  const sig = await tentarAssinar({ protocolo, tipo: 'receita', conteudo_hash: conteudoHash });
   const qr = await buildQrDataUrl(buildVerifyUrl(protocolo));
-  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
+  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr , assinatura: sig?.assinatura, assinadoEm: sig?.assinado_em });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
   await registrarDocumento({
     protocolo, tipo: "receita",
@@ -417,7 +421,11 @@ export async function gerarReceitaPdf(opts: GerarReceitaOpts) {
       tipo_receita: opts.tipo,
       qtd_medicamentos: opts.medicamentos.length,
       ...(opts.notificacao ? { notificacao_numero: opts.notificacao.numero, uf_emissao: opts.notificacao.uf_emissao } : {}),
-    },
+    , conteudo_hash: conteudoHash },
+  ,
+    assinatura: sig?.assinatura ?? null,
+    assinatura_payload_sha: sig?.assinatura_payload_sha ?? null,
+    assinado_em: sig?.assinado_em ?? null,
   });
   openPdf(doc, `receita-${opts.paciente.nome.replace(/\s+/g, "-").toLowerCase()}.pdf`);
 }

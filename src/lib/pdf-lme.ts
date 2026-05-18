@@ -1,11 +1,13 @@
 import jsPDF from "jspdf";
 import { drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_COLORS, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
 import { buildVerifyUrl } from "./verificacao-url";
+import { tentarAssinar } from "./documento-registry";
+import { hashConteudoClient } from "./assinatura-client";
 import { registrarDocumento } from "./documento-registry";
 
 export type LmeOpts = {
   paciente: { nome: string; cpf?: string; cns?: string; sexo?: string; dn?: string; raca?: string; telefone?: string; endereco?: string; mae?: string };
-  profissional: { nome: string; crm?: string; uf?: string; cbo?: string };
+  profissional: { nome: string; crm?: string; uf?: string; cbo?: string; conselho_tipo?: string };
   unidade?: { nome?: string; cnes?: string };
   cid10?: string;
   diagnostico?: string;
@@ -185,15 +187,21 @@ export async function gerarLmePdf(opts: LmeOpts) {
   doc.text(`${opts.unidade?.nome ?? "—"}, ${dataExt()}`, pageW / 2, sigY + 28, { align: "center" });
 
   const protocolo = gerarProtocolo("LME");
+  const conteudoHash = await hashConteudoClient(protocolo + '|' + opts.paciente.nome);
+  const sig = await tentarAssinar({ protocolo, tipo: 'lme', conteudo_hash: conteudoHash });
   const qr = await buildQrDataUrl(buildVerifyUrl(protocolo));
-  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
+  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr , assinatura: sig?.assinatura, assinadoEm: sig?.assinado_em });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
   await registrarDocumento({
     protocolo, tipo: "lme",
     paciente: { nome: opts.paciente.nome, cpf: opts.paciente.cpf },
     profissional: opts.profissional,
     unidade: { nome: opts.unidade?.nome, cnes: opts.unidade?.cnes },
-    metadata: { cid: opts.cid10, qtd_meds: opts.medicamentos.length },
+    metadata: { cid: opts.cid10, qtd_meds: opts.medicamentos.length , conteudo_hash: conteudoHash },
+  ,
+    assinatura: sig?.assinatura ?? null,
+    assinatura_payload_sha: sig?.assinatura_payload_sha ?? null,
+    assinado_em: sig?.assinado_em ?? null,
   });
   openPdf(doc, `lme-${opts.paciente.nome.replace(/\s+/g, "-").toLowerCase()}.pdf`);
 }

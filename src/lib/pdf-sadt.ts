@@ -2,11 +2,13 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_COLORS, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
 import { buildVerifyUrl } from "./verificacao-url";
+import { tentarAssinar } from "./documento-registry";
+import { hashConteudoClient } from "./assinatura-client";
 import { registrarDocumento } from "./documento-registry";
 
 export type SadtOpts = {
   paciente: { nome: string; cpf?: string; cns?: string; sexo?: string; dn?: string; telefone?: string; endereco?: string };
-  profissional: { nome: string; crm?: string; uf?: string; cbo?: string };
+  profissional: { nome: string; crm?: string; uf?: string; cbo?: string; conselho_tipo?: string };
   unidade?: { nome?: string; cnes?: string; ine?: string };
   cidPrincipal?: { code: string; desc: string } | null;
   cidsSecundarios?: string[];
@@ -172,7 +174,7 @@ export async function gerarSadtPdf(opts: SadtOpts) {
   doc.setFontSize(9);
   doc.setTextColor(...PDF_COLORS.muted);
   const meta = [
-    opts.profissional.crm ? `CRM ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}` : null,
+    opts.profissional.crm ? `${opts.profissional.conselho_tipo || "CRM"} ${opts.profissional.crm}${opts.profissional.uf ? "/" + opts.profissional.uf : ""}` : null,
     opts.profissional.cbo ? `CBO ${opts.profissional.cbo}` : null,
   ].filter(Boolean).join("   ·   ");
   if (meta) doc.text(meta, pageW / 2, sigY + 28, { align: "center" });
@@ -180,15 +182,21 @@ export async function gerarSadtPdf(opts: SadtOpts) {
   doc.text("Solicitação eletrônica · SISREG / eSUS PEC · Assinada digitalmente (ICP-Brasil)", pageW / 2, sigY + 42, { align: "center" });
 
   const protocolo = gerarProtocolo("SADT");
+  const conteudoHash = await hashConteudoClient(protocolo + '|' + opts.paciente.nome);
+  const sig = await tentarAssinar({ protocolo, tipo: 'sadt', conteudo_hash: conteudoHash });
   const qr = await buildQrDataUrl(buildVerifyUrl(protocolo));
-  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
+  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr , assinatura: sig?.assinatura, assinadoEm: sig?.assinado_em });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
   await registrarDocumento({
     protocolo, tipo: "sadt",
     paciente: { nome: opts.paciente.nome, cpf: opts.paciente.cpf },
     profissional: opts.profissional,
     unidade: { nome: opts.unidade?.nome, cnes: opts.unidade?.cnes },
-    metadata: { qtd_exames: opts.exames.length, carater: opts.carater },
+    metadata: { qtd_exames: opts.exames.length, carater: opts.carater , conteudo_hash: conteudoHash },
+  ,
+    assinatura: sig?.assinatura ?? null,
+    assinatura_payload_sha: sig?.assinatura_payload_sha ?? null,
+    assinado_em: sig?.assinado_em ?? null,
   });
   openPdf(doc, `sadt-${opts.paciente.nome.replace(/\s+/g, "-").toLowerCase()}.pdf`);
 }
