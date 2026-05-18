@@ -181,10 +181,7 @@ def _looks_logged_in(text: str) -> bool:
     if not text:
         return False
     low = text.lower()
-    bad = ("usuário ou senha", "usuario ou senha", "usuario e/ou senha", "usuário e/ou senha",
-           "senha inválida", "senha invalida", "credenciais inválidas", "credenciais invalidas",
-           "login inválido", "login invalido", "tentativas")
-    if any(b in low for b in bad):
+    if _looks_login_rejected(text):
         return False
     return (
         "validando dados" in low
@@ -196,6 +193,14 @@ def _looks_logged_in(text: str) -> bool:
         or low.startswith("{")
         or '"success":true' in low
     )
+
+
+def _looks_login_rejected(text: str) -> bool:
+    low = (text or "").lower()
+    bad = ("usuário ou senha", "usuario ou senha", "usuario e/ou senha", "usuário e/ou senha",
+           "senha inválida", "senha invalida", "credenciais inválidas", "credenciais invalidas",
+           "login inválido", "login invalido", "tentativas")
+    return any(b in low for b in bad)
 
 
 def login_e_captura_sid() -> tuple[str, str, str] | None:
