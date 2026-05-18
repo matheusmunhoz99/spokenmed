@@ -416,6 +416,8 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
       ...form,
       cpf: cpfDigits || null,
       cns: form.cns ? onlyDigits(form.cns) : null,
+      cns_secundario: form.cns_secundario ? onlyDigits(form.cns_secundario) : null,
+      outro_cns: form.outro_cns ? onlyDigits(form.outro_cns) : null,
       telefone: form.telefone ? onlyDigits(form.telefone) : null,
       cep: form.cep ? onlyDigits(form.cep) : null,
       data_nascimento: form.data_nascimento || null,
