@@ -298,11 +298,13 @@ function AgendaDiaPage() {
                           <Button
                             size="sm"
                             disabled={aguardando}
-                            className={`h-9 gap-1 px-2.5 ${pronto ? "animate-pulse ring-2 ring-emerald-400/60" : ""}`}
+                            variant={aguardando ? "outline" : "default"}
+                            className={`h-9 gap-1 px-2.5 ${pronto ? "animate-pulse ring-2 ring-emerald-400/60 bg-emerald-600 hover:bg-emerald-700 text-white" : ""} ${aguardando ? "border-amber-300 text-amber-700 dark:text-amber-300" : ""}`}
                             title={tip}
                             onClick={() => !aguardando && setConsultorio(a)}
                           >
-                            <Stethoscope className="h-4 w-4" /> {pronto ? "Atender agora" : "Atender"}
+                            {aguardando ? <Clock className="h-4 w-4" /> : <Stethoscope className="h-4 w-4" />}
+                            {pronto ? "Atender agora" : aguardando ? (a.status === "em_triagem" ? "Em triagem" : "Aguardando") : "Atender"}
                           </Button>
                         );
                       })()}
@@ -316,10 +318,14 @@ function AgendaDiaPage() {
                         <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-sky-600" title="Marcar chegada" onClick={() => updateStatus(a, "chegou" as any)}><LogIn className="h-4 w-4" /></Button>
                       )}
                       {canManage && a.status === "chegou" && (
-                        <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-violet-600" title="Chamar para triagem" onClick={() => updateStatus(a, "em_triagem" as any)}><Activity className="h-4 w-4" /></Button>
+                        <Button size="sm" variant="outline" className="h-9 gap-1 px-2.5 border-violet-400 bg-violet-500/10 text-violet-700 dark:text-violet-300 hover:bg-violet-500/20" title="Iniciar triagem" onClick={() => updateStatus(a, "em_triagem" as any)}>
+                          <Activity className="h-4 w-4" /> <span className="hidden sm:inline">Triagem</span>
+                        </Button>
                       )}
                       {canManage && a.status === "em_triagem" && (
-                        <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-emerald-700" title="Liberar pra consulta" onClick={() => updateStatus(a, "triado" as any)}><Stethoscope className="h-4 w-4" /></Button>
+                        <Button size="sm" className="h-9 gap-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white" title="Finalizar triagem e liberar pra consulta" onClick={() => updateStatus(a, "triado" as any)}>
+                          <Stethoscope className="h-4 w-4" /> Finalizar triagem
+                        </Button>
                       )}
                       {canManage && a.status !== "atendido" && a.status !== "cancelado" && (
                         <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Faltou" onClick={() => updateStatus(a, "faltou")}><AlertTriangle className="h-4 w-4" /></Button>
