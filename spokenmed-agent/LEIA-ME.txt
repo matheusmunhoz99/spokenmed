@@ -72,14 +72,25 @@ Agent não inicia / abre e fecha
 
 COMO ELE FUNCIONA POR DENTRO
 ─────────────────────────────
-1. GET https://saudeteresopolis.oppcloud.com.br/sis/
-   → extrai _S_ID inicial do HTML
-2. POST /sis/sis.dll/HandleEvent  (handshake "cinfo")
-3. POST /sis/sis.dll/HandleEvent  (clique no botão Entrar com user/senha)
-4. POST {WORKER_URL}/session/update  (manda _S_ID + cookies pro Worker)
-5. dorme 30 min, repete
+1. GET https://saudeteresopolis.oppcloud.com.br/sis/  → _S_ID inicial
+2. POST handshake (cinfo + activate + show + login click)
+3. POST polls _dummy_ até validar credenciais
+4. POST itemclick Ambulatório → GET /ambulatorio/  (SSO)
+5. POST inicialização ambulatório (cinfo + afterrender + resize + dummies)
+6. POST escolha de unidade (popup O58D)
+   — usa FIORILLI_UNIDADE_INDEX do agent.cfg (default 4)
+7. POST navegação até Pacientes → Prontuário → CadSUS
+   — deixa os componentes O117A/O11B2 registrados no _S_ID
+8. POST {WORKER_URL}/session/update  (manda _S_ID + cookies pro Worker)
+9. dorme 30 min, repete
 
 Tudo HTTP puro. Sem browser, sem Selenium, sem Chromium.
+
+CONFIG DE UNIDADE
+─────────────────
+Se sua conta tem mais de uma unidade no popup pós-login, o agente seleciona
+pelo índice (0 = primeira). Edite FIORILLI_UNIDADE_INDEX no agent.cfg.
+
 
 
 SUPORTE
