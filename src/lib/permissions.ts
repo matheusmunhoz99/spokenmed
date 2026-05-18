@@ -2,6 +2,7 @@ export type ModuleKey =
   | "agenda_dia"
   | "agendar"
   | "fila"
+  | "recepcao"
   | "pacientes"
   | "profissionais"
   | "agendas"
@@ -17,6 +18,7 @@ export const MODULES: { key: ModuleKey; label: string; manageable: boolean }[] =
   { key: "agenda_dia", label: "Agenda do dia", manageable: true },
   { key: "agendar", label: "Agendar consulta", manageable: true },
   { key: "fila", label: "Fila de Espera", manageable: true },
+  { key: "recepcao", label: "Recepção do dia", manageable: true },
   { key: "pacientes", label: "Pacientes", manageable: true },
   { key: "profissionais", label: "Profissionais", manageable: true },
   { key: "agendas", label: "Agendas (configuração)", manageable: true },
