@@ -26,16 +26,15 @@ export const criarSalaTele = createServerFn({ method: "POST" })
       .single();
     if (agErr || !ag) throw new Error("Agendamento não encontrado");
 
-    // existente?
+    const SALA_COLS = "id, agendamento_id, daily_room_name, daily_room_url, token_paciente, gravar, status, consentimento_gravacao";
     const { data: existing } = await supabaseAdmin
       .from("teleconsulta_salas")
-      .select("*")
+      .select(SALA_COLS)
       .eq("agendamento_id", data.agendamento_id)
       .maybeSingle();
     if (existing) return { sala: existing };
 
     const roomName = safeRoomName(data.agendamento_id);
-    // sala válida até 4h após o horário marcado
     const inicioMs = new Date(`${ag.data}T${ag.hora_inicio}`).getTime();
     const expSeconds = Math.max(3600, Math.floor((inicioMs - Date.now()) / 1000) + 4 * 3600);
     const room = await Daily.createRoom({ name: roomName, expSeconds, enableRecording: true });
@@ -50,7 +49,7 @@ export const criarSalaTele = createServerFn({ method: "POST" })
         token_paciente: token,
         gravar: !!data.gravar,
       })
-      .select("*")
+      .select(SALA_COLS)
       .single();
     if (error) throw new Error(error.message);
 
