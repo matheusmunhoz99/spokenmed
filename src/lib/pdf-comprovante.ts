@@ -124,6 +124,9 @@ export async function gerarComprovante(c: ComprovanteData) {
   doc.text("• Chegue com 15 minutos de antecedência. Traga documento com foto e Cartão SUS.", marginX + 14, y + 36);
   doc.text("• Em caso de impossibilidade, entre em contato com pelo menos 24h de antecedência.", marginX + 14, y + 52);
 
+  const protocolo = gerarProtocolo("AGEN");
+  const qr = await buildQrDataUrl(`https://spokenmed.lovable.app/verificar?p=${protocolo}&c=${c.codigo}`);
+  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
   drawFooterAllPages(doc, { emitidoPor: c.emitidoPor, logo });
   openPdf(doc, `comprovante_${c.codigo.slice(0, 8)}.pdf`);
 }
