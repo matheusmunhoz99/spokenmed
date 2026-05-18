@@ -1,6 +1,76 @@
 import jsPDF from "jspdf";
 import { toast } from "sonner";
+import QRCode from "qrcode";
 import logoUrl from "@/assets/spokenmed-logo.png";
+
+// ===== Verificação / QR =====
+export function gerarProtocolo(prefixo = "DOC"): string {
+  const ts = Date.now().toString(36).toUpperCase();
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${prefixo}-${ts.slice(-6)}-${rand}`;
+}
+
+export async function buildQrDataUrl(text: string, size = 220): Promise<string | null> {
+  try {
+    return await QRCode.toDataURL(text, {
+      errorCorrectionLevel: "M",
+      margin: 0,
+      width: size,
+      color: { dark: "#0f766e", light: "#ffffff" },
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Bloco de verificação (QR + protocolo) no rodapé esquerdo, acima do footer.
+ * Indica autenticidade do documento.
+ */
+export function drawVerificationBox(
+  doc: jsPDF,
+  opts: { protocolo: string; qrDataUrl: string | null; verifyUrl?: string; y?: number },
+) {
+  const pageH = doc.internal.pageSize.getHeight();
+  const boxW = 180;
+  const boxH = 64;
+  const x = 36;
+  const y = opts.y ?? pageH - PDF_FOOTER_MARGIN - boxH - 8;
+
+  doc.setDrawColor(...PDF_COLORS.border);
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(x, y, boxW, boxH, 6, 6, "FD");
+
+  // QR
+  if (opts.qrDataUrl) {
+    try { doc.addImage(opts.qrDataUrl, "PNG", x + 6, y + 6, boxH - 12, boxH - 12); } catch { /* ignore */ }
+  }
+
+  // Texto
+  const tx = x + boxH - 4;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...PDF_COLORS.primaryDark);
+  doc.text("VERIFICAÇÃO DE AUTENTICIDADE", tx, y + 12);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(...PDF_COLORS.muted);
+  doc.text("Protocolo:", tx, y + 24);
+  doc.setFont("courier", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...PDF_COLORS.ink);
+  doc.text(opts.protocolo, tx, y + 35);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.5);
+  doc.setTextColor(...PDF_COLORS.muted);
+  const url = opts.verifyUrl ?? "spokenmed.lovable.app/verificar";
+  const urlLines = doc.splitTextToSize(url, boxW - boxH);
+  doc.text(urlLines, tx, y + 46);
+  doc.setTextColor(0, 0, 0);
+}
+
 
 // ===== Paleta (alinhada ao teal do site) =====
 export const PDF_COLORS = {
