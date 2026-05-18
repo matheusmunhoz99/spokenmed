@@ -71,6 +71,17 @@ export function drawVerificationBox(
   doc.setTextColor(0, 0, 0);
 }
 
+export function drawVerificationOnAllPages(
+  doc: jsPDF,
+  opts: { protocolo: string; qrDataUrl: string | null; verifyUrl?: string },
+) {
+  const total = doc.getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i);
+    drawVerificationBox(doc, opts);
+  }
+}
+
 
 // ===== Paleta (alinhada ao teal do site) =====
 export const PDF_COLORS = {
