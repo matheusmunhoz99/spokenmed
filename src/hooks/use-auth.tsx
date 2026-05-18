@@ -8,7 +8,7 @@ type PermMap = Record<string, { view: boolean; manage: boolean }>;
 type AuthContextType = {
   session: Session | null;
   user: User | null;
-  profile: { nome: string; cargo: string | null } | null;
+  profile: { nome: string; cargo: string | null; conselho_tipo: string | null; conselho_numero: string | null; conselho_uf: string | null; cbo: string | null; especialidade: string | null; rqe: string | null } | null;
   roles: AppRole[];
   permissions: PermMap;
   loading: boolean;
@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadUserData = async (userId: string) => {
     const [{ data: prof }, { data: r }, { data: perms }] = await Promise.all([
-      supabase.from("profiles").select("nome, cargo").eq("id", userId).maybeSingle(),
+      supabase.from("profiles").select("nome, cargo, conselho_tipo, conselho_numero, conselho_uf, cbo, especialidade, rqe").eq("id", userId).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", userId),
       supabase.from("user_permissions").select("module, can_view, can_manage").eq("user_id", userId),
     ]);
