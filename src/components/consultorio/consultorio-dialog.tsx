@@ -279,9 +279,9 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
         const res = await emitirReceitaFn({
           data: {
             serie, uf: ufFinal,
-            paciente_id: agendamento?.paciente_id ?? null,
+            paciente_id: (agendamento as any)?.paciente_id ?? null,
             paciente_nome: paciente, paciente_cpf: cpf || null,
-            unidade_id: agendamento?.unidade_id ?? null,
+            unidade_id: (agendamento as any)?.unidade_id ?? null,
             unidade_nome: agendamento?.unidades?.nome ?? null,
             agendamento_id: agendamento?.id ?? null,
             medicamentos: medsPayload as any,
