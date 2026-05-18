@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/sheet";
 import { CallStage, CallDurationBadge, type CallStageHandle } from "@/components/tele/CallStage";
 import {
-  Video, Copy, Loader2, Circle, Square, Save, ShieldCheck, ShieldAlert, MessageCircle,
+  Video, Copy, Loader2, Circle, Square, Save, ShieldCheck, ShieldAlert,
   ArrowLeft, UserRound, Stethoscope, FileText, Calendar, Send,
 } from "lucide-react";
 import { toast } from "sonner";
