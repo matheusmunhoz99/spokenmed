@@ -419,7 +419,19 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
         <DialogTitle>{editing ? "Editar paciente" : "Novo paciente"}</DialogTitle>
         <DialogDescription>Preencha o cadastro completo do paciente.</DialogDescription>
       </DialogHeader>
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-5"
+        onKeyDown={(e) => {
+          // Impede submit acidental por Enter em qualquer <input> simples.
+          // Textareas, botões e selects mantêm comportamento padrão.
+          if (e.key !== "Enter") return;
+          const t = e.target as HTMLElement;
+          if (t.tagName === "INPUT" && (t as HTMLInputElement).type !== "submit") {
+            e.preventDefault();
+          }
+        }}
+      >
         <Section title="Dados pessoais">
           <Field label="Nome completo *" className="md:col-span-3">
             <Input required value={form.nome} onChange={(e) => set("nome", e.target.value)} />
@@ -447,6 +459,17 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
                 value={formatCPF(form.cpf ?? "")}
                 onChange={(e) => { set("cpf", e.target.value); if (cpfErro) setCpfErro(null); }}
                 onBlur={handleCpfBlur}
+                onKeyDown={async (e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const d = onlyDigits(form.cpf ?? "");
+                  if (d.length !== 11) return; // não dispara com CPF incompleto
+                  await handleBuscarCadSus();
+                  // após buscar, mover foco para Telefone
+                  const next = document.querySelector<HTMLInputElement>('[data-field="telefone"]');
+                  next?.focus();
+                }}
                 aria-invalid={!!cpfErro}
               />
               <Button
@@ -455,6 +478,7 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
                 title="Importar dados do cidadão pelo CadSUS"
                 disabled={cadsusLoading}
                 onClick={handleBuscarCadSus}
+                tabIndex={-1}
                 className="shrink-0 gap-2"
               >
                 {cadsusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <IdCard className="h-4 w-4" />}
@@ -468,7 +492,7 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
         </Section>
 
         <Section title="Contato">
-          <Field label="Telefone"><Input value={formatPhone(form.telefone ?? "")} onChange={(e) => set("telefone", e.target.value)} /></Field>
+          <Field label="Telefone"><Input data-field="telefone" value={formatPhone(form.telefone ?? "")} onChange={(e) => set("telefone", e.target.value)} /></Field>
           <Field label="E-mail" className="md:col-span-2"><Input type="email" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} /></Field>
         </Section>
 
@@ -479,6 +503,14 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
                 value={formatCEP(form.cep ?? "")}
                 onChange={(e) => set("cep", e.target.value)}
                 onBlur={handleCepBlur}
+                onKeyDown={async (e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  await handleCepBlur();
+                  const next = document.querySelector<HTMLInputElement>('[data-field="numero"]');
+                  next?.focus();
+                }}
                 placeholder="00000-000"
               />
               {cepLoading && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
