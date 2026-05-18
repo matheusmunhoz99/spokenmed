@@ -60,7 +60,8 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
   const [tab, setTab] = useState("atendimento");
   const [enviando, setEnviando] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [restored, setRestored] = useState(false);
   // Flags eSUS
   const [atend, setAtend] = useState<AtendimentoFlags>(ATENDIMENTO_DEFAULT);
   const [conduta, setConduta] = useState<CondutaFlags>(CONDUTA_DEFAULT);
