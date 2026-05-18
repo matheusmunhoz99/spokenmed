@@ -43,7 +43,7 @@ function NovoDomicilioPage() {
   const [uf, setUf] = useState("");
   const [ponto, setPonto] = useState("");
   const [microarea, setMicroarea] = useState("");
-  const [geo, setGeo] = useState<GeoCoord | null>(null);
+  
 
   // características
   const [tipoImovel, setTipoImovel] = useState("casa");
