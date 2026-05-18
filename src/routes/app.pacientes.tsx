@@ -297,12 +297,19 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
     if (!r) { toast.info("CEP não encontrado."); return; }
     setForm((f: any) => ({
       ...f,
-      logradouro: f.logradouro?.trim() ? f.logradouro : r.logradouro,
-      bairro: f.bairro?.trim() ? f.bairro : r.bairro,
-      cidade: f.cidade?.trim() ? f.cidade : r.cidade,
-      uf: f.uf?.trim() ? f.uf : r.uf,
-      complemento: f.complemento?.trim() ? f.complemento : (r.complemento ?? f.complemento),
+      logradouro: r.logradouro || f.logradouro,
+      bairro: r.bairro || f.bairro,
+      cidade: r.cidade || f.cidade,
+      uf: r.uf || f.uf,
+      complemento: r.complemento || f.complemento,
     }));
+    // destaca rapidamente os campos preenchidos
+    const fields = ["logradouro", "bairro", "cidade", "uf"];
+    for (const fld of fields) {
+      setHighlightField(fld);
+      await new Promise((res) => setTimeout(res, 110));
+    }
+    setTimeout(() => setHighlightField(null), 500);
     setTimeout(() => {
       const el = document.querySelector<HTMLInputElement>('input[data-field="numero"]');
       el?.focus();
