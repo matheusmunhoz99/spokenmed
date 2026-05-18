@@ -28,7 +28,18 @@ export type GerarReceitaOpts = {
   medicamentos: ReceitaMed[];
   orientacoes?: string;
   usuarioNome?: string;
-  notificacao?: { numero: string; uf_emissao: string; validade_dias?: number };
+  /** Para tipos notificacao_a/b: dados retornados por emitirReceita (servidor). */
+  notificacao?: {
+    numero: string;
+    uf_emissao: string;
+    validade_dias?: number;
+    sequencia?: number;
+    hash_conteudo?: string;
+    assinatura?: string;
+    assinatura_curta?: string;
+    emitido_em?: string;
+    status?: "valida" | "cancelada" | "utilizada" | "expirada";
+  };
   comprador?: { nome?: string; rg?: string; endereco?: string };
 };
 
