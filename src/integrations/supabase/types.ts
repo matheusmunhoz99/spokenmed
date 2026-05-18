@@ -114,6 +114,8 @@ export type Database = {
       }
       agendamentos: {
         Row: {
+          atendido_em: string | null
+          chegou_em: string | null
           codigo: string
           created_at: string
           criado_por: string | null
@@ -134,10 +136,14 @@ export type Database = {
           reagendado_em: string | null
           slot_id: string | null
           status: Database["public"]["Enums"]["agendamento_status"]
+          triagem_em: string | null
+          triagem_por: string | null
           unidade_id: string | null
           updated_at: string
         }
         Insert: {
+          atendido_em?: string | null
+          chegou_em?: string | null
           codigo?: string
           created_at?: string
           criado_por?: string | null
@@ -158,10 +164,14 @@ export type Database = {
           reagendado_em?: string | null
           slot_id?: string | null
           status?: Database["public"]["Enums"]["agendamento_status"]
+          triagem_em?: string | null
+          triagem_por?: string | null
           unidade_id?: string | null
           updated_at?: string
         }
         Update: {
+          atendido_em?: string | null
+          chegou_em?: string | null
           codigo?: string
           created_at?: string
           criado_por?: string | null
@@ -182,6 +192,8 @@ export type Database = {
           reagendado_em?: string | null
           slot_id?: string | null
           status?: Database["public"]["Enums"]["agendamento_status"]
+          triagem_em?: string | null
+          triagem_por?: string | null
           unidade_id?: string | null
           updated_at?: string
         }
@@ -1100,6 +1112,8 @@ export type Database = {
         | "atendido"
         | "faltou"
         | "cancelado"
+        | "chegou"
+        | "em_triagem"
       anexo_categoria:
         | "pedido_medico"
         | "exame"
@@ -1244,6 +1258,8 @@ export const Constants = {
         "atendido",
         "faltou",
         "cancelado",
+        "chegou",
+        "em_triagem",
       ],
       anexo_categoria: ["pedido_medico", "exame", "documento", "foto", "outro"],
       app_role: ["admin", "recepcionista", "medico"],

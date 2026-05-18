@@ -6,11 +6,16 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 const MODULE_KEYS = [
   "agenda_dia",
   "agendar",
+  "fila",
+  "recepcao",
   "pacientes",
   "profissionais",
   "agendas",
+  "painel",
   "unidades_especialidades",
   "usuarios",
+  "relatorios",
+  "auditoria",
 ] as const;
 
 type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -22,12 +27,12 @@ function defaultPermsFor(role: AppRole) {
     if (role === "medico") {
       return {
         module: m,
-        can_view: m === "agenda_dia" || m === "pacientes",
+        can_view: m === "agenda_dia" || m === "pacientes" || m === "recepcao",
         can_manage: false,
       };
     }
     // recepcionista (administrativo)
-    if (m === "agenda_dia" || m === "agendar" || m === "pacientes") {
+    if (m === "agenda_dia" || m === "agendar" || m === "fila" || m === "pacientes" || m === "painel" || m === "recepcao") {
       return { module: m, can_view: true, can_manage: true };
     }
     if (m === "profissionais" || m === "agendas") {

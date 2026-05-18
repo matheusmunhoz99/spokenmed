@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, UserCheck, AlertTriangle, Loader2, Download, Trash2, Megaphone, CalendarClock, History, Zap, Plus, Paperclip, ListOrdered, Stethoscope } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, Loader2, Download, Trash2, Megaphone, CalendarClock, History, Zap, Paperclip, ListOrdered, Stethoscope, LogIn, Activity } from "lucide-react";
 import { ConsultorioDialog } from "@/components/consultorio/consultorio-dialog";
 import { LoadingState } from "@/components/loading-state";
 import { PullToRefresh } from "@/components/pull-to-refresh";
@@ -48,7 +48,7 @@ const _UnusedAgendaDiaRoute = ({
 function AgendaDiaPage() {
   const search = Route.useSearch();
   const qc = useQueryClient();
-  const { profile, user, isAdmin } = useAuth();
+  const { profile, user, isAdmin, isMedico, can } = useAuth();
   const [data, setData] = useState(search.data || format(new Date(), "yyyy-MM-dd"));
   const [unidadeId, setUnidadeId] = useState<string>("all");
   const [profId, setProfId] = useState<string>("all");
@@ -61,8 +61,17 @@ function AgendaDiaPage() {
   const [encaixeOpen, setEncaixeOpen] = useState(false);
   const [anexos, setAnexos] = useState<any>(null);
   const [consultorio, setConsultorio] = useState<any>(null);
-  const [atendidosSim, setAtendidosSim] = useState<Record<string, string>>({});
-  const isMedicoSimulado = user?.email === "admin@opportunity.com";
+  const canManage = can("agenda_dia", "manage");
+
+  // Profissional vinculado ao usuário logado (se for médico)
+  const { data: meuProf } = useQuery({
+    queryKey: ["meu-profissional", user?.id],
+    enabled: !!user?.id && isMedico,
+    queryFn: async () => {
+      const { data } = await supabase.from("profissionais").select("id").eq("user_id", user!.id).maybeSingle();
+      return data?.id ?? null;
+    },
+  });
 
   const { data: unidades } = useAllowedUnidades();
   const allowedIds = useMemo(() => (unidades ?? []).map((u: any) => u.id), [unidades]);
@@ -92,7 +101,7 @@ function AgendaDiaPage() {
     enabled: !!unidades,
     queryFn: async () => {
       let q = supabase.from("agendamentos")
-        .select("id, hora_inicio, status, motivo, paciente_id, slot_id, profissional_id, unidade_id, is_encaixe, encaixe_prioridade, encaixe_justificativa, reagendado_em, pacientes(nome, cpf, telefone), profissionais(id, nome, sala, especialidades(nome)), unidades(nome)")
+        .select("id, hora_inicio, status, motivo, paciente_id, slot_id, profissional_id, unidade_id, is_encaixe, encaixe_prioridade, encaixe_justificativa, reagendado_em, chegou_em, triagem_em, atendido_em, pacientes(nome, cpf, telefone), profissionais(id, nome, sala, user_id, especialidades(nome)), unidades(nome)")
         .eq("data", data).order("hora_inicio");
       if (profId !== "all") q = q.eq("profissional_id", profId);
       if (unidadeId !== "all") q = q.eq("unidade_id", unidadeId);
@@ -267,25 +276,31 @@ function AgendaDiaPage() {
                   <div className="flex items-center justify-between gap-2 md:contents">
                     <StatusBadge status={a.status} />
                     <div className="flex flex-wrap gap-1">
-                      {isMedicoSimulado && (
-                        atendidosSim[a.id] ? (
-                          <Badge variant="outline" className="h-9 gap-1 border-emerald-300 bg-emerald-50 px-2 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300" title={`Enviado ao eSUS PEC · ${atendidosSim[a.id]}`}>
-                            <CheckCircle2 className="h-3.5 w-3.5" /> Atendido
-                          </Badge>
-                        ) : (
-                          <Button size="sm" className="h-9 gap-1 px-2.5" title="Atender (consultório)" onClick={() => setConsultorio(a)}>
-                            <Stethoscope className="h-4 w-4" /> Atender
-                          </Button>
-                        )
+                      {/* MÉDICO: Atender (abre consultório) — só pra agendamentos dele e ainda não atendidos */}
+                      {isMedico && meuProf && a.profissional_id === meuProf && a.status !== "atendido" && a.status !== "cancelado" && (
+                        <Button size="sm" className="h-9 gap-1 px-2.5" title="Atender (consultório)" onClick={() => setConsultorio(a)}>
+                          <Stethoscope className="h-4 w-4" /> Atender
+                        </Button>
                       )}
-                      {a.unidade_id && (
+                      {a.unidade_id && canManage && (
                         <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-primary" title="Chamar paciente" onClick={() => setChamar(a)}><Megaphone className="h-4 w-4" /></Button>
                       )}
-                      <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Confirmar" onClick={() => updateStatus(a, "confirmado")}><CheckCircle2 className="h-4 w-4" /></Button>
-                      <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Atendido" onClick={() => updateStatus(a, "atendido")}><UserCheck className="h-4 w-4" /></Button>
-                      <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Faltou" onClick={() => updateStatus(a, "faltou")}><AlertTriangle className="h-4 w-4" /></Button>
-                      <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Cancelar" onClick={() => updateStatus(a, "cancelado")}><XCircle className="h-4 w-4" /></Button>
-                      {!a.is_encaixe && a.slot_id && (
+                      {canManage && (a.status === "agendado" || a.status === "confirmado") && (
+                        <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Confirmar" onClick={() => updateStatus(a, "confirmado")}><CheckCircle2 className="h-4 w-4" /></Button>
+                      )}
+                      {canManage && (a.status === "agendado" || a.status === "confirmado") && (
+                        <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-sky-600" title="Marcar chegada" onClick={() => updateStatus(a, "chegou" as any)}><LogIn className="h-4 w-4" /></Button>
+                      )}
+                      {canManage && a.status === "chegou" && (
+                        <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-violet-600" title="Chamar para triagem" onClick={() => updateStatus(a, "em_triagem" as any)}><Activity className="h-4 w-4" /></Button>
+                      )}
+                      {canManage && a.status !== "atendido" && a.status !== "cancelado" && (
+                        <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Faltou" onClick={() => updateStatus(a, "faltou")}><AlertTriangle className="h-4 w-4" /></Button>
+                      )}
+                      {canManage && a.status !== "cancelado" && (
+                        <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Cancelar" onClick={() => updateStatus(a, "cancelado")}><XCircle className="h-4 w-4" /></Button>
+                      )}
+                      {canManage && !a.is_encaixe && a.slot_id && (
                         <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Reagendar" onClick={() => setReagendar(a)}><CalendarClock className="h-4 w-4" /></Button>
                       )}
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Anexos" onClick={() => setAnexos(a)}><Paperclip className="h-4 w-4" /></Button>
@@ -403,7 +418,7 @@ function AgendaDiaPage() {
         open={!!consultorio}
         onOpenChange={(v) => !v && setConsultorio(null)}
         agendamento={consultorio}
-        onFinalizado={(id, protocolo) => setAtendidosSim((prev) => ({ ...prev, [id]: protocolo }))}
+        onFinalizado={() => qc.invalidateQueries({ queryKey: ["agenda-dia"] })}
       />
     </div>
     </PullToRefresh>

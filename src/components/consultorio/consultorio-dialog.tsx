@@ -315,10 +315,17 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
     if (conduta.desfechos.length === 0) { toast.error("Defina ao menos uma conduta/desfecho."); return; }
     setEnviando(true);
   };
-  const handleEnvioFechar = () => {
+  const handleEnvioFechar = async () => {
     setEnviando(false);
     const protocolo = `PEC-${Date.now().toString().slice(-10)}`;
     if (agendamento) {
+      // Marca o agendamento como atendido no banco (o trigger preenche atendido_em)
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        await supabase.from("agendamentos").update({ status: "atendido" as any }).eq("id", agendamento.id);
+      } catch (e) {
+        console.error("[consultorio] falha ao atualizar status para atendido", e);
+      }
       try {
         saveHistorico({
           id: crypto.randomUUID(),
