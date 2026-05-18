@@ -241,6 +241,11 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
   const [cepLoading, setCepLoading] = useState(false);
   const [cadsusLoading, setCadsusLoading] = useState(false);
   const [cpfErro, setCpfErro] = useState<string | null>(null);
+  const [highlightField, setHighlightField] = useState<string | null>(null);
+  const hl = (n: string) =>
+    highlightField === n
+      ? "ring-2 ring-primary/70 shadow-[0_0_0_4px_hsl(var(--primary)/0.18)] transition-shadow duration-300"
+      : "transition-shadow duration-300";
   const [dup, setDup] = useState<{ paciente: Paciente; reason: string; origem: "save" | "cadsus" } | null>(null);
   const buscarCadSus = useServerFn(buscarPacienteCpf);
   const [form, setForm] = useState<any>(editing ?? {
@@ -292,12 +297,19 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
     if (!r) { toast.info("CEP não encontrado."); return; }
     setForm((f: any) => ({
       ...f,
-      logradouro: f.logradouro?.trim() ? f.logradouro : r.logradouro,
-      bairro: f.bairro?.trim() ? f.bairro : r.bairro,
-      cidade: f.cidade?.trim() ? f.cidade : r.cidade,
-      uf: f.uf?.trim() ? f.uf : r.uf,
-      complemento: f.complemento?.trim() ? f.complemento : (r.complemento ?? f.complemento),
+      logradouro: r.logradouro || f.logradouro,
+      bairro: r.bairro || f.bairro,
+      cidade: r.cidade || f.cidade,
+      uf: r.uf || f.uf,
+      complemento: r.complemento || f.complemento,
     }));
+    // destaca rapidamente os campos preenchidos
+    const fields = ["logradouro", "bairro", "cidade", "uf"];
+    for (const fld of fields) {
+      setHighlightField(fld);
+      await new Promise((res) => setTimeout(res, 110));
+    }
+    setTimeout(() => setHighlightField(null), 500);
     setTimeout(() => {
       const el = document.querySelector<HTMLInputElement>('input[data-field="numero"]');
       el?.focus();
@@ -352,23 +364,30 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
         const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
         return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
       };
-      setForm((f: any) => ({
-        ...f,
-        nome: dados.nome ?? f.nome,
-        cns: dados.cns ?? f.cns,
-        telefone: dados.telefone ?? f.telefone,
-        logradouro: dados.logradouro ?? f.logradouro,
-        numero: dados.numero ?? f.numero,
-        bairro: dados.bairro ?? f.bairro,
-        cidade: dados.cidade ?? f.cidade,
-        uf: dados.uf ?? f.uf,
-        cep: dados.cep ?? f.cep,
-        data_nascimento: parseDate(dados.data_nascimento) || f.data_nascimento,
-        sexo: dados.sexo ?? f.sexo,
-        nome_mae: dados.nome_mae ?? f.nome_mae,
-      }));
+      // preenchimento "mágico" — campo por campo, com destaque visual
+      const pairs: [string, any][] = [
+        ["nome", dados.nome],
+        ["nome_mae", dados.nome_mae],
+        ["data_nascimento", parseDate(dados.data_nascimento)],
+        ["sexo", dados.sexo],
+        ["cns", dados.cns],
+        ["telefone", dados.telefone],
+        ["cep", dados.cep],
+        ["logradouro", dados.logradouro],
+        ["numero", dados.numero],
+        ["bairro", dados.bairro],
+        ["cidade", dados.cidade],
+        ["uf", dados.uf],
+      ];
       setCpfErro(null);
       toast.success("Dados do CadSUS importados.");
+      for (const [k, v] of pairs) {
+        if (v == null || v === "") continue;
+        set(k, v);
+        setHighlightField(k);
+        await new Promise((res) => setTimeout(res, 130));
+      }
+      setTimeout(() => setHighlightField(null), 600);
     } catch (e) {
       toast.error("Falha ao consultar CadSUS.");
     } finally {
@@ -434,14 +453,14 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
       >
         <Section title="Dados pessoais">
           <Field label="Nome completo *" className="md:col-span-3">
-            <Input required value={form.nome} onChange={(e) => set("nome", e.target.value)} />
+            <Input data-field="nome" className={hl("nome")} required value={form.nome} onChange={(e) => set("nome", e.target.value)} />
           </Field>
           <Field label="Data de nascimento">
-            <Input type="date" value={form.data_nascimento ?? ""} onChange={(e) => set("data_nascimento", e.target.value)} />
+            <Input data-field="data_nascimento" className={hl("data_nascimento")} type="date" value={form.data_nascimento ?? ""} onChange={(e) => set("data_nascimento", e.target.value)} />
           </Field>
           <Field label="Sexo">
             <Select value={form.sexo ?? ""} onValueChange={(v) => set("sexo", v)}>
-              <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+              <SelectTrigger data-field="sexo" className={hl("sexo")}><SelectValue placeholder="Selecionar" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="F">Feminino</SelectItem>
                 <SelectItem value="M">Masculino</SelectItem>
@@ -449,13 +468,14 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Nome da mãe">
-            <Input value={form.nome_mae ?? ""} onChange={(e) => set("nome_mae", e.target.value)} />
+          <Field label="Nome da mãe" className="md:col-span-3">
+            <Input data-field="nome_mae" className={hl("nome_mae")} value={form.nome_mae ?? ""} onChange={(e) => set("nome_mae", e.target.value)} />
           </Field>
-          <Field label="CPF">
+          <Field label="CPF" className="md:col-span-2">
             <div className="flex gap-2">
               <Input
-                className="flex-1"
+                data-field="cpf"
+                className={`flex-1 ${hl("cpf")}`}
                 value={formatCPF(form.cpf ?? "")}
                 onChange={(e) => { set("cpf", e.target.value); if (cpfErro) setCpfErro(null); }}
                 onBlur={handleCpfBlur}
@@ -487,12 +507,12 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
             </div>
             {cpfErro && <p className="text-xs text-destructive mt-1">{cpfErro}</p>}
           </Field>
-          <Field label="Cartão SUS (CNS)"><Input value={formatCNS(form.cns ?? "")} onChange={(e) => set("cns", e.target.value)} /></Field>
+          <Field label="Cartão SUS (CNS)"><Input data-field="cns" className={hl("cns")} value={formatCNS(form.cns ?? "")} onChange={(e) => set("cns", e.target.value)} /></Field>
           <Field label="RG"><Input value={form.rg ?? ""} onChange={(e) => set("rg", e.target.value)} /></Field>
         </Section>
 
         <Section title="Contato">
-          <Field label="Telefone"><Input data-field="telefone" value={formatPhone(form.telefone ?? "")} onChange={(e) => set("telefone", e.target.value)} /></Field>
+          <Field label="Telefone"><Input data-field="telefone" className={hl("telefone")} value={formatPhone(form.telefone ?? "")} onChange={(e) => set("telefone", e.target.value)} /></Field>
           <Field label="E-mail" className="md:col-span-2"><Input type="email" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} /></Field>
         </Section>
 
@@ -500,6 +520,8 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
           <Field label="CEP">
             <div className="relative">
               <Input
+                data-field="cep"
+                className={hl("cep")}
                 value={formatCEP(form.cep ?? "")}
                 onChange={(e) => set("cep", e.target.value)}
                 onBlur={handleCepBlur}
@@ -516,12 +538,12 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
               {cepLoading && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
             </div>
           </Field>
-          <Field label="Logradouro" className="md:col-span-2"><Input value={form.logradouro ?? ""} onChange={(e) => set("logradouro", e.target.value)} /></Field>
+          <Field label="Logradouro" className="md:col-span-2"><Input data-field="logradouro" className={hl("logradouro")} value={form.logradouro ?? ""} onChange={(e) => set("logradouro", e.target.value)} /></Field>
           <Field label="Número"><Input data-field="numero" value={form.numero ?? ""} onChange={(e) => set("numero", e.target.value)} /></Field>
           <Field label="Complemento"><Input value={form.complemento ?? ""} onChange={(e) => set("complemento", e.target.value)} /></Field>
-          <Field label="Bairro"><Input value={form.bairro ?? ""} onChange={(e) => set("bairro", e.target.value)} /></Field>
-          <Field label="Cidade"><Input value={form.cidade ?? ""} onChange={(e) => set("cidade", e.target.value)} /></Field>
-          <Field label="UF"><Input maxLength={2} value={form.uf ?? ""} onChange={(e) => set("uf", e.target.value.toUpperCase())} /></Field>
+          <Field label="Bairro"><Input data-field="bairro" className={hl("bairro")} value={form.bairro ?? ""} onChange={(e) => set("bairro", e.target.value)} /></Field>
+          <Field label="Cidade"><Input data-field="cidade" className={hl("cidade")} value={form.cidade ?? ""} onChange={(e) => set("cidade", e.target.value)} /></Field>
+          <Field label="UF"><Input data-field="uf" className={hl("uf")} maxLength={2} value={form.uf ?? ""} onChange={(e) => set("uf", e.target.value.toUpperCase())} /></Field>
         </Section>
 
         <Section title="Observações" cols={1}>
