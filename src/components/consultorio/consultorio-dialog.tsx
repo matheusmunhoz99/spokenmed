@@ -641,13 +641,16 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
               {/* RECEITA */}
               <TabsContent value="receita" className="mt-0 space-y-3 animate-in fade-in slide-in-from-bottom-1 duration-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex gap-1.5">
+                  <div className="flex flex-wrap gap-1.5">
                     {([
                       ["comum", "Comum (branca)"],
                       ["controle_especial", "Controle especial (2 vias)"],
                       ["antimicrobiano", "Antimicrobiano (2 vias)"],
+                      ["notificacao_a", "Notificação A (amarela)"],
+                      ["notificacao_b", "Notificação B (azul)"],
                     ] as const).map(([v, l]) => (
                       <button key={v} type="button" onClick={() => setRecTipo(v)}
+                        title={v === "notificacao_a" ? "Entorpecentes/psicotrópicos A1-A3 (Venvanse, Ritalina). Requer talonário oficial da Vigilância Sanitária." : v === "notificacao_b" ? "Psicotrópicos B1/B2 (Rivotril, Stilnox). Requer talonário oficial." : undefined}
                         className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${recTipo===v ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-accent"}`}>
                         {l}
                       </button>
@@ -657,6 +660,19 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
                     <Printer className="mr-1.5 h-4 w-4" />Imprimir receita
                   </Button>
                 </div>
+
+                {(recTipo === "notificacao_a" || recTipo === "notificacao_b") && (
+                  <div className={`rounded-lg border p-3 ${recTipo === "notificacao_a" ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-950/20" : "border-blue-400 bg-blue-50 dark:bg-blue-950/20"}`}>
+                    <Label className="text-xs font-semibold">Dados da Notificação de Receita (Portaria 344/98)</Label>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Informe o número sequencial impresso no talonário oficial fornecido pela Vigilância Sanitária.
+                    </p>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-[2fr_1fr]">
+                      <Input placeholder="Nº da Notificação (do talão)" value={notifNum} onChange={(e) => setNotifNum(e.target.value)} />
+                      <Input placeholder="UF de emissão (ex: RJ)" maxLength={2} value={notifUf} onChange={(e) => setNotifUf(e.target.value.toUpperCase())} />
+                    </div>
+                  </div>
+                )}
 
                 <div className="rounded-lg border bg-muted/20 p-3">
                   <Label className="text-xs text-muted-foreground">Adicionar medicamento</Label>
