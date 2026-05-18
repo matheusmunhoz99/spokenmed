@@ -87,6 +87,8 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
   // Receita
   const [recTipo, setRecTipo] = useState<ReceitaTipo>("comum");
   const [recOri, setRecOri] = useState("");
+  const [notifNum, setNotifNum] = useState("");
+  const [notifUf, setNotifUf] = useState("RJ");
   const [meds, setMeds] = useState<MedItem[]>([]);
   const [medNome, setMedNome] = useState(""); const [medApres, setMedApres] = useState(""); const [medPos, setMedPos] = useState(""); const [medQtd, setMedQtd] = useState(""); const [medDur, setMedDur] = useState("");
 
@@ -247,11 +249,17 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 
   const handlePrintReceita = () => {
     if (meds.length === 0) { toast.error("Adicione ao menos um medicamento."); return; }
+    const isNotif = recTipo === "notificacao_a" || recTipo === "notificacao_b";
+    if (isNotif && (!notifNum.trim() || !notifUf.trim())) {
+      toast.error("Informe o número da Notificação e a UF de emissão.");
+      return;
+    }
     gerarReceitaPdf({
       tipo: recTipo, paciente: { nome: paciente, cpf, cns: CNS_FAKE, endereco: "—" },
       profissional, unidade,
       medicamentos: meds.map(m => ({ nome: m.nome, apresentacao: m.apresentacao, posologia: m.posologia, qtd: m.qtd, duracao: m.duracao })),
       orientacoes: recOri, usuarioNome: profile?.nome || user?.email,
+      ...(isNotif ? { notificacao: { numero: notifNum.trim(), uf_emissao: notifUf.trim().toUpperCase(), validade_dias: 30 } } : {}),
     });
   };
   const handlePrintSadt = () => {
