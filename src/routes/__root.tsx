@@ -6,6 +6,7 @@ import {
 import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { InstallPwaPrompt } from "@/components/install-pwa-prompt";
+import { UpdateAvailableBanner } from "@/components/update-available-banner";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
