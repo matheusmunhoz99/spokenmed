@@ -31,7 +31,7 @@ export function MobileBottomNav() {
 
   let items: Item[];
   if (isAcs && !isAdmin) {
-    items = pick(["/app", "/app/visitas", "/app/pacientes"]);
+    items = pick(["/app", "/app/domicilios", "/app/visitas", "/app/pacientes"]);
   } else if (isTriagem && !isAdmin) {
     items = pick(["/app", "/app/agenda-dia", "/app/recepcao", "/app/triagem", "/app/agendar", "/app/pacientes"]);
   } else {
