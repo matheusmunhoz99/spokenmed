@@ -221,7 +221,7 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
           unidade,
           soap: { s, o, a, p },
           cids,
-          vitais: { pa, fc, temp, sat, peso },
+          vitais: { pa, fc, fr, temp, sat, peso, altura },
           alergias: alergias.map(({ substancia, reacao, gravidade }) => ({ substancia, reacao, gravidade })),
           documentos: {
             ...(meds.length > 0 && { receita: { tipo: recTipo, meds: meds.map(({ nome, apresentacao, posologia, qtd, duracao }) => ({ nome, apresentacao, posologia, qtd, duracao })), orientacoes: recOri } }),
