@@ -47,12 +47,14 @@ function DomicilioDetail() {
           <Info label="Esgoto" value={d.esgoto} />
           <Info label="Lixo" value={d.destino_lixo} />
           <Info label="Animais" value={(d.animais as string[]).join(", ") || "—"} />
-          <div className="col-span-2">
-            <a className="inline-flex items-center gap-1 underline text-xs text-muted-foreground" target="_blank" rel="noreferrer"
-               href={`https://www.google.com/maps?q=${d.latitude},${d.longitude}`}>
-              <MapPin className="h-3 w-3" /> Ver no mapa (±{Math.round(Number(d.gps_accuracy ?? 0))} m)
-            </a>
-          </div>
+          {d.latitude && d.longitude && (
+            <div className="col-span-2">
+              <a className="inline-flex items-center gap-1 underline text-xs text-muted-foreground" target="_blank" rel="noreferrer"
+                 href={`https://www.google.com/maps?q=${d.latitude},${d.longitude}`}>
+                <MapPin className="h-3 w-3" /> Ver no mapa (±{Math.round(Number(d.gps_accuracy ?? 0))} m)
+              </a>
+            </div>
+          )}
         </CardContent>
       </Card>
 
