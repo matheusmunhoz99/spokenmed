@@ -274,13 +274,14 @@ function VerificarPage() {
   );
 }
 
-function Row({ label, value, mono, icon: Icon }: { label: string; value: string; mono?: boolean; icon?: React.ComponentType<{ className?: string }> }) {
+function Row({ label, value, mono, icon: Icon, action }: { label: string; value: string; mono?: boolean; icon?: React.ComponentType<{ className?: string }>; action?: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b pb-2 last:border-0 last:pb-0">
       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
       <span className={`inline-flex items-center gap-1.5 text-sm font-medium text-foreground ${mono ? "font-mono" : ""}`}>
         {Icon && <Icon className="h-3.5 w-3.5 text-primary" />}
         {value}
+        {action}
       </span>
     </div>
   );
