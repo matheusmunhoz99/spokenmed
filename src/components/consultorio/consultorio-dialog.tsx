@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Activity, AlertTriangle, CalendarClock, ClipboardList, FileSignature, FileText, FlaskConical,
   HeartPulse, Pill, Plus, Printer, Save, Send, Stethoscope, Trash2, User, X, Timer, BadgeCheck, Workflow,
+  PanelRight,
 } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
