@@ -1280,6 +1280,78 @@ export type Database = {
           },
         ]
       }
+      triagens: {
+        Row: {
+          agendamento_id: string
+          altura: number | null
+          classificacao_risco: Database["public"]["Enums"]["classificacao_risco"]
+          created_at: string
+          dor: number | null
+          fc: number | null
+          fr: number | null
+          glicemia: number | null
+          id: string
+          observacoes: string | null
+          pa_diastolica: number | null
+          pa_sistolica: number | null
+          paciente_id: string
+          peso: number | null
+          queixa_principal: string | null
+          sato2: number | null
+          temperatura: number | null
+          triado_em: string
+          triado_por: string | null
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agendamento_id: string
+          altura?: number | null
+          classificacao_risco: Database["public"]["Enums"]["classificacao_risco"]
+          created_at?: string
+          dor?: number | null
+          fc?: number | null
+          fr?: number | null
+          glicemia?: number | null
+          id?: string
+          observacoes?: string | null
+          pa_diastolica?: number | null
+          pa_sistolica?: number | null
+          paciente_id: string
+          peso?: number | null
+          queixa_principal?: string | null
+          sato2?: number | null
+          temperatura?: number | null
+          triado_em?: string
+          triado_por?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agendamento_id?: string
+          altura?: number | null
+          classificacao_risco?: Database["public"]["Enums"]["classificacao_risco"]
+          created_at?: string
+          dor?: number | null
+          fc?: number | null
+          fr?: number | null
+          glicemia?: number | null
+          id?: string
+          observacoes?: string | null
+          pa_diastolica?: number | null
+          pa_sistolica?: number | null
+          paciente_id?: string
+          peso?: number | null
+          queixa_principal?: string | null
+          sato2?: number | null
+          temperatura?: number | null
+          triado_em?: string
+          triado_por?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       unidades: {
         Row: {
           ativo: boolean
