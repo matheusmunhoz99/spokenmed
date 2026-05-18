@@ -401,14 +401,7 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
                       <User className="h-4 w-4 text-primary" /> Resumo do paciente
                     </SheetTitle>
                   </SheetHeader>
-                  <MobileSidebarContent
-                    agendamento={agendamento}
-                    alergias={alergias}
-                    pa={pa} setPa={setPa} fc={fc} setFc={setFc} fr={fr} setFr={setFr}
-                    temp={temp} setTemp={setTemp} sat={sat} setSat={setSat}
-                    peso={peso} setPeso={setPeso} altura={altura} setAltura={setAltura}
-                    atend={atend} s={s} o={o} a={a} p={p} cids={cids} conduta={conduta}
-                  />
+                  {sidebarJsx}
                 </SheetContent>
               </Sheet>
 
