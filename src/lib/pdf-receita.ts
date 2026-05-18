@@ -21,7 +21,7 @@ export type ReceitaTipo =
 export type GerarReceitaOpts = {
   tipo: ReceitaTipo;
   paciente: { nome: string; cpf?: string; cns?: string; endereco?: string };
-  profissional: { nome: string; crm?: string; uf?: string; cbo?: string };
+  profissional: { nome: string; crm?: string; uf?: string; cbo?: string; conselho_tipo?: string };
   unidade?: { nome?: string; cnes?: string; endereco?: string; telefone?: string };
   medicamentos: ReceitaMed[];
   orientacoes?: string;

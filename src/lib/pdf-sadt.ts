@@ -6,7 +6,7 @@ import { registrarDocumento } from "./documento-registry";
 
 export type SadtOpts = {
   paciente: { nome: string; cpf?: string; cns?: string; sexo?: string; dn?: string; telefone?: string; endereco?: string };
-  profissional: { nome: string; crm?: string; uf?: string; cbo?: string };
+  profissional: { nome: string; crm?: string; uf?: string; cbo?: string; conselho_tipo?: string };
   unidade?: { nome?: string; cnes?: string; ine?: string };
   cidPrincipal?: { code: string; desc: string } | null;
   cidsSecundarios?: string[];

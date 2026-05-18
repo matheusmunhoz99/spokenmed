@@ -5,7 +5,7 @@ import { registrarDocumento } from "./documento-registry";
 
 export type AtestadoOpts = {
   paciente: { nome: string; cpf?: string; cns?: string };
-  profissional: { nome: string; crm?: string; uf?: string; cbo?: string };
+  profissional: { nome: string; crm?: string; uf?: string; cbo?: string; conselho_tipo?: string };
   unidade?: { nome?: string; cnes?: string };
   dias: number;
   cid?: string;
