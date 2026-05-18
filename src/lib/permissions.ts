@@ -45,13 +45,13 @@ export function defaultPermsFor(role: AppRole): PermRow[] {
   if (role === "medico") {
     return MODULES.map((m) => ({
       module: m.key,
-      can_view: m.key === "agenda_dia" || m.key === "pacientes",
+      can_view: m.key === "agenda_dia" || m.key === "pacientes" || m.key === "recepcao",
       can_manage: false,
     }));
   }
   // administrativo (recepcionista)
   return MODULES.map((m) => {
-    if (m.key === "agenda_dia" || m.key === "agendar" || m.key === "fila" || m.key === "pacientes" || m.key === "painel") {
+    if (m.key === "agenda_dia" || m.key === "agendar" || m.key === "fila" || m.key === "pacientes" || m.key === "painel" || m.key === "recepcao") {
       return { module: m.key, can_view: true, can_manage: true };
     }
     if (m.key === "profissionais" || m.key === "agendas") {
