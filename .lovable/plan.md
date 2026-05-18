@@ -1,36 +1,22 @@
-Você estava certo: no histórico eu gerei o pacote **SpokenMED-Android-v1.zip** com APK/AAB, `spokenmed.keystore` e `assetlinks.json`. O arquivo ainda existe em `/mnt/documents`, e o `assetlinks.json` atual usa o mesmo SHA-256 da keystore.
+O APK ainda está abrindo com o quadrado escuro porque, apesar do `manifest.webmanifest` e dos ícones públicos já estarem claros, o APK v2 contém imagens internas geradas no build do Android com fundo escuro. O print mostra exatamente esse asset interno antigo sendo usado no splash.
 
-Plano para regerar agora:
+Plano para corrigir:
 
-1. **Usar a mesma assinatura**
-   - Usar o `spokenmed.keystore` que você enviou agora ou o que está dentro do `SpokenMED-Android-v1.zip`.
-   - Manter package `br.com.oppcloud.spokenmed` e alias `spokenmed`.
-   - Manter senha `Xofome23@`, igual ao histórico.
+1. **Regerar os assets Android nativos**
+   - Usar os ícones atuais de `public/icons` com fundo claro `#FAFBFC`.
+   - Garantir que todos os tamanhos internos do APK usados em splash/launcher sejam recriados sem o fundo escuro.
 
-2. **Usar o PWA atualizado**
-   - Confirmar que `public/manifest.webmanifest` está com:
-     - `background_color: #fafbfc`
-     - `theme_color: #1c7a8c`
-     - ícones novos em fundo claro
-   - Confirmar que `public/.well-known/assetlinks.json` continua apontando para o fingerprint correto.
+2. **Recriar o APK com a mesma assinatura**
+   - Manter o pacote `br.com.oppcloud.spokenmed`.
+   - Manter a mesma chave `spokenmed.keystore`, alias `spokenmed`, para o update instalar por cima do app atual.
+   - Incrementar a versão novamente para evitar conflito com o APK instalado.
 
-3. **Recriar o projeto Android/TWA**
-   - Instalar/configurar Bubblewrap, JDK e Android SDK no sandbox como foi feito antes.
-   - Inicializar ou atualizar a configuração TWA para `https://spokenmed.oppcloud.com.br`.
-   - Aplicar os ícones/splash screen novos.
+3. **Validar antes de te enviar**
+   - Abrir o APK gerado e inspecionar os PNGs internos.
+   - Confirmar que não restam assets principais de splash/ícone com fundo `#0b0f17`/preto.
+   - Conferir se a assinatura continua com o mesmo SHA-256 do `assetlinks.json`.
 
-4. **Gerar os artefatos finais**
-   - Gerar novo APK para instalação direta.
-   - Gerar AAB para Play Store, se o build produzir.
-   - Criar um novo zip versionado, por exemplo `SpokenMED-Android-v2.zip`, contendo:
-     - `SpokenMED.apk`
-     - `SpokenMED-release.aab` se disponível
-     - `spokenmed.keystore`
-     - instruções rápidas de instalação/publicação
+4. **Entregar novo ZIP**
+   - Gerar `SpokenMED-Android-v3.zip` em `/mnt/documents` com o novo `SpokenMED.apk`, `SpokenMED-release.aab`, `spokenmed.keystore` e instruções.
 
-5. **Validar antes de te mandar**
-   - Conferir o fingerprint do APK assinado.
-   - Conferir se bate com `public/.well-known/assetlinks.json`.
-   - Conferir se o zip final contém tudo necessário.
-
-Observação importante: depois de gerar, você ainda precisa clicar em **Publish/Update** no Lovable para o domínio `spokenmed.oppcloud.com.br` servir o manifest e os ícones novos antes de instalar/testar o APK atualizado.
+Depois que você aprovar a implementação, eu gero o v3 e te mando o arquivo.
