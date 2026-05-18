@@ -364,15 +364,22 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
         const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
         return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
       };
+      // classifica CNS por dígito inicial: 7 = principal, 8 = secundário, resto = outro
+      const cnsList = [dados.cns, (dados as any).cns_secundario, (dados as any).outro_cns]
+        .map((v) => (v ? String(v).replace(/\D/g, "") : ""))
+        .filter(Boolean);
+      const cnsPrincipal = cnsList.find((c) => c.startsWith("7")) ?? "";
+      const cnsSecundario = cnsList.find((c) => c !== cnsPrincipal && c.startsWith("8")) ?? "";
+      const cnsOutro = cnsList.find((c) => c !== cnsPrincipal && c !== cnsSecundario) ?? "";
       // preenchimento "mágico" — campo por campo, com destaque visual
       const pairs: [string, any][] = [
         ["nome", dados.nome],
         ["nome_mae", dados.nome_mae],
         ["data_nascimento", parseDate(dados.data_nascimento)],
         ["sexo", dados.sexo],
-        ["cns", dados.cns],
-        ["cns_secundario", (dados as any).cns_secundario],
-        ["outro_cns", (dados as any).outro_cns],
+        ["cns", cnsPrincipal],
+        ["cns_secundario", cnsSecundario],
+        ["outro_cns", cnsOutro],
         ["telefone", dados.telefone],
         ["cep", dados.cep],
         ["logradouro", dados.logradouro],
