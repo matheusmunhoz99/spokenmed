@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Activity, AlertTriangle, CalendarClock, ClipboardList, FileSignature, FileText, FlaskConical,
-  HeartPulse, Pill, Plus, Printer, Send, Stethoscope, Trash2, User, X, Timer, BadgeCheck, Workflow,
+  HeartPulse, Pill, Plus, Printer, Save, Send, Stethoscope, Trash2, User, X, Timer, BadgeCheck, Workflow,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -60,7 +60,8 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
   const [tab, setTab] = useState("atendimento");
   const [enviando, setEnviando] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [restored, setRestored] = useState(false);
   // Flags eSUS
   const [atend, setAtend] = useState<AtendimentoFlags>(ATENDIMENTO_DEFAULT);
   const [conduta, setConduta] = useState<CondutaFlags>(CONDUTA_DEFAULT);
@@ -111,6 +112,60 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 
   const elapsedFmt = `${String(Math.floor(elapsed/60)).padStart(2,"0")}:${String(elapsed%60).padStart(2,"0")}`;
 
+  // ===== Rascunho: restaurar ao abrir =====
+  const draftKey = agendamento ? `consultorio:draft:${agendamento.id}` : null;
+  useEffect(() => {
+    if (!open || !draftKey || restored) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) { setRestored(true); return; }
+      const d = JSON.parse(raw);
+      setS(d.s ?? ""); setO(d.o ?? ""); setA(d.a ?? ""); setP(d.p ?? "");
+      setPa(d.pa ?? ""); setFc(d.fc ?? ""); setFr(d.fr ?? ""); setTemp(d.temp ?? "");
+      setSat(d.sat ?? ""); setPeso(d.peso ?? ""); setAltura(d.altura ?? "");
+      if (Array.isArray(d.cids)) setCids(d.cids);
+      if (Array.isArray(d.alergias)) setAlergias(d.alergias);
+      if (Array.isArray(d.meds)) setMeds(d.meds);
+      if (d.recTipo) setRecTipo(d.recTipo);
+      if (typeof d.recOri === "string") setRecOri(d.recOri);
+      if (Array.isArray(d.sadt)) setSadt(d.sadt);
+      if (d.sadtCarater) setSadtCarater(d.sadtCarater);
+      if (typeof d.sadtIndic === "string") setSadtIndic(d.sadtIndic);
+      if (typeof d.atDias === "string") setAtDias(d.atDias);
+      if (typeof d.atCid === "string") setAtCid(d.atCid);
+      if (typeof d.atRepouso === "boolean") setAtRepouso(d.atRepouso);
+      if (typeof d.atMencCid === "boolean") setAtMencCid(d.atMencCid);
+      if (d.savedAt) setSavedAt(new Date(d.savedAt));
+      toast.success("Rascunho restaurado", { description: "Continuamos de onde você parou." });
+    } catch { /* ignore */ }
+    setRestored(true);
+  }, [open, draftKey, restored]);
+
+  useEffect(() => { if (!open) setRestored(false); }, [open]);
+
+  // ===== Auto-save (debounced) =====
+  useEffect(() => {
+    if (!open || !draftKey || !restored) return;
+    const t = setTimeout(() => {
+      try {
+        const payload = {
+          s, o, a, p, pa, fc, fr, temp, sat, peso, altura,
+          cids, alergias, meds, recTipo, recOri,
+          sadt, sadtCarater, sadtIndic,
+          atDias, atCid, atRepouso, atMencCid,
+          savedAt: new Date().toISOString(),
+        };
+        localStorage.setItem(draftKey, JSON.stringify(payload));
+        setSavedAt(new Date());
+      } catch { /* quota / ignore */ }
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [open, draftKey, restored, s, o, a, p, pa, fc, fr, temp, sat, peso, altura, cids, alergias, meds, recTipo, recOri, sadt, sadtCarater, sadtIndic, atDias, atCid, atRepouso, atMencCid]);
+
+  const savedAtFmt = savedAt
+    ? `Rascunho salvo às ${String(savedAt.getHours()).padStart(2,"0")}:${String(savedAt.getMinutes()).padStart(2,"0")}`
+    : "Auto-save ativo";
+
   const cidFiltrado = useMemo(() => {
     const q = cidBusca.trim().toLowerCase();
     if (!q) return CID10.slice(0, 12);
@@ -147,7 +202,39 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
     setSadt([]); setSadtCarater("eletivo"); setSadtIndic("");
     setLmeMed(""); setLmeApres(""); setLmeCid(""); setLmePos(""); setLmeQtd(""); setLmeTempo(""); setLmeAnam(""); setLmeExames("");
     setTab("atendimento");
+    setSavedAt(null);
+    if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
   };
+
+  const salvarRascunhoManual = () => {
+    if (!draftKey) return;
+    try {
+      const payload = {
+        s, o, a, p, pa, fc, fr, temp, sat, peso, altura,
+        cids, alergias, meds, recTipo, recOri,
+        sadt, sadtCarater, sadtIndic,
+        atDias, atCid, atRepouso, atMencCid,
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(draftKey, JSON.stringify(payload));
+      setSavedAt(new Date());
+      toast.success("Rascunho salvo");
+    } catch { toast.error("Não foi possível salvar o rascunho."); }
+  };
+
+  // Atalhos: Ctrl/Cmd+S salva rascunho, Ctrl/Cmd+Enter finaliza
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      if (e.key.toLowerCase() === "s") { e.preventDefault(); salvarRascunhoManual(); }
+      else if (e.key === "Enter") { e.preventDefault(); finalizar(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, s, o, a, p, cids, conduta]);
 
 
   const profissional = {
@@ -275,16 +362,26 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
               </div>
             </div>
 
-            {/* cronômetro */}
-            <div className="hidden items-center gap-1.5 rounded-lg border bg-card/60 px-3 py-1.5 sm:flex">
-              <Timer className="h-3.5 w-3.5 text-primary" />
-              <span className="text-xs font-medium text-muted-foreground">Atendimento</span>
-              <span className="font-mono text-sm font-semibold tabular-nums">{elapsedFmt}</span>
+            {/* cronômetro + auto-save */}
+            <div className="hidden flex-col items-end gap-0.5 sm:flex">
+              <div className="flex items-center gap-1.5 rounded-lg border bg-card/60 px-3 py-1.5">
+                <Timer className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-medium text-muted-foreground">Atendimento</span>
+                <span className="font-mono text-sm font-semibold tabular-nums">{elapsedFmt}</span>
+              </div>
+              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                <span className={`inline-block h-1.5 w-1.5 rounded-full ${savedAt ? "bg-emerald-500" : "bg-amber-400"}`} />
+                {savedAtFmt}
+              </span>
             </div>
 
             {/* actions */}
             <div className="flex items-center gap-1.5">
-              <Button onClick={finalizar} className="gap-2 shadow-sm">
+              <Button variant="outline" size="sm" onClick={salvarRascunhoManual} className="hidden gap-1.5 md:inline-flex" title="Salvar rascunho (Ctrl+S)">
+                <Save className="h-4 w-4" />
+                <span>Salvar</span>
+              </Button>
+              <Button onClick={finalizar} className="gap-2 shadow-sm" title="Finalizar (Ctrl+Enter)">
                 <Send className="h-4 w-4" />
                 <span className="hidden sm:inline">Finalizar e enviar ao eSUS PEC</span>
                 <span className="sm:hidden">Finalizar</span>
