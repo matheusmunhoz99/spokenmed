@@ -453,14 +453,14 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
       >
         <Section title="Dados pessoais">
           <Field label="Nome completo *" className="md:col-span-3">
-            <Input required value={form.nome} onChange={(e) => set("nome", e.target.value)} />
+            <Input data-field="nome" className={hl("nome")} required value={form.nome} onChange={(e) => set("nome", e.target.value)} />
           </Field>
           <Field label="Data de nascimento">
-            <Input type="date" value={form.data_nascimento ?? ""} onChange={(e) => set("data_nascimento", e.target.value)} />
+            <Input data-field="data_nascimento" className={hl("data_nascimento")} type="date" value={form.data_nascimento ?? ""} onChange={(e) => set("data_nascimento", e.target.value)} />
           </Field>
           <Field label="Sexo">
             <Select value={form.sexo ?? ""} onValueChange={(v) => set("sexo", v)}>
-              <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+              <SelectTrigger data-field="sexo" className={hl("sexo")}><SelectValue placeholder="Selecionar" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="F">Feminino</SelectItem>
                 <SelectItem value="M">Masculino</SelectItem>
@@ -468,13 +468,14 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Nome da mãe">
-            <Input value={form.nome_mae ?? ""} onChange={(e) => set("nome_mae", e.target.value)} />
+          <Field label="Nome da mãe" className="md:col-span-2">
+            <Input data-field="nome_mae" className={hl("nome_mae")} value={form.nome_mae ?? ""} onChange={(e) => set("nome_mae", e.target.value)} />
           </Field>
-          <Field label="CPF">
+          <Field label="CPF" className="md:col-span-2">
             <div className="flex gap-2">
               <Input
-                className="flex-1"
+                data-field="cpf"
+                className={`flex-1 ${hl("cpf")}`}
                 value={formatCPF(form.cpf ?? "")}
                 onChange={(e) => { set("cpf", e.target.value); if (cpfErro) setCpfErro(null); }}
                 onBlur={handleCpfBlur}
@@ -506,12 +507,12 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
             </div>
             {cpfErro && <p className="text-xs text-destructive mt-1">{cpfErro}</p>}
           </Field>
-          <Field label="Cartão SUS (CNS)"><Input value={formatCNS(form.cns ?? "")} onChange={(e) => set("cns", e.target.value)} /></Field>
+          <Field label="Cartão SUS (CNS)"><Input data-field="cns" className={hl("cns")} value={formatCNS(form.cns ?? "")} onChange={(e) => set("cns", e.target.value)} /></Field>
           <Field label="RG"><Input value={form.rg ?? ""} onChange={(e) => set("rg", e.target.value)} /></Field>
         </Section>
 
         <Section title="Contato">
-          <Field label="Telefone"><Input data-field="telefone" value={formatPhone(form.telefone ?? "")} onChange={(e) => set("telefone", e.target.value)} /></Field>
+          <Field label="Telefone"><Input data-field="telefone" className={hl("telefone")} value={formatPhone(form.telefone ?? "")} onChange={(e) => set("telefone", e.target.value)} /></Field>
           <Field label="E-mail" className="md:col-span-2"><Input type="email" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} /></Field>
         </Section>
 
