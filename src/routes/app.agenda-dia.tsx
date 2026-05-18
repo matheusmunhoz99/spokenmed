@@ -180,9 +180,20 @@ function AgendaDiaPage() {
     }
   };
 
+  const prontosPraMim = useMemo(
+    () => (ags ?? []).filter((a: any) => a.status === "triado" && isMedico && meuProf && a.profissional_id === meuProf).length,
+    [ags, isMedico, meuProf],
+  );
+
   return (
     <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: ["agenda-dia"] })}>
     <div className="space-y-4">
+      {isMedico && prontosPraMim > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-emerald-400/50 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-200">
+          <Stethoscope className="h-5 w-5 shrink-0" />
+          <div><strong>{prontosPraMim}</strong> {prontosPraMim === 1 ? "paciente pronto" : "pacientes prontos"} pra você atender (já passaram pela triagem).</div>
+        </div>
+      )}
       <Card>
         <CardContent className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
           <div className="space-y-1.5">
