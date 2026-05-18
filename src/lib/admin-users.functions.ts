@@ -136,7 +136,7 @@ export const createSystemUser = createServerFn({ method: "POST" })
         password: z.string().min(6).max(100),
         nome: z.string().min(1).max(120),
         cargo: z.string().max(120).optional().default(""),
-        role: z.enum(["admin", "recepcionista", "medico"]),
+        role: z.enum(["admin", "recepcionista", "medico", "triagem", "acs"]),
         unidade_ids: z.array(z.string().uuid()).default([]),
         profissional_id: z.string().uuid().nullable().optional(),
       })
@@ -182,7 +182,7 @@ export const updateUserRole = createServerFn({ method: "POST" })
     z
       .object({
         user_id: z.string().uuid(),
-        role: z.enum(["admin", "recepcionista", "medico"]),
+        role: z.enum(["admin", "recepcionista", "medico", "triagem", "acs"]),
       })
       .parse(input),
   )
