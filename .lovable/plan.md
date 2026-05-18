@@ -1,54 +1,27 @@
-## Diagnóstico
-
-No HAR do clique manual no menu "Ambulatório" (entry #22):
-```
-Obj=O106 Evt=itemclick id=1 _uo_=OCC
-_fp_=%26O10A%3D%25020%2502%2502%25031%2503
-```
-
-Decodificado, o `_fp_` é: `&O10A=\x020\x02\x02\x031\x03` — formato uniGUI para o estado do tree node selecionado (componente O10A, value=`\x031\x03` que é ETX+"1"+ETX).
-
-Meu agente atual manda o `itemclick` **sem** `_fp_`. O uniGUI ignora o clique e devolve body vazio (= bug `não achei URL do ambulatorio`).
+Vou atacar o problema reproduzindo o fluxo HTTP do uniGUI no próprio agente, sem depender do navegador, até o `itemclick` devolver a URL do Ambulatório.
 
 ## Plano
 
-Editar **`spokenmed-agent/agent.py`** — só uma linha:
+1. **Instrumentar o teste local do agente**
+   - Adicionar logs DEBUG mais úteis no `itemclick`: status, tamanho, headers relevantes e corpo bruto/representação quando vier vazio.
+   - Criar uma rotina de tentativa única para rodar login → validação → abertura do Ambulatório sem esperar o loop de 30 min.
 
-Trocar:
-```python
-itemclick = (
-    f"Ajax=1&IsEvent=1&Obj=O106&Evt=itemclick&id=1"
-    f"&_S_ID={sid}&_seq_={next_seq:x}&_uo_=OCC"
-)
-```
+2. **Comparar contra o HAR que funcionou**
+   - Ajustar o `itemclick` para bater exatamente com o request real: ordem dos campos, `_uo_`, `_fp_`, `_seq_`, `Referer`, cookies e parâmetros.
+   - Se o `id=1` continuar retornando vazio, testar os eventos preparatórios que o Chrome envia antes do clique: `afterrender`, `tabchange`, `load` da árvore/menu e `resize`.
 
-Por:
-```python
-ETX = "\x03"
-fp_tree_raw = f"&O10A={STX}0{STX}{STX}{ETX}1{ETX}"
-fp_tree = up.quote(fp_tree_raw, safe="")
-itemclick = (
-    f"Ajax=1&IsEvent=1&Obj=O106&Evt=itemclick&id=1"
-    f"&_S_ID={sid}&_fp_={fp_tree}&_seq_={next_seq:x}&_uo_=OCC"
-)
-```
+3. **Automatizar tentativas seguras**
+   - Implementar fallback controlado: primeiro tenta clique mínimo; se voltar vazio, envia setup events e tenta de novo.
+   - Logar qual variação funcionou, para fixarmos o caminho correto e remover ruído depois.
 
-(O `STX` já tá declarado no escopo de cima do `login_e_captura_sid`.)
+4. **Avançar até o Ambulatório inicializar**
+   - Depois de capturar a URL, fazer `GET /ambulatorio/...`, extrair o novo `_S_ID` e rodar `cinfo/afterrender/resize/_dummy_`.
+   - Se aparecer seleção de unidade, detectar a resposta/tela e escolher uma unidade disponível automaticamente ou pela primeira opção retornada.
 
-Depois rebuildar o `/mnt/documents/spokenmed-agent.zip` com `runtime/agent.py` atualizado.
+5. **Entregar novo pacote zip**
+   - Regerar o pacote do `SpokenMED-Agente` com a correção.
+   - Você roda `Iniciar Agente.bat` e manda o log; se ainda falhar, o log já vai apontar exatamente em qual variação/evento parou.
 
-## Validação
+## Detalhe técnico
 
-Você extrai o zip novo (substituir tudo), roda `Iniciar Agente.bat` e me cola o log. Esperado:
-```
-→ POST O106 itemclick id=1 (abrir ambulatorio) (seq=11)
-   → URL ambulatorio capturada (XX chars)
-→ GET /ambulatorio (SSO via token)
-   _S_ID ambulatorio = ...
-→ POST [amb] cinfo (seq=0)
-...
-✓ ambulatorio pronto — sid=...
-✓ Worker atualizado: {...}
-```
-
-Se ainda vier `resp=` vazia, aí vou precisar adicionar também os eventos de setup que o navegador faz antes do itemclick (afterrender OD4, tabchange OE5/O34C, load O106, resize O3B1 — entries #16-21 do HAR). Começo pela correção mínima primeiro porque o `_fp_` é o sintoma mais óbvio.
+O erro atual indica que o login está OK, mas o evento `O106 itemclick id=1` está sendo ignorado pelo uniGUI e retornando body vazio. O próximo ajuste deve reproduzir também os eventos de montagem do menu que ocorrem entre o fim dos `_dummy_` e o clique real no Ambulatório.

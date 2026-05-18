@@ -28,12 +28,10 @@ import requests
 # Configuração (hardcoded — comodato pro cliente; basta recompilar pra trocar)
 # ─────────────────────────────────────────────────────────────────────────────
 WORKER_URL     = "https://spokenmed.meyssiner.workers.dev"
-# WORKER_API_KEY é lido de agent.cfg (ao lado do .exe) — vide _read_api_key().
+# WORKER_API_KEY e credenciais Fiorilli são lidos de agent.cfg (ao lado do .exe).
 OPP_BASE       = "https://saudeteresopolis.oppcloud.com.br"
 OPP_LOGIN_PATH = "/sis/"
 OPP_HANDLE     = "/sis/sis.dll/HandleEvent"
-OPP_USERNAME   = "admin"
-OPP_PASSWORD   = "123"
 
 INTERVAL_MINUTES = 30
 HTTP_TIMEOUT     = 30
@@ -57,29 +55,61 @@ def _log_dir() -> Path:
     return base
 
 
-def _read_api_key() -> str:
-    """Lê WORKER_API_KEY de agent.cfg (formato KEY=VALOR) ao lado do .exe."""
+def _read_config() -> dict[str, str]:
+    """Lê agent.cfg (formato KEY=VALOR) ao lado do .exe/runtime."""
     cfg_path = _log_dir() / "agent.cfg"
     if not cfg_path.exists():
         print(f"\n❌ Arquivo agent.cfg não encontrado em {cfg_path}\n"
               f"   Crie um arquivo com o conteúdo:\n\n"
-              f"   WORKER_API_KEY=SuaApiKeyAqui\n", file=sys.stderr)
+              f"   WORKER_API_KEY=SuaApiKeyAqui\n"
+              f"   FIORILLI_USERNAME=SeuUsuario\n"
+              f"   FIORILLI_PASSWORD=SuaSenha\n", file=sys.stderr)
         sys.exit(3)
+    values: dict[str, str] = {}
     for raw in cfg_path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
         if "=" in line:
             k, v = line.split("=", 1)
-            if k.strip() == "WORKER_API_KEY":
-                v = v.strip().strip('"').strip("'")
-                if v:
-                    return v
-    print(f"\n❌ WORKER_API_KEY não definido em {cfg_path}\n", file=sys.stderr)
+            k = k.strip()
+            v = v.strip().strip('"').strip("'")
+            if k and v:
+                values[k] = v
+    return values
+
+
+_CFG = _read_config()
+
+
+def _required_cfg(name: str) -> str:
+    v = _CFG.get(name, "").strip()
+    if v:
+        return v
+    print(f"\n❌ {name} não definido em {_log_dir() / 'agent.cfg'}\n", file=sys.stderr)
     sys.exit(3)
 
 
-WORKER_API_KEY = _read_api_key()
+def _optional_cfg(*names: str, default: str = "") -> str:
+    for name in names:
+        v = _CFG.get(name, "").strip()
+        if v:
+            return v
+    return default
+
+
+def _required_any(*names: str) -> str:
+    v = _optional_cfg(*names)
+    if v:
+        return v
+    joined = "/".join(names)
+    print(f"\n❌ {joined} não definido em {_log_dir() / 'agent.cfg'}\n", file=sys.stderr)
+    sys.exit(3)
+
+
+WORKER_API_KEY = _required_cfg("WORKER_API_KEY")
+OPP_USERNAME = _required_any("FIORILLI_USERNAME", "OPP_USERNAME")
+OPP_PASSWORD = _required_any("FIORILLI_PASSWORD", "OPP_PASSWORD")
 
 log = logging.getLogger("spokenmed-agent")
 log.setLevel(logging.INFO)
@@ -157,9 +187,7 @@ def _looks_logged_in(text: str) -> bool:
     if not text:
         return False
     low = text.lower()
-    bad = ("usuário ou senha", "usuario ou senha", "senha inválida", "senha invalida",
-           "credenciais inválidas", "credenciais invalidas", "login inválido", "login invalido")
-    if any(b in low for b in bad):
+    if _looks_login_rejected(text):
         return False
     return (
         "validando dados" in low
@@ -171,6 +199,14 @@ def _looks_logged_in(text: str) -> bool:
         or low.startswith("{")
         or '"success":true' in low
     )
+
+
+def _looks_login_rejected(text: str) -> bool:
+    low = (text or "").lower()
+    bad = ("usuário ou senha", "usuario ou senha", "usuario e/ou senha", "usuário e/ou senha",
+           "senha inválida", "senha invalida", "credenciais inválidas", "credenciais invalidas",
+           "login inválido", "login invalido", "tentativas")
+    return any(b in low for b in bad)
 
 
 def login_e_captura_sid() -> tuple[str, str, str] | None:
@@ -222,7 +258,7 @@ def login_e_captura_sid() -> tuple[str, str, str] | None:
         return None
 
     # 5) clique no botão Entrar (O40). _fp_ no formato uniGUI:
-    #    &O30=<STX>0<STX><STX>admin&O34=<STX>0<STX><STX>123
+    #    &O30=<STX>0<STX><STX>usuario&O34=<STX>0<STX><STX>senha
     #    O '0' antes do segundo STX é o contador de revisões (0 = primeira escrita).
     STX = "\x02"
     fp_raw = f"&O30={STX}0{STX}{STX}{OPP_USERNAME}&O34={STX}0{STX}{STX}{OPP_PASSWORD}"
@@ -254,6 +290,10 @@ def login_e_captura_sid() -> tuple[str, str, str] | None:
         if rr.status_code >= 400:
             log.error("dummy poll falhou: status=%s", rr.status_code)
             return None
+        if _looks_login_rejected(rr.text):
+            log.error("login NÃO autenticado — Fiorilli rejeitou usuário/senha durante validação.")
+            log.debug("dummy body: %s", rr.text[:800])
+            return None
         low = rr.text.lower()
         # Se NÃO veio outro pedido de _dummy_, terminou a validação.
         if 'ajaxrequestnoparams(o8,"_dummy_")' not in low and "_dummy_" not in low:
@@ -264,30 +304,59 @@ def login_e_captura_sid() -> tuple[str, str, str] | None:
 
     log.info("✓ /sis/ login OK — abrindo sub-app ambulatorio…")
 
+    def _setup_menu_events(start_seq: int) -> int:
+        """Replica eventos que o navegador dispara ao montar o menu principal."""
+        events = [
+            ("OD4 afterrender", f"Ajax=1&IsEvent=1&Obj=OD4&Evt=afterrender&this=OD4&_S_ID={sid}&_seq_={{seq}}&_uo_=O0"),
+            ("OE5 tabchange", f"Ajax=1&IsEvent=1&Obj=OE5&Evt=tabchange&tab=O34C&_S_ID={sid}&_seq_={{seq}}&_uo_=O0"),
+            ("O34C tabchange", f"Ajax=1&IsEvent=1&Obj=O34C&Evt=tabchange&tab=OCC&_S_ID={sid}&_seq_={{seq}}&_uo_=OE5"),
+            ("O106 load", f"Ajax=1&IsEvent=1&Obj=O106&Evt=load&node=O10A&_S_ID={sid}&_seq_={{seq}}&_uo_=OCC"),
+            ("O3B1 resize", f"Ajax=1&IsEvent=1&Obj=O3B1&Evt=resize&w%3D1920&h%3D937&_S_ID={sid}&_seq_={{seq}}&_a_=1&_uo_=O0"),
+        ]
+        seq = start_seq
+        for label, template in events:
+            rr = _post(seq, template.format(seq=f"{seq:x}"), label)
+            if rr is None:
+                return seq
+            log.debug("%s resp (%s bytes): %r", label, len(rr.text), rr.text[:500])
+            seq += 1
+        return seq
+
+    def _open_ambulatorio(seq: int, label: str) -> tuple[str | None, int]:
+        log.info("→ tentando abrir ambulatorio (%s)", label)
+        itemclick = (
+            f"Ajax=1&IsEvent=1&Obj=O106&Evt=itemclick&id=1"
+            f"&_S_ID={sid}&_seq_={seq:x}&_uo_=OCC&_fp_={fp_tree}"
+        )
+        r = _post(seq, itemclick, f"O106 itemclick id=1 ({label})")
+        seq += 1
+        if r is None:
+            return None, seq
+        log.debug("itemclick %s status=%s len=%s headers=%s", label, r.status_code, len(r.text), dict(r.headers))
+        log.debug("itemclick %s resp repr: %r", label, r.text[:1200])
+        m = re.search(r'(/?ambulatorio/ambulatorio\.dll/\?user=[0-9A-Fa-f]+)', r.text.replace("\\/", "/"))
+        if not m:
+            return None, seq
+        amb_path_found = m.group(1)
+        if not amb_path_found.startswith("/"):
+            amb_path_found = "/" + amb_path_found
+        return amb_path_found, seq
+
     # 7) clicar no item de menu O106 id=1 — dispara o window.open do ambulatorio.
     # _fp_ carrega o estado do tree component O10A (nó selecionado=1). Sem ele o
     # uniGUI ignora o clique e devolve body vazio. Vide HAR entry #22.
     ETX = "\x03"
     fp_tree_raw = f"&O10A={STX}0{STX}{STX}{ETX}1{ETX}"
     fp_tree = up.quote(fp_tree_raw, safe="")
-    itemclick = (
-        f"Ajax=1&IsEvent=1&Obj=O106&Evt=itemclick&id=1"
-        f"&_S_ID={sid}&_fp_={fp_tree}&_seq_={next_seq:x}&_uo_=OCC"
-    )
-    r_ic = _post(next_seq, itemclick, "O106 itemclick id=1 (abrir ambulatorio)")
-    if r_ic is None:
-        return None
-    next_seq += 1
-    log.debug("itemclick resp (%s bytes): %s", len(r_ic.text), r_ic.text[:800])
 
-    # extrai a URL /ambulatorio/...?user=<token> da resposta JS uniGUI
-    m_url = re.search(r'(/?ambulatorio/ambulatorio\.dll/\?user=[0-9A-Fa-f]+)', r_ic.text)
-    if not m_url:
-        log.error("não achei URL do ambulatorio na resposta do itemclick. resp=%s", r_ic.text[:600])
+    amb_path, next_seq = _open_ambulatorio(next_seq, "direto")
+    if not amb_path:
+        log.warning("itemclick direto não abriu ambulatorio; enviando eventos preparatórios do menu")
+        next_seq = _setup_menu_events(next_seq)
+        amb_path, next_seq = _open_ambulatorio(next_seq, "apos setup menu")
+    if not amb_path:
+        log.error("não achei URL do ambulatorio após fallback; veja itemclick resp repr no agent.log")
         return None
-    amb_path = m_url.group(1)
-    if not amb_path.startswith("/"):
-        amb_path = "/" + amb_path
     amb_url = OPP_BASE + amb_path
     log.info("   → URL ambulatorio capturada (%s chars)", len(amb_path))
 

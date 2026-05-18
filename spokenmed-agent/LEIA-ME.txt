@@ -7,9 +7,9 @@
 O QUE É
 ───────
 Programinha que roda no seu PC, em loop. A cada 30 minutos faz login no
-Fiorilli (usuário "admin" / senha "123" — embutidos), pega o _S_ID atualizado
-e manda direto pro Worker Cloudflare. Resultado: você NUNCA MAIS precisa
-copiar o curl do DevTools.
+Fiorilli com as credenciais do arquivo "agent.cfg", abre o Ambulatório, pega
+o _S_ID atualizado e manda direto pro Worker Cloudflare. Resultado: você NUNCA
+MAIS precisa copiar o curl do DevTools.
 
 Não precisa instalar Python nem nada. O Python já vem dentro da pasta
 "runtime/".
@@ -17,8 +17,8 @@ Não precisa instalar Python nem nada. O Python já vem dentro da pasta
 
 PRIMEIRO USO (3 passos)
 ───────────────────────
-1) Abra o arquivo "agent.cfg" no Bloco de Notas e cole a sua API KEY do
-   Worker no lugar de "COLE_AQUI_SUA_API_KEY_DO_WORKER". Salve.
+1) Abra o arquivo "agent.cfg" no Bloco de Notas, cole a sua API KEY do Worker
+   e confira FIORILLI_USERNAME / FIORILLI_PASSWORD. Salve.
 
 2) Dê duplo-clique em "Iniciar Agente.bat" pra testar.
    Você verá uma janela preta com logs tipo:
@@ -39,8 +39,8 @@ DIA A DIA
 • Nada. Sério. Ele cuida sozinho.
 • Se quiser ver se tá rodando: abra "agent.log" (criado automaticamente
   ao lado deste README).
-• Se mudar a senha do Fiorilli: edite o "agent.py" dentro de runtime/
-  (linhas OPP_USERNAME e OPP_PASSWORD) e reinicie.
+• Se mudar a senha do Fiorilli: edite FIORILLI_USERNAME/FIORILLI_PASSWORD no
+  "agent.cfg" e reinicie.
 • Se mudar a API key do Worker: edite "agent.cfg" e reinicie.
 
 
@@ -55,7 +55,7 @@ REINICIAR / PARAR
 SOLUÇÃO DE PROBLEMAS
 ────────────────────
 "login NÃO autenticado — credencial inválida"
-  → Senha mudou. Edite runtime/agent.py.
+  → Usuário/senha do Fiorilli estão errados. Edite agent.cfg.
 
 "POST /session/update — status=401"
   → WORKER_API_KEY errada em agent.cfg.
