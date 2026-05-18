@@ -422,6 +422,36 @@ export type Database = {
         }
         Relationships: []
       }
+      documento_verificacoes: {
+        Row: {
+          consultado_em: string
+          documento_id: string | null
+          id: string
+          ip: unknown
+          ip_hash: string | null
+          protocolo: string
+          user_agent_resumo: string | null
+        }
+        Insert: {
+          consultado_em?: string
+          documento_id?: string | null
+          id?: string
+          ip?: unknown
+          ip_hash?: string | null
+          protocolo: string
+          user_agent_resumo?: string | null
+        }
+        Update: {
+          consultado_em?: string
+          documento_id?: string | null
+          id?: string
+          ip?: unknown
+          ip_hash?: string | null
+          protocolo?: string
+          user_agent_resumo?: string | null
+        }
+        Relationships: []
+      }
       documentos_emitidos: {
         Row: {
           agendamento_id: string | null
@@ -1275,7 +1305,10 @@ export type Database = {
         Returns: {
           assinado_em: string
           assinatura: string
+          consultas_24h: number
+          consultas_total: number
           emitido_em: string
+          eventos: Json
           paciente_cpf_mask: string
           paciente_nome_iniciais: string
           profissional_cbo: string
@@ -1283,6 +1316,7 @@ export type Database = {
           profissional_nome: string
           protocolo: string
           tipo: string
+          ultima_consulta: string
           unidade_cnes: string
           unidade_nome: string
         }[]
