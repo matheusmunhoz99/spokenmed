@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import logoUrl from "@/assets/spokenmed-logo.png";
+import { VERIFY_DISPLAY } from "./verificacao-url";
 
 // ===== Verificação / QR =====
 export function gerarProtocolo(prefixo = "DOC"): string {
