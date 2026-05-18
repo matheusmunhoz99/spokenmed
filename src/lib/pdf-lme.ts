@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_COLORS, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
+import { registrarDocumento } from "./documento-registry";
 
 export type LmeOpts = {
   paciente: { nome: string; cpf?: string; cns?: string; sexo?: string; dn?: string; raca?: string; telefone?: string; endereco?: string; mae?: string };
