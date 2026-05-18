@@ -73,6 +73,11 @@ function NovaVisitaPage() {
   const [fotos, setFotos] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [askReplicar, setAskReplicar] = useState(false);
+  const [resumo, setResumo] = useState<null | {
+    pacientes: { id: string; nome: string }[];
+    replicado: boolean;
+    fotosCount: number;
+  }>(null);
 
   // 1) Domicílios do ACS
   const { data: domicilios } = useQuery({
