@@ -177,6 +177,9 @@ export async function gerarSadtPdf(opts: SadtOpts) {
   doc.setFontSize(8);
   doc.text("Solicitação eletrônica · SISREG / eSUS PEC · Assinada digitalmente (ICP-Brasil)", pageW / 2, sigY + 42, { align: "center" });
 
+  const protocolo = gerarProtocolo("SADT");
+  const qr = await buildQrDataUrl(`https://spokenmed.lovable.app/verificar?p=${protocolo}`);
+  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
   openPdf(doc, `sadt-${opts.paciente.nome.replace(/\s+/g, "-").toLowerCase()}.pdf`);
 }
