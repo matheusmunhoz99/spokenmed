@@ -26,6 +26,7 @@ import { Route as AppPacientesRouteImport } from './routes/app.pacientes'
 import { Route as AppMeuPerfilRouteImport } from './routes/app.meu-perfil'
 import { Route as AppHistoricoAtendimentosRouteImport } from './routes/app.historico-atendimentos'
 import { Route as AppFilaRouteImport } from './routes/app.fila'
+import { Route as AppDomiciliosRouteImport } from './routes/app.domicilios'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
 import { Route as AppAuditoriaRouteImport } from './routes/app.auditoria'
 import { Route as AppAgendasRouteImport } from './routes/app.agendas'
@@ -122,6 +123,11 @@ const AppFilaRoute = AppFilaRouteImport.update({
   path: '/fila',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDomiciliosRoute = AppDomiciliosRouteImport.update({
+  id: '/domicilios',
+  path: '/domicilios',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppConfiguracoesRoute = AppConfiguracoesRouteImport.update({
   id: '/configuracoes',
   path: '/configuracoes',
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/app/agendas': typeof AppAgendasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
+  '/app/domicilios': typeof AppDomiciliosRoute
   '/app/fila': typeof AppFilaRoute
   '/app/historico-atendimentos': typeof AppHistoricoAtendimentosRoute
   '/app/meu-perfil': typeof AppMeuPerfilRoute
@@ -207,6 +214,7 @@ export interface FileRoutesByTo {
   '/app/agendas': typeof AppAgendasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
+  '/app/domicilios': typeof AppDomiciliosRoute
   '/app/fila': typeof AppFilaRoute
   '/app/historico-atendimentos': typeof AppHistoricoAtendimentosRoute
   '/app/meu-perfil': typeof AppMeuPerfilRoute
@@ -235,6 +243,7 @@ export interface FileRoutesById {
   '/app/agendas': typeof AppAgendasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
+  '/app/domicilios': typeof AppDomiciliosRoute
   '/app/fila': typeof AppFilaRoute
   '/app/historico-atendimentos': typeof AppHistoricoAtendimentosRoute
   '/app/meu-perfil': typeof AppMeuPerfilRoute
@@ -265,6 +274,7 @@ export interface FileRouteTypes {
     | '/app/agendas'
     | '/app/auditoria'
     | '/app/configuracoes'
+    | '/app/domicilios'
     | '/app/fila'
     | '/app/historico-atendimentos'
     | '/app/meu-perfil'
@@ -292,6 +302,7 @@ export interface FileRouteTypes {
     | '/app/agendas'
     | '/app/auditoria'
     | '/app/configuracoes'
+    | '/app/domicilios'
     | '/app/fila'
     | '/app/historico-atendimentos'
     | '/app/meu-perfil'
@@ -319,6 +330,7 @@ export interface FileRouteTypes {
     | '/app/agendas'
     | '/app/auditoria'
     | '/app/configuracoes'
+    | '/app/domicilios'
     | '/app/fila'
     | '/app/historico-atendimentos'
     | '/app/meu-perfil'
@@ -467,6 +479,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFilaRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/domicilios': {
+      id: '/app/domicilios'
+      path: '/domicilios'
+      fullPath: '/app/domicilios'
+      preLoaderRoute: typeof AppDomiciliosRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/configuracoes': {
       id: '/app/configuracoes'
       path: '/configuracoes'
@@ -564,6 +583,7 @@ interface AppRouteChildren {
   AppAgendasRoute: typeof AppAgendasRoute
   AppAuditoriaRoute: typeof AppAuditoriaRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRouteWithChildren
+  AppDomiciliosRoute: typeof AppDomiciliosRoute
   AppFilaRoute: typeof AppFilaRoute
   AppHistoricoAtendimentosRoute: typeof AppHistoricoAtendimentosRoute
   AppMeuPerfilRoute: typeof AppMeuPerfilRoute
@@ -583,6 +603,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAgendasRoute: AppAgendasRoute,
   AppAuditoriaRoute: AppAuditoriaRoute,
   AppConfiguracoesRoute: AppConfiguracoesRouteWithChildren,
+  AppDomiciliosRoute: AppDomiciliosRoute,
   AppFilaRoute: AppFilaRoute,
   AppHistoricoAtendimentosRoute: AppHistoricoAtendimentosRoute,
   AppMeuPerfilRoute: AppMeuPerfilRoute,
@@ -610,3 +631,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
