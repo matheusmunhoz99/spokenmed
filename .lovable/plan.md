@@ -1,37 +1,224 @@
-Plano para deixar o fluxo de visita funcionando corretamente:
+## Objetivo
 
-1. Corrigir o erro ao salvar visita
-- Ajustar os valores enviados no campo `desfecho` para bater com a regra atual do banco: `visita_realizada`, `visita_recusada`, `ausente`.
-- Manter os rótulos visuais amigáveis: “Visita realizada”, “Visita recusada”, “Ausente”.
-- Garantir que a visita realizada continue exigindo assinatura ou recusa, mas só no momento final de salvar.
+Substituir o Whereby por **LiveKit Cloud** para a videochamada parecer 100% nativa do SpokenMED — zero branding externo, UI totalmente customizada (estilo Google Meet / WhatsApp).
 
-2. Fazer a assinatura aparecer somente ao salvar
-- Remover a seção fixa “Assinatura do paciente / responsável” do corpo da ficha.
-- Ao tocar em “Salvar visita”, se o desfecho for “Visita realizada” e ainda não houver assinatura/recusa, abrir um modal de assinatura.
-- No modal, o agente assina, confirma e toca em “OK/Salvar”, sem a área de assinatura atrapalhar a rolagem da tela.
-- Manter opção de “Paciente recusou / impossibilitado de assinar” com motivo obrigatório.
-- Depois da assinatura/recusa validada, continuar o fluxo normal: perguntar se deseja replicar para a família quando houver mais membros, ou salvar direto quando for registro individual.
+## Observação importante sobre stack
 
-3. Melhorar a assinatura no celular
-- Ajustar o componente de assinatura para capturar a assinatura sem causar rolagem involuntária enquanto o usuário desenha.
-- Usar altura responsiva menor no modal para caber melhor em telas como a do print.
-- Evitar vazamento de texto/botões para fora do card em telas pequenas.
+Seu prompt fala em "Supabase Edge Function". Neste projeto a regra é **TanStack `createServerFn**` (server-side seguro, mesmo nível de proteção, melhor integração). Vou usar `createServerFn` em vez de Edge Function — gera o JWT do LiveKit no servidor, secret nunca vai pro cliente.
 
-4. Remover localização do cadastro de domicílio
-- Retirar o bloco de GPS obrigatório da tela “Novo Cadastro Domiciliar”.
-- Remover a exigência de `geo` no salvamento do domicílio.
-- Como hoje o banco exige latitude/longitude no cadastro de domicílios, criar uma migração para tornar esses campos opcionais no cadastro domiciliar.
-- Ajustar o insert do domicílio para gravar latitude/longitude como `null` quando não houver captura.
+## Secrets necessários
 
-5. Manter localização apenas na ficha da visita
-- Preservar o bloco “Localização GPS obrigatório” na tela de nova visita.
-- A visita continuará capturando latitude/longitude no ato do atendimento, exatamente como solicitado.
+Vou pedir 3 secrets (preciso da sua aprovação):
 
-6. Limpar exibição de localização em domicílios
-- Remover a coluna/link “GPS/mapa” da listagem de domicílios.
-- Remover o link “Ver no mapa” da tela de detalhes do domicílio, ou exibi-lo somente se algum domicílio antigo ainda tiver coordenadas.
+- `LIVEKIT_URL` — ex: `wss://seu-projeto.livekit.cloud`
+- `LIVEKIT_API_KEY` — começa com `API…`
+- `LIVEKIT_API_SECRET` — string longa
 
-Detalhes técnicos:
-- Arquivos principais: `src/routes/app.visitas.nova.tsx`, `src/routes/app.domicilios.novo.tsx`, `src/routes/app.domicilios.index.tsx`, `src/routes/app.domicilios.$id.tsx`, `src/components/signature-pad.tsx`.
-- Banco: migração para permitir `NULL` em `domicilios.latitude`, `domicilios.longitude` e `domicilios.gps_capturado_em`.
-- A regra do banco que causa o erro atual aceita `visita_realizada` e `visita_recusada`, mas a tela estava enviando `realizada` e `recusada`.
+> Crie um projeto grátis em [cloud.livekit.io](https://cloud.livekit.io) — plano free dá 50 GB/mês e até 100 participantes simultâneos, suficiente pra testar e até produção pequena.
+
+## Mudanças no banco
+
+Reaproveitar a tabela `teleconsulta_salas`:
+
+- Renomear conceito: `daily_room_name` passa a guardar o nome da sala LiveKit (mesma coluna, sem migration destrutiva)
+- Adicionar coluna `livekit_room` (text) por clareza
+- `host_room_url` / `daily_room_url` deixam de ser usados (mas ficam no schema sem quebrar nada)
+
+## Backend (`src/lib/tele-livekit.server.ts`)
+
+Novo arquivo com:
+
+- `createRoom(roomName)` — opcional, LiveKit cria sob demanda
+- `generateToken({ roomName, identity, name, role })` — usa `livekit-server-sdk` (`AccessToken`)
+  - **role = "host"** (médico) → grants `roomAdmin: true, canPublish: true, canSubscribe: true`
+  - **role = "guest"** (paciente) → grants `canPublish: true, canSubscribe: true`
+  - TTL = 4 h
+- `deleteRoom(roomName)` — encerra sala via `RoomServiceClient`
+
+Atualiza `src/lib/tele.functions.ts`:
+
+- `criarSalaTele` — gera `roomName = consulta-{agendamentoId}`, salva no banco
+- `gerarTokenMedico` — retorna `{ token, url, room }`
+- `pacienteEntrar` — retorna `{ token, url, room, paciente_nome, … }`
+- `encerrarSala` — chama `deleteRoom`
+- Remove `tele-whereby.server.ts` e `iniciarGravacao`/`pararGravacao` (LiveKit free não tem gravação cloud; quando quiser, dá pra ativar via egress paga)
+
+## Frontend (`src/components/tele/CallStage.tsx`)
+
+Reescreve usando `@livekit/components-react` com layout custom:
+
+- `<LiveKitRoom>` como wrapper (conecta com `serverUrl` + `token`)
+- **Grid de vídeo custom** — vídeo do paciente em tela cheia + thumb auto-vídeo do médico no canto (estilo WhatsApp), com `<ParticipantTile>` / `useTracks`
+- **Barra de controles inferior** (custom, sem `<ControlBar>` default que tem estilo LK):
+  - Mic on/off · Câmera on/off · Trocar câmera (mobile) · Compartilhar tela · Encerrar (vermelho)
+- **Overlay superior** custom (já existe): avatar do paciente, nome, timer de duração, botão de resumo
+- **Indicadores nativos**: ícone de "conectando", "reconectando", qualidade de rede usando `useConnectionState` / `useParticipants`
+- **Chat lateral opcional** (toggle), usando `useChat` do `@livekit/components-react`
+- **Reconexão automática** já é built-in do SDK
+
+Atualiza:
+
+- `src/routes/app.tele.$agendamentoId.tsx` (médico) — passa `token` + `url` para o CallStage
+- `src/routes/tele.$token.tsx` (paciente) — mesma coisa
+
+## Pacotes a instalar
+
+```
+livekit-client
+@livekit/components-react
+@livekit/components-styles
+livekit-server-sdk
+```
+
+## Compatibilidade com APK v1.3.0
+
+O APK atual já tem permissões `CAMERA` + `RECORD_AUDIO` + `MODIFY_AUDIO_SETTINGS`. LiveKit usa o mesmo WebRTC do Whereby — **funciona no APK existente sem regerar**.
+
+## O que muda visualmente
+
+
+| Antes (Whereby)             | Depois (LiveKit)           |
+| --------------------------- | -------------------------- |
+| Logo "Whereby" no canto     | Sem logo externa           |
+| Controles padrão Whereby    | Controles custom SpokenMED |
+| Pop-up de permissão Whereby | Direto a câmera            |
+| Cores/fonts Whereby         | Tudo no design do app      |
+
+
+## Plano de execução
+
+1. Pedir aprovação dos 3 secrets (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`)
+2. Migration: adicionar coluna `livekit_room`
+3. Instalar pacotes
+4. Criar `tele-livekit.server.ts` + atualizar `tele.functions.ts`
+5. Reescrever `CallStage.tsx` com componentes LiveKit + UI custom
+6. Atualizar as 2 rotas (médico e paciente)
+7. Remover `tele-whereby.server.ts`
+8. Testar fluxo completo
+
+## Risco / pontos de atenção
+
+- **Free tier do LiveKit**: 50 GB bandwidth/mês. Cada hora de consulta 1-a-1 em SD consome ~200 MB. Dá pra ~250 h/mês grátis. Acima disso, plano pago começa em $50/mês.
+- **Gravação**: não incluída agora (LiveKit Egress é paga, ~$0.45/h gravada). Se quiser depois, dá pra ativar.
+- **TURN/relay**: incluso no LiveKit Cloud, sem config extra.
+
+---
+
+Confirma esse plano e que vai criar a conta LiveKit Cloud pra eu pedir os 3 secrets?  
+1. NÃO remova Whereby imediatamente
+
+Em vez de apagar direto:
+
+```
+
+```
+
+```
+Remove tele-whereby.server.ts
+```
+
+melhor:
+
+```
+
+```
+
+```
+Deprecated tele-whereby.server.ts
+```
+
+Deixa uns dias como fallback até validar LiveKit em produção.
+
+---
+
+# 2. Adicione limite de participantes
+
+Peça isso também:
+
+```
+
+```
+
+```
+Adicionar maxParticipants por sala.
+```
+
+Evita link vazado.
+
+---
+
+# 3. Adicione waiting room depois
+
+Pra telemedicina isso é MUITO útil:
+
+-   
+paciente entra  
+
+-   
+fica aguardando  
+
+-   
+médico aprova entrada  
+
+
+O LiveKit suporta bem isso.
+
+---
+
+# O mais importante
+
+A parte abaixo está CORRETÍSSIMA:
+
+> “secret nunca vai pro cliente”
+
+Isso é o que diferencia:
+
+-   
+sistema sério  
+  
+de  
+
+-   
+integração gambiarra  
+
+
+---
+
+# Sobre custo
+
+O cálculo deles está bem coerente.
+
+Pra começar:
+
+-   
+provavelmente você nem vai passar do free tier.  
+
+
+---
+
+# Conclusão
+
+Pode aprovar tranquilo.  
+  
+Esse plano ficou profissional mesmo.
+
+Depois dessa migração seu sistema vai parecer:
+
+-   
+Google Meet privado  
+
+-   
+ou WhatsApp Call white-label  
+
+
+em vez de:
+
+-   
+“um iframe de outro serviço”.  
+
+
+E visualmente isso muda MUITO a percepção do sistema.  
+  
+o que acha?
+
+&nbsp;
