@@ -1,62 +1,66 @@
 
 ## Objetivo
 
-1. No formulário de paciente, ao digitar o CPF e pressionar **Enter**, disparar a busca do CadSUS automaticamente (sem mover foco para o campo Nome e sem submeter o formulário).
-2. Melhorar a rotina geral de foco/tabulação dos diálogos de cadastro e busca para ficar previsível.
+1. **CEP**: garantir o autopreenchimento de Logradouro/Bairro/Cidade/UF e cursor automático no campo Número (já existe — só reforçar e cobrir o caso de campos preenchidos por engano).
+2. **Campo CPF**: aumentar a largura para não ficar apertado (desktop e APK).
+3. **CadSUS — animação "mágica" de preenchimento**: ao receber os dados, preencher os campos um por um com um pequeno delay e um destaque visual (anel + flash) em cada campo conforme ele é populado.
 
 ## Mudanças
 
-### 1. CPF — Enter dispara CadSUS (principal)
+Arquivo único: `src/routes/app.pacientes.tsx`
 
-Arquivo: `src/routes/app.pacientes.tsx` (campo CPF, linhas ~443-465)
+### 1. CEP — preenchimento garantido
 
-- Adicionar `onKeyDown` no `<Input>` do CPF:
-  - Se `e.key === "Enter"`: `e.preventDefault()` + `e.stopPropagation()` e chamar `handleBuscarCadSus()`.
-  - Isso impede o submit implícito do `<form>` (que hoje aciona o botão padrão e bagunça o foco) e evita o "salto" pro campo Nome.
-- Após o sucesso do `handleBuscarCadSus`, mover foco automaticamente para o próximo campo lógico (telefone) ou manter no CPF se houver erro — ver item 3.
+- `handleCepBlur` (linha 286): trocar a lógica `f.logradouro?.trim() ? f.logradouro : r.logradouro` por **sempre sobrescrever** com o resultado do ViaCEP. O ViaCEP é fonte autoritativa; manter valor antigo só atrapalha quando o usuário trocou o CEP. Permanece o `focus()` em Número (já implementado).
+- Tocar `handleCepBlur` também ao colar/auto-completar (`onChange` quando bater 8 dígitos) — opcional, para não depender do blur.
 
-### 2. CEP — mesmo padrão
+### 2. CPF maior
 
-Arquivo: `src/routes/app.pacientes.tsx` (campo CEP, linhas ~476-486)
+- Trocar `<Field label="CPF">` (sem className) por `<Field label="CPF" className="md:col-span-2">`. Isso dá 2 colunas (de 4) só pro CPF — sobra espaço para os 11 dígitos formatados + o botão CadSUS.
+- Como consequência, a linha de Dados pessoais vai ter: Nome(3) / Nascimento(1) / Sexo(1) / Mãe(1) / **CPF(2)** / CNS(1) / RG(1) — bate certinho em duas linhas de 4 colunas no desktop. No mobile/APK continua 1 coluna por linha (sem mudança).
 
-- Adicionar `onKeyDown` Enter → `preventDefault` + chamar `handleCepBlur()` e em seguida mover foco para o campo **Número** (`data-field="numero"` já existe).
-- Hoje o Enter no CEP também submete o form.
+### 3. Animação "mágica" do CadSUS
 
-### 3. Form não submete por Enter em campos isolados
+Hoje o `setForm(... )` joga todos os dados de uma vez. Vou trocar por:
 
-Arquivo: `src/routes/app.pacientes.tsx` no `<form onSubmit=...>`
+- Construir uma lista ordenada de pares `[campo, valor]` que vieram do CadSUS (na ordem que faz sentido visual: nome → mãe → nascimento → sexo → CNS → telefone → CEP → logradouro → número → bairro → cidade → UF).
+- Iterar com `setTimeout` de ~120ms entre cada item, chamando `set(campo, valor)` um por vez. Isso dá o efeito de "máquina de escrever de campos".
+- Adicionar estado `highlightField: string | null` que marca o campo recém-preenchido por ~600ms.
+- No `<Input>` de cada campo afetado, adicionar `data-field="<nome>"` (alguns já têm) e uma classe condicional quando `highlightField === nome`: `ring-2 ring-primary/60 transition-shadow duration-300 animate-in fade-in`.
 
-- Adicionar handler global `onKeyDown` no `<form>`: se `Enter` em `<input>` (não textarea, não botão), `e.preventDefault()`. O envio passa a ser exclusivamente pelo botão "Cadastrar/Salvar" no rodapé.
-- Isso elimina envios acidentais e a "volta de foco" pra primeira coisa focável (que hoje é o Nome).
+Implementação concreta:
 
-### 4. Tabulação previsível no diálogo de paciente
+```ts
+const [highlightField, setHighlightField] = useState<string | null>(null);
 
-Arquivo: `src/routes/app.pacientes.tsx`
+const fillMagically = async (pairs: [string, any][]) => {
+  for (const [k, v] of pairs) {
+    if (v == null || v === "") continue;
+    set(k, v);
+    setHighlightField(k);
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  setTimeout(() => setHighlightField(null), 600);
+};
+```
 
-- Garantir ordem natural do DOM já bate com a ordem visual (Nome → Nascimento → Sexo → Mãe → CPF → CNS → RG → Telefone → ...). Hoje já está OK, só revisar se algum botão "CadSUS" precisa de `tabIndex={-1}` para não interromper o fluxo Tab (eu vou pra CNS direto, sem parar no botão).
-- Acrescentar `tabIndex={-1}` no botão CadSUS.
+E substituir o bloco `setForm((f: any) => ({ ... }))` dentro do `handleBuscarCadSus` por uma chamada a `fillMagically([...])`.
 
-### 5. Foco inicial ao abrir o diálogo
+Adicionar helper visual no `Field` (ou direto nos Inputs):
 
-- Quando o diálogo abre em modo **novo cadastro**: foco no campo Nome (já é o comportamento padrão do shadcn dialog, manter).
-- Quando abre em modo **edição**: foco no botão "Salvar alterações" não — manter no Nome também é OK; sem mudança a menos que necessário.
+```tsx
+className={cn("...", highlightField === "nome" && "ring-2 ring-primary animate-pulse")}
+```
 
-### 6. Busca da listagem de pacientes — Enter já funciona
-
-- Confirmar que `/` (atalho global) foca o campo de busca (já implementado em `use-shortcuts.tsx`).
-- Sem mudança.
-
-## Arquivos tocados
-
-- `src/routes/app.pacientes.tsx` — único arquivo de código.
-
-## Fora de escopo (a confirmar depois)
-
-- Diálogos de **agendamento**, **encaixe**, **reagendar**, **consultório** — me avise se quiser que eu aplique o mesmo padrão de Enter/Tab nesses também; faço numa segunda rodada para não inchar este passo.
+Para evitar repetição, vou criar um pequeno helper `hl(name)` que devolve a classe certa.
 
 ## Como você testa
 
-1. Abrir Pacientes → "Novo paciente".
-2. Preencher Nome, Nascimento, ir até o CPF, digitar 11 dígitos, pressionar **Enter** → CadSUS dispara, dados preenchem, foco vai pro Telefone.
-3. Em qualquer campo de texto, pressionar Enter → nada é submetido; só o botão do rodapé envia.
-4. No CEP, digitar e dar Enter → endereço preenche e foco vai pro Número.
+1. Abrir Pacientes → Novo, digitar CPF de um cidadão conhecido e dar Enter (ou clicar em CadSUS).
+2. Ver os campos sendo preenchidos um por um com um anel azul piscando em cada um.
+3. Digitar um CEP e dar Tab/Enter → Logradouro/Bairro/Cidade/UF aparecem e o cursor pula pro Número.
+4. Conferir que o campo CPF agora tem largura confortável no desktop e no APK Android.
+
+## Fora de escopo
+
+- Mesmo padrão de animação nos diálogos de agendamento/encaixe/consultório — peço pra fazer numa próxima rodada se gostar do efeito.
