@@ -832,6 +832,25 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
             </Tabs>
           </main>
         </div>
+
+        {/* Barra de ação fixa (mobile) */}
+        <div className="sticky bottom-0 left-0 right-0 z-10 border-t bg-card/95 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur sm:hidden">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={salvarRascunhoManual}
+              className="gap-1.5"
+              title="Salvar rascunho"
+            >
+              <Save className="h-4 w-4" />
+              Salvar
+            </Button>
+            <Button onClick={finalizar} className="flex-1 gap-2 shadow-sm" size="lg">
+              <Send className="h-4 w-4" />
+              Finalizar e enviar
+            </Button>
+          </div>
+        </div>
       </div>
 
       <EnvioEsusOverlay open={enviando} onClose={handleEnvioFechar} pacienteNome={paciente} />
