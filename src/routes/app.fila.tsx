@@ -636,17 +636,21 @@ function AgendarFilaDialog({ item, onClose, userId, userNome, onDone }: {
   const handleConfirmar = async () => {
     if (!item || !slot || !profId) return;
     setSubmitting(true);
-    const { error: e1 } = await supabase.from("slots").update({ status: "reservado" }).eq("id", slot.id).eq("status", "livre");
-    if (e1) { setSubmitting(false); return toast.error("Vaga não está mais livre."); }
     const { data: created, error: e2 } = await supabase.from("agendamentos").insert({
       slot_id: slot.id, paciente_id: item.paciente_id, profissional_id: profId, unidade_id: item.unidade_id,
       data, hora_inicio: slot.hora_inicio, criado_por: userId,
       motivo: item.observacoes || null,
     }).select("id").single();
     if (e2 || !created) {
-      await supabase.from("slots").update({ status: "livre" }).eq("id", slot.id);
       setSubmitting(false);
-      return toast.error(e2?.message ?? "Erro ao agendar");
+      const msg = e2?.message ?? "";
+      let friendly = "Erro ao agendar";
+      if (msg.includes("slot_indisponivel")) friendly = "Esse horário acabou de ser reservado. Escolha outro.";
+      else if (msg.includes("slot_incoerente")) friendly = "Horário inválido para os filtros selecionados.";
+      else if (msg.includes("slot_inexistente")) friendly = "Horário não existe mais.";
+      else if (msg.toLowerCase().includes("permission")) friendly = "Sem permissão para agendar nesta unidade.";
+      else if (msg) friendly = msg;
+      return toast.error(friendly);
     }
     const { error: e3 } = await (supabase.from(FILA_TABLE as any) as any)
       .update({ status: "agendado", agendamento_id: created.id }).eq("id", item.id);
