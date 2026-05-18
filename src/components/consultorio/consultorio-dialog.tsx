@@ -714,8 +714,8 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
                       </button>
                     ))}
                   </div>
-                  <Button size="sm" variant="outline" onClick={handlePrintReceita} disabled={meds.length===0}>
-                    <Printer className="mr-1.5 h-4 w-4" />Imprimir receita
+                  <Button size="sm" variant="outline" onClick={handlePrintReceita} disabled={meds.length===0 || emitindo}>
+                    <Printer className="mr-1.5 h-4 w-4" />{emitindo ? "Emitindo…" : "Imprimir receita"}
                   </Button>
                 </div>
 
