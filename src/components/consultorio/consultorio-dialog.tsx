@@ -242,8 +242,19 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 
 
   const profissional = {
-    nome: profile?.nome || agendamento?.profissionais?.nome || user?.email || "Médico(a)",
-    crm: "123456", uf: "RJ", cbo: CBO_FAKE,
+    nome: profile?.nome || agendamento?.profissionais?.nome || user?.email || "Profissional",
+    crm: profile?.conselho_numero || "",
+    uf: profile?.conselho_uf || "",
+    cbo: profile?.cbo || CBO_FAKE,
+    conselho_tipo: profile?.conselho_tipo || "CRM",
+  };
+  const conselhoOk = !!(profile?.conselho_tipo && profile?.conselho_numero);
+  const checkConselho = () => {
+    if (!conselhoOk) {
+      toast.error("Cadastre seu conselho profissional em Meu Perfil antes de emitir documentos.");
+      return false;
+    }
+    return true;
   };
   const unidade = { nome: agendamento?.unidades?.nome || "UBS", cnes: CNES_FAKE, ine: INE_FAKE, endereco: "Rua das Acácias, 123 — Centro" };
 
