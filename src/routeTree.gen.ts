@@ -18,6 +18,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppSessoesRouteImport } from './routes/app.sessoes'
 import { Route as AppRelatoriosRouteImport } from './routes/app.relatorios'
+import { Route as AppRecepcaoRouteImport } from './routes/app.recepcao'
 import { Route as AppProfissionaisRouteImport } from './routes/app.profissionais'
 import { Route as AppPacientesRouteImport } from './routes/app.pacientes'
 import { Route as AppMeuPerfilRouteImport } from './routes/app.meu-perfil'
@@ -74,6 +75,11 @@ const AppSessoesRoute = AppSessoesRouteImport.update({
 const AppRelatoriosRoute = AppRelatoriosRouteImport.update({
   id: '/relatorios',
   path: '/relatorios',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRecepcaoRoute = AppRecepcaoRouteImport.update({
+  id: '/recepcao',
+  path: '/recepcao',
   getParentRoute: () => AppRoute,
 } as any)
 const AppProfissionaisRoute = AppProfissionaisRouteImport.update({
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/app/meu-perfil': typeof AppMeuPerfilRoute
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
+  '/app/recepcao': typeof AppRecepcaoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
   '/app/': typeof AppIndexRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/app/meu-perfil': typeof AppMeuPerfilRoute
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
+  '/app/recepcao': typeof AppRecepcaoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
   '/app': typeof AppIndexRoute
@@ -201,6 +209,7 @@ export interface FileRoutesById {
   '/app/meu-perfil': typeof AppMeuPerfilRoute
   '/app/pacientes': typeof AppPacientesRoute
   '/app/profissionais': typeof AppProfissionaisRoute
+  '/app/recepcao': typeof AppRecepcaoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
   '/app/': typeof AppIndexRoute
@@ -226,6 +235,7 @@ export interface FileRouteTypes {
     | '/app/meu-perfil'
     | '/app/pacientes'
     | '/app/profissionais'
+    | '/app/recepcao'
     | '/app/relatorios'
     | '/app/sessoes'
     | '/app/'
@@ -248,6 +258,7 @@ export interface FileRouteTypes {
     | '/app/meu-perfil'
     | '/app/pacientes'
     | '/app/profissionais'
+    | '/app/recepcao'
     | '/app/relatorios'
     | '/app/sessoes'
     | '/app'
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | '/app/meu-perfil'
     | '/app/pacientes'
     | '/app/profissionais'
+    | '/app/recepcao'
     | '/app/relatorios'
     | '/app/sessoes'
     | '/app/'
@@ -351,6 +363,13 @@ declare module '@tanstack/react-router' {
       path: '/relatorios'
       fullPath: '/app/relatorios'
       preLoaderRoute: typeof AppRelatoriosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/recepcao': {
+      id: '/app/recepcao'
+      path: '/recepcao'
+      fullPath: '/app/recepcao'
+      preLoaderRoute: typeof AppRecepcaoRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/profissionais': {
@@ -462,6 +481,7 @@ interface AppRouteChildren {
   AppMeuPerfilRoute: typeof AppMeuPerfilRoute
   AppPacientesRoute: typeof AppPacientesRoute
   AppProfissionaisRoute: typeof AppProfissionaisRoute
+  AppRecepcaoRoute: typeof AppRecepcaoRoute
   AppRelatoriosRoute: typeof AppRelatoriosRoute
   AppSessoesRoute: typeof AppSessoesRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -478,6 +498,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppMeuPerfilRoute: AppMeuPerfilRoute,
   AppPacientesRoute: AppPacientesRoute,
   AppProfissionaisRoute: AppProfissionaisRoute,
+  AppRecepcaoRoute: AppRecepcaoRoute,
   AppRelatoriosRoute: AppRelatoriosRoute,
   AppSessoesRoute: AppSessoesRoute,
   AppIndexRoute: AppIndexRoute,
