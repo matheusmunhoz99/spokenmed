@@ -244,10 +244,6 @@ function NovoDomicilioPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">2. GPS (obrigatório)</CardTitle></CardHeader>
-        <CardContent><GeolocationCapture value={geo} onChange={setGeo} required /></CardContent>
-      </Card>
 
       <Card>
         <CardHeader><CardTitle className="text-base">3. Características do imóvel</CardTitle></CardHeader>
