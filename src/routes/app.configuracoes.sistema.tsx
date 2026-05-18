@@ -386,15 +386,15 @@ function UsersPanel({ currentUserId }: { currentUserId: string }) {
                           <Select
                             value={role}
                             onValueChange={(v) => handleRoleChange(u.id, v as AppRole)}
-                      <SelectItem value="triagem">Triagem</SelectItem>
-                      <SelectItem value="acs">Agente Comunitário</SelectItem>
                             disabled={isMe}
                           >
-                            <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-8 w-[180px]"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="admin">Administrador</SelectItem>
                               <SelectItem value="recepcionista">Administrativo</SelectItem>
                               <SelectItem value="medico">Médico</SelectItem>
+                              <SelectItem value="triagem">Triagem</SelectItem>
+                              <SelectItem value="acs">Agente Comunitário</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
