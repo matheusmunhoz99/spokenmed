@@ -505,12 +505,21 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
   const [paciente, setPaciente] = useState<any>(null);
   const [especialidadeId, setEspecialidadeId] = useState("");
   const [urgencia, setUrgencia] = useState<Urgencia>("normal");
+  const [classif, setClassif] = useState<ClassRisco | "">("");
+  const [cid10, setCid10] = useState("");
+  const [procedimentoId, setProcedimentoId] = useState("");
+  const [solNome, setSolNome] = useState("");
+  const [solCns, setSolCns] = useState("");
+  const [solCbo, setSolCbo] = useState("");
+  const [solCnes, setSolCnes] = useState("");
   const [obs, setObs] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) {
-      setSearch(""); setPaciente(null); setEspecialidadeId(""); setUrgencia("normal"); setObs("");
+      setSearch(""); setPaciente(null); setEspecialidadeId(""); setUrgencia("normal");
+      setClassif(""); setCid10(""); setProcedimentoId("");
+      setSolNome(""); setSolCns(""); setSolCbo(""); setSolCnes(""); setObs("");
     }
   }, [open]);
 
@@ -520,18 +529,24 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
     queryFn: async () => {
       const term = search.trim();
       const digits = onlyDigits(term);
-      let q = supabase.from("pacientes").select("id, nome, cpf, telefone").limit(10);
+      let q = supabase.from("pacientes").select("id, nome, cpf, cns, telefone").limit(10);
       if (digits.length >= 3) q = q.or(`cpf.ilike.%${digits}%,cns.ilike.%${digits}%`);
       else q = q.ilike("nome", `%${term}%`);
       return (await q).data ?? [];
     },
   });
 
+  const { data: procedimentos } = useQuery({
+    queryKey: ["fila-procedimentos"],
+    queryFn: async () => (await supabase.from("procedimentos").select("id, codigo_sigtap, nome").eq("ativo", true).order("codigo_sigtap")).data ?? [],
+  });
+
   const handleSalvar = async () => {
     if (!paciente || !especialidadeId || !unidadeId) return;
+    if (!paciente.cns) return toast.error("CNS do paciente é obrigatório para entrar na regulação. Cadastre o CNS antes.");
+    if (!classif) return toast.error("Selecione a classificação de risco.");
     setSubmitting(true);
 
-    // Checa duplicidade em aberto
     const { data: dup } = await (supabase.from(FILA_TABLE as any) as any)
       .select("id")
       .eq("paciente_id", paciente.id)
@@ -550,12 +565,20 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
       unidade_id: unidadeId,
       especialidade_id: especialidadeId,
       urgencia,
+      classificacao_risco: classif,
+      cid10: cid10.trim().toUpperCase() || null,
+      procedimento_id: procedimentoId || null,
+      solicitante_nome: solNome.trim() || null,
+      solicitante_cns: onlyDigits(solCns) || null,
+      solicitante_cbo: onlyDigits(solCbo) || null,
+      solicitante_cnes: onlyDigits(solCnes) || null,
       observacoes: obs || null,
       criado_por: userId ?? null,
     });
     setSubmitting(false);
     if (error) {
       if ((error as any).code === "23505") return toast.error("Paciente já está na fila desta especialidade.");
+      if (error.message?.includes("cns_obrigatorio_para_fila")) return toast.error("CNS do paciente é obrigatório.");
       return toast.error(error.message);
     }
     toast.success("Paciente adicionado à fila");
