@@ -42,7 +42,7 @@ export async function registrarDocumento(input: RegistrarDocumentoInput): Promis
       unidade_cnes: input.unidade?.cnes ?? null,
       unidade_id: input.unidade?.id ?? null,
       agendamento_id: input.agendamento_id ?? null,
-      metadata: input.metadata ?? {},
+      metadata: (input.metadata ?? {}) as never,
       emitido_por: user?.id ?? null,
       emitido_por_email: user?.email ?? null,
     });
