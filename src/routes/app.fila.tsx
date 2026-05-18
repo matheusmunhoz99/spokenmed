@@ -599,7 +599,13 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
             {paciente ? (
               <div className="rounded-md border bg-accent/40 p-3">
                 <div className="text-sm font-medium">{paciente.nome}</div>
-                <div className="text-xs text-muted-foreground">{paciente.cpf ? formatCPF(paciente.cpf) : ""}</div>
+                <div className="text-xs text-muted-foreground">
+                  {paciente.cpf ? formatCPF(paciente.cpf) : ""}
+                  {paciente.cns ? ` · CNS ${paciente.cns}` : " · sem CNS"}
+                </div>
+                {!paciente.cns && (
+                  <div className="mt-1 text-xs text-destructive">CNS obrigatório para regulação SUS — cadastre antes.</div>
+                )}
                 <Button variant="link" size="sm" className="px-0 h-auto" onClick={() => setPaciente(null)}>Trocar paciente</Button>
               </div>
             ) : (
@@ -614,7 +620,7 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
                       <li key={p.id}>
                         <button type="button" onClick={() => setPaciente(p)} className="w-full text-left px-3 py-2 hover:bg-accent">
                           <div className="text-sm font-medium">{p.nome}</div>
-                          <div className="text-xs text-muted-foreground">{p.cpf ? formatCPF(p.cpf) : ""}</div>
+                          <div className="text-xs text-muted-foreground">{p.cpf ? formatCPF(p.cpf) : ""}{p.cns ? ` · CNS ${p.cns}` : " · sem CNS"}</div>
                         </button>
                       </li>
                     ))}
@@ -635,7 +641,47 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">Urgência</Label>
+            <Label className="text-xs">Classificação de risco (SUS) <span className="text-destructive">*</span></Label>
+            <Select value={classif} onValueChange={(v) => setClassif(v as ClassRisco)}>
+              <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+              <SelectContent>
+                {(["vermelho","laranja","amarelo","verde","azul"] as ClassRisco[]).map((r) => (
+                  <SelectItem key={r} value={r}>{RISCO_LABEL[r]} · TME {RISCO_TME_DEFAULT[r]}d</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">CID-10</Label>
+              <Input value={cid10} onChange={(e) => setCid10(e.target.value.toUpperCase().slice(0, 7))} placeholder="Ex.: I10" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Procedimento SIGTAP</Label>
+              <Select value={procedimentoId} onValueChange={setProcedimentoId}>
+                <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
+                <SelectContent>
+                  {(procedimentos ?? []).map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>{p.codigo_sigtap} · {p.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="rounded-md border p-3 space-y-2">
+            <div className="text-xs font-medium uppercase text-muted-foreground">Médico solicitante</div>
+            <Input placeholder="Nome completo" value={solNome} onChange={(e) => setSolNome(e.target.value)} />
+            <div className="grid grid-cols-3 gap-2">
+              <Input placeholder="CNS" value={solCns} onChange={(e) => setSolCns(e.target.value)} maxLength={15} />
+              <Input placeholder="CBO" value={solCbo} onChange={(e) => setSolCbo(e.target.value)} maxLength={6} />
+              <Input placeholder="CNES" value={solCnes} onChange={(e) => setSolCnes(e.target.value)} maxLength={7} />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Urgência operacional</Label>
             <RadioGroup value={urgencia} onValueChange={(v) => setUrgencia(v as Urgencia)} className="grid grid-cols-3 gap-2">
               {(["normal", "prioritaria", "urgente"] as Urgencia[]).map((u) => (
                 <label key={u} className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition ${urgencia === u ? "border-primary bg-accent" : "border-input hover:bg-accent/50"}`}>
@@ -648,7 +694,7 @@ function AddFilaDialog({ open, onOpenChange, unidadeId, unidadeNome, userId, esp
 
           <div className="space-y-1.5">
             <Label className="text-xs">Observações / encaminhamento</Label>
-            <Textarea rows={3} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Opcional" />
+            <Textarea rows={2} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Opcional" />
           </div>
         </div>
         <DialogFooter>
