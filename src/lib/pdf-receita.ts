@@ -438,8 +438,7 @@ function drawNotificacao(
   const status = opts.notificacao?.status ?? "valida";
   if (status !== "valida") {
     doc.saveGraphicsState();
-    // @ts-expect-error jsPDF GState
-    doc.setGState(new (doc as any).GState({ opacity: 0.16 }));
+    (doc as any).setGState(new (doc as any).GState({ opacity: 0.16 }));
     const wmCor: [number, number, number] = status === "cancelada" ? [185, 28, 28] : [120, 113, 108];
     doc.setTextColor(...wmCor);
     doc.setFont("helvetica", "bold");
