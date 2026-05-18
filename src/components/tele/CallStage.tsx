@@ -15,7 +15,6 @@ import {
   useParticipants,
   useConnectionState,
   ParticipantTile,
-  TrackRefContext,
 } from "@livekit/components-react";
 import { ConnectionState, Track, type Room } from "livekit-client";
 import {
@@ -138,13 +137,11 @@ function Stage({ peerName, selfName }: { peerName?: string; selfName?: string })
     <div className="absolute inset-0">
       {/* Vídeo principal */}
       {main ? (
-        <TrackRefContext.Provider value={main}>
-          <ParticipantTile
-            trackRef={main}
-            disableSpeakingIndicator={false}
-            className="!h-full !w-full !rounded-none [&>.lk-participant-metadata]:!hidden"
-          />
-        </TrackRefContext.Provider>
+        <ParticipantTile
+          trackRef={main}
+          disableSpeakingIndicator={false}
+          className="!h-full !w-full !rounded-none [&_.lk-participant-metadata]:!hidden"
+        />
       ) : (
         <WaitingForPeer peerName={peerName} />
       )}
@@ -152,13 +149,11 @@ function Stage({ peerName, selfName }: { peerName?: string; selfName?: string })
       {/* Picture-in-picture do próprio vídeo */}
       {pip && (
         <div className="absolute bottom-24 right-4 z-30 h-32 w-24 overflow-hidden rounded-2xl shadow-2xl ring-2 ring-white/10 sm:bottom-28 sm:right-6 sm:h-44 sm:w-32">
-          <TrackRefContext.Provider value={pip}>
-            <ParticipantTile
-              trackRef={pip}
-              disableSpeakingIndicator
-              className="!h-full !w-full !rounded-none [&_.lk-participant-metadata]:!hidden"
-            />
-          </TrackRefContext.Provider>
+          <ParticipantTile
+            trackRef={pip}
+            disableSpeakingIndicator
+            className="!h-full !w-full !rounded-none [&_.lk-participant-metadata]:!hidden"
+          />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-1.5 text-[10px] font-medium">
             {selfName || "Você"}
           </div>
