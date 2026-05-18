@@ -168,15 +168,42 @@ function VerificarPage() {
                 onChange={(e) => setCodigo(e.target.value.toUpperCase())}
                 placeholder="Ex.: RECT-A8K2QR-X3LM"
                 className="font-mono uppercase tracking-wide"
+                autoCapitalize="characters"
+                inputMode="text"
                 autoFocus
               />
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setScannerOpen(true)}
+              className="gap-2"
+              title="Escanear QR Code"
+            >
+              <Camera className="h-4 w-4" />
+              <span className="sm:hidden">Escanear QR</span>
+              <span className="hidden sm:inline">QR</span>
+            </Button>
             <Button type="submit" disabled={loading || !codigo.trim()} className="gap-2">
               <Search className="h-4 w-4" />
               {loading ? "Consultando…" : "Verificar"}
             </Button>
           </form>
+
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            Dica: pelo celular, basta apontar a câmera nativa para o QR do documento — o link já abre validado.
+          </p>
         </div>
+
+        {scannerOpen && (
+          <Suspense fallback={null}>
+            <QrScannerDialog
+              open={scannerOpen}
+              onClose={() => setScannerOpen(false)}
+              onDetected={handleScanned}
+            />
+          </Suspense>
+        )}
 
         {/* Resultado */}
         {doc && (
@@ -193,7 +220,11 @@ function VerificarPage() {
             </div>
             <div className="space-y-4 p-6">
               <Row label="Tipo" value={TIPO_LABEL[doc.tipo] ?? doc.tipo} />
-              <Row label="Protocolo" value={doc.protocolo} mono />
+              <Row label="Protocolo" value={doc.protocolo} mono action={
+                <button type="button" onClick={copiarProtocolo} className="text-primary hover:underline inline-flex items-center gap-1" title="Copiar">
+                  <Copy className="h-3 w-3" />
+                </button>
+              } />
               <Row label="Paciente" value={doc.paciente_nome_iniciais} />
               {doc.paciente_cpf_mask && <Row label="CPF" value={doc.paciente_cpf_mask} mono />}
               <Row label="Profissional" value={doc.profissional_nome} icon={Stethoscope} />
