@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_COLORS, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
+import { registrarDocumento } from "./documento-registry";
 
 export type ReceitaMed = {
   nome: string;
@@ -184,5 +185,12 @@ export async function gerarReceitaPdf(opts: GerarReceitaOpts) {
   const qr = await buildQrDataUrl(`https://spokenmed.lovable.app/verificar?p=${protocolo}`);
   drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
+  await registrarDocumento({
+    protocolo, tipo: "receita",
+    paciente: { nome: opts.paciente.nome, cpf: opts.paciente.cpf },
+    profissional: opts.profissional,
+    unidade: { nome: opts.unidade?.nome, cnes: opts.unidade?.cnes },
+    metadata: { tipo_receita: opts.tipo, qtd_medicamentos: opts.medicamentos.length },
+  });
   openPdf(doc, `receita-${opts.paciente.nome.replace(/\s+/g, "-").toLowerCase()}.pdf`);
 }

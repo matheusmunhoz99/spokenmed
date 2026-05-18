@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { drawHeader, drawFooterAllPages, drawVerificationOnAllPages, loadLogo, openPdf, PDF_COLORS, PDF_FOOTER_MARGIN, gerarProtocolo, buildQrDataUrl } from "./pdf-shared";
+import { registrarDocumento } from "./documento-registry";
 
 export type AtestadoOpts = {
   paciente: { nome: string; cpf?: string; cns?: string };
@@ -78,6 +79,13 @@ export async function gerarAtestadoPdf(opts: AtestadoOpts) {
   const qr = await buildQrDataUrl(`https://spokenmed.lovable.app/verificar?p=${protocolo}`);
   drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
+  await registrarDocumento({
+    protocolo, tipo: "atestado",
+    paciente: { nome: opts.paciente.nome, cpf: opts.paciente.cpf },
+    profissional: opts.profissional,
+    unidade: { nome: opts.unidade?.nome, cnes: opts.unidade?.cnes },
+    metadata: { dias: opts.dias, cid: opts.cid ?? null, mencionarCid: opts.mencionarCid, repouso: opts.repouso },
+  });
   openPdf(doc, `atestado-${opts.paciente.nome.replace(/\s+/g, "-").toLowerCase()}.pdf`);
 }
 

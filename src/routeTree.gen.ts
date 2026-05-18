@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VerificarRouteImport } from './routes/verificar'
 import { Route as PainelRouteImport } from './routes/painel'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CidadaoRouteImport } from './routes/cidadao'
@@ -29,6 +30,11 @@ import { Route as AppAgendaDiaRouteImport } from './routes/app.agenda-dia'
 import { Route as AppConfiguracoesSistemaRouteImport } from './routes/app.configuracoes.sistema'
 import { Route as ApiPublicVersionRouteImport } from './routes/api/public/version'
 
+const VerificarRoute = VerificarRouteImport.update({
+  id: '/verificar',
+  path: '/verificar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PainelRoute = PainelRouteImport.update({
   id: '/painel',
   path: '/painel',
@@ -132,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/cidadao': typeof CidadaoRoute
   '/login': typeof LoginRoute
   '/painel': typeof PainelRoute
+  '/verificar': typeof VerificarRoute
   '/app/agenda-dia': typeof AppAgendaDiaRoute
   '/app/agendar': typeof AppAgendarRoute
   '/app/agendas': typeof AppAgendasRoute
@@ -152,6 +159,7 @@ export interface FileRoutesByTo {
   '/cidadao': typeof CidadaoRoute
   '/login': typeof LoginRoute
   '/painel': typeof PainelRoute
+  '/verificar': typeof VerificarRoute
   '/app/agenda-dia': typeof AppAgendaDiaRoute
   '/app/agendar': typeof AppAgendarRoute
   '/app/agendas': typeof AppAgendasRoute
@@ -174,6 +182,7 @@ export interface FileRoutesById {
   '/cidadao': typeof CidadaoRoute
   '/login': typeof LoginRoute
   '/painel': typeof PainelRoute
+  '/verificar': typeof VerificarRoute
   '/app/agenda-dia': typeof AppAgendaDiaRoute
   '/app/agendar': typeof AppAgendarRoute
   '/app/agendas': typeof AppAgendasRoute
@@ -197,6 +206,7 @@ export interface FileRouteTypes {
     | '/cidadao'
     | '/login'
     | '/painel'
+    | '/verificar'
     | '/app/agenda-dia'
     | '/app/agendar'
     | '/app/agendas'
@@ -217,6 +227,7 @@ export interface FileRouteTypes {
     | '/cidadao'
     | '/login'
     | '/painel'
+    | '/verificar'
     | '/app/agenda-dia'
     | '/app/agendar'
     | '/app/agendas'
@@ -238,6 +249,7 @@ export interface FileRouteTypes {
     | '/cidadao'
     | '/login'
     | '/painel'
+    | '/verificar'
     | '/app/agenda-dia'
     | '/app/agendar'
     | '/app/agendas'
@@ -260,11 +272,19 @@ export interface RootRouteChildren {
   CidadaoRoute: typeof CidadaoRoute
   LoginRoute: typeof LoginRoute
   PainelRoute: typeof PainelRoute
+  VerificarRoute: typeof VerificarRoute
   ApiPublicVersionRoute: typeof ApiPublicVersionRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/verificar': {
+      id: '/verificar'
+      path: '/verificar'
+      fullPath: '/verificar'
+      preLoaderRoute: typeof VerificarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/painel': {
       id: '/painel'
       path: '/painel'
@@ -450,6 +470,7 @@ const rootRouteChildren: RootRouteChildren = {
   CidadaoRoute: CidadaoRoute,
   LoginRoute: LoginRoute,
   PainelRoute: PainelRoute,
+  VerificarRoute: VerificarRoute,
   ApiPublicVersionRoute: ApiPublicVersionRoute,
 }
 export const routeTree = rootRouteImport
