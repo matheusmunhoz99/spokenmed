@@ -98,12 +98,18 @@ def _optional_cfg(*names: str, default: str = "") -> str:
     return default
 
 
-WORKER_API_KEY = _required_cfg("WORKER_API_KEY")
-OPP_USERNAME = _optional_cfg("FIORILLI_USERNAME", "OPP_USERNAME", default="admin")
-OPP_PASSWORD = _optional_cfg("FIORILLI_PASSWORD", "OPP_PASSWORD", default="123")
-if not OPP_USERNAME or not OPP_PASSWORD:
-    print(f"\n❌ FIORILLI_USERNAME/FIORILLI_PASSWORD não definidos em {_log_dir() / 'agent.cfg'}\n", file=sys.stderr)
+def _required_any(*names: str) -> str:
+    v = _optional_cfg(*names)
+    if v:
+        return v
+    joined = "/".join(names)
+    print(f"\n❌ {joined} não definido em {_log_dir() / 'agent.cfg'}\n", file=sys.stderr)
     sys.exit(3)
+
+
+WORKER_API_KEY = _required_cfg("WORKER_API_KEY")
+OPP_USERNAME = _required_any("FIORILLI_USERNAME", "OPP_USERNAME")
+OPP_PASSWORD = _required_any("FIORILLI_PASSWORD", "OPP_PASSWORD")
 
 log = logging.getLogger("spokenmed-agent")
 log.setLevel(logging.INFO)
