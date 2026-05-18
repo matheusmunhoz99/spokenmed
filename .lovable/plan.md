@@ -1,64 +1,56 @@
-# Plano — Scanner QR em /verificar + checagem final
+# Plano — Consultório responsivo no celular
 
-## Contexto importante (boa notícia)
+## Diagnóstico
 
-A leitura pela **câmera nativa** do celular **já funciona hoje**:
-- O QR impresso nos PDFs aponta para `https://spokenmed.lovable.app/verificar?p=PROTOCOLO`.
-- A página `/verificar` já tem `useEffect` que, ao detectar `?p=` na URL, **preenche o campo e valida automaticamente** (chama `verificar_documento`).
-- Ou seja: apontou a câmera do iPhone/Android → toca no link → abre o site **já validado**. Sem precisar digitar nada.
+No mobile (375px) o `<header>` do dialog do consultório usa `flex-wrap items-center gap-3` com 4 blocos concorrendo pelo mesmo eixo: logo, avatar+info do paciente (`flex-1 min-w-0`), bloco do timer, e botões (Finalizar + X). Como **Finalizar** e o **X** ficam fixos à direita e o avatar à esquerda, sobra uma coluna minúscula no meio onde o nome / CNS / CPF / unidade quebram letra a letra — gerando exatamente a sobreposição visual do screenshot.
 
-O que falta é o **scanner dentro da própria página** (botão "Escanear QR") para quem está no portal e quer validar um documento físico sem digitar o protocolo.
+Além do header, a sidebar de 320px é forçada acima do `<main>` no mobile (grid `grid-cols-1`) ocupando muito espaço antes do paciente conseguir ver o formulário.
 
-## 1. Adicionar scanner por câmera em `/verificar`
+## Mudanças (apenas UI, sem mexer em lógica/dados/PDF)
 
-**Biblioteca:** `@zxing/browser` (~50 kB, sem dependências nativas, funciona em Worker/SSR pois só roda no cliente).
-- Alternativa considerada: `html5-qrcode` (mais pesada, UI própria que conflita com o design system). Descartada.
+### 1. Header redesenhado em duas camadas no mobile
 
-**UX:**
-- Botão **"Escanear QR"** ao lado do botão "Verificar" (ícone `Camera` do lucide).
-- No mobile, o botão aparece em destaque acima do input.
-- Ao tocar: abre um `Dialog` em tela cheia com o vídeo da câmera traseira (`facingMode: "environment"`).
-- Overlay com moldura/cantos animados indicando a área de leitura.
-- Ao detectar um QR:
-  1. Se for URL do próprio domínio com `?p=`, extrai só o protocolo.
-  2. Preenche o input, fecha o dialog, dispara `consultar()` automaticamente.
-  3. Vibra o aparelho (`navigator.vibrate(80)`) como feedback.
-- Botão "Cancelar" e tratamento de permissão negada (mensagem clara: "Permita acesso à câmera nas configurações do navegador").
-- HTTPS já garantido pelo domínio Lovable, então `getUserMedia` funciona.
+- **Linha 1 (sempre visível, compacta):** avatar (h-9) + nome truncado em **1 linha** + botão **Finalizar** (texto curto) + **X**. Sem badges, sem CNS, sem unidade.
+- **Linha 2 (mobile):** chips horizontais roláveis com CNS, CPF, horário, unidade — em `overflow-x-auto` para não quebrarem.
+- **Desktop (≥lg):** mantém o layout atual rico (logo + divisor + badges + timer + ações em linha).
+- Logo `SpokenMED` e divisor: escondidos no mobile (`hidden lg:block`).
+- Timer separado: escondido no mobile (já está com `sm:flex`), indicador de rascunho vai para a linha 2.
+- Botão **Salvar rascunho** continua `hidden md:inline-flex`.
 
-**Arquivos:**
-- `bun add @zxing/browser @zxing/library`
-- Criar `src/components/verificar/qr-scanner-dialog.tsx` (componente isolado, lazy-loaded com `React.lazy` para não pesar no bundle de quem só digita).
-- Editar `src/routes/verificar.tsx`: importar lazy, adicionar botão e estado `scannerOpen`.
+### 2. Sidebar (paciente / alergias / antropometria / histórico) vira drawer no mobile
 
-## 2. Pequenas melhorias de robustez no /verificar
+- No mobile: substituir o card lateral por um botão **"Resumo do paciente"** com ícone, abrindo um `Sheet` lateral com o conteúdo completo da sidebar atual.
+- Adicionar também um chip de aviso `Alergias (n)` ao lado do nome no header quando houver alergia grave, para não esconder informação crítica.
+- `≥ lg`: comportamento atual (sidebar fixa de 320px ao lado do main).
 
-- Normalizar protocolo colado com URL completa: se o usuário colar `https://.../verificar?p=ABC`, extrair `ABC` automaticamente.
-- Adicionar `inputMode="text"` + `autoCapitalize="characters"` no input.
-- Botão "Copiar protocolo" no card de resultado.
+### 3. Conteúdo principal — afinar para mobile
 
-## 3. Varredura de bugs antes do lançamento
+- Tabs: reduzir gap e padding, `text-xs` no mobile, manter `overflow-x-auto` já presente.
+- Inputs/Textareas das abas SOAP, CID, Alergias, Antropometria, Prescrição: usar `text-base` (16px) no mobile para evitar o **zoom automático do iOS/Android** ao focar.
+- Grid `sm:grid-cols-[1fr_1fr_140px_auto]` na aba Alergias: empilhar em `grid-cols-1` no mobile com botão de adicionar full-width.
+- Padding global do main: `p-3` no mobile em vez de `p-4`.
 
-Vou verificar (sem alterar lógica de negócio):
-- `bun run build` limpa (sem erros TS / imports quebrados).
-- Console e network do preview sem erros.
-- Rota `/verificar` carrega anônima (sem exigir login) — confirmar que não está atrás do `_authenticated`.
-- Linter do Supabase (`supabase--linter`) sem alertas novos após a migração de `documentos_emitidos`.
-- Smoke test no preview: gerar um PDF → ler QR → validar.
+### 4. Barra de ação fixa no rodapé do mobile
 
-Se encontrar bug, corrijo no mesmo loop e reporto.
+- No mobile, adicionar uma `<div className="sticky bottom-0 ...">` dentro do dialog com: botão **Finalizar e enviar ao eSUS PEC** (full-width, alto, fácil polegar) + botão secundário **Salvar rascunho**.
+- Remove o botão Finalizar da linha 1 do header no mobile (mantém só o X), evitando aperto no topo.
+- Adicionar `pb-[env(safe-area-inset-bottom)]` para iPhones com notch/home bar.
 
-## 4. APK — precisa regerar?
+### 5. Ajustes finos
 
-**Não.** O projeto **não tem app nativo / Capacitor**. A pasta `spokenmed-agent/` é um agente Python desktop (scripts `.bat`, `.vbs`, `agent.py`) — não é Android.
+- `DialogContent`/wrapper `fixed inset-0` → garantir `h-[100dvh]` (não `h-screen`) para não passar atrás da barra de URL do Chrome Android.
+- Header: trocar `flex-wrap` por layout em coluna no mobile (`flex-col gap-2 sm:flex-row sm:items-center`).
+- Verificar que o `Drawer/Sheet` da sidebar não atrapalhe o scroll do main quando aberto.
 
-A verificação é 100% web: o QR aponta para uma URL pública, qualquer leitor de QR nativo (câmera do iOS/Android, Google Lens, etc.) já abre o navegador na página validada. Não há APK para reconstruir.
+## Arquivos afetados
 
-Se no futuro você quiser empacotar como app (Capacitor/PWA), aí sim seria preciso build separado — mas hoje **não é necessário para essa entrega**.
+- `src/components/consultorio/consultorio-dialog.tsx` — único arquivo, todas as alterações são de layout/Tailwind. Lógica de auto-save, atalhos, finalização, alergias, etc. permanece igual.
 
-## Detalhes técnicos
+## Fora de escopo
 
-- `@zxing/browser` expõe `BrowserMultiFormatReader.decodeFromVideoDevice(deviceId|undefined, videoEl, callback)`. Passando `undefined` ele escolhe a câmera padrão; usamos `getUserMedia({ video: { facingMode: { ideal: "environment" } } })` antes para forçar a traseira no mobile.
-- Cleanup obrigatório: `reader.reset()` + `stream.getTracks().forEach(t => t.stop())` ao fechar o dialog, senão a luz da câmera fica ligada.
-- Lazy import: `const QrScannerDialog = lazy(() => import("@/components/verificar/qr-scanner-dialog"))` + `<Suspense>` para não carregar ZXing na visita inicial.
-- Sem mudanças no backend, RLS, ou nos PDFs já gerados.
+- Backend, RPC, RLS, PDFs, validações.
+- Outras telas (agenda, pacientes, login).
+
+## Confirmação rápida
+
+Quer que eu também aplique a mesma "linha 2 com chips roláveis" desktop quando a janela for estreita (`< xl`), ou só no mobile? Por padrão vou aplicar **só no mobile** (`< lg`).
