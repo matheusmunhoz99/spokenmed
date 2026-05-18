@@ -16,6 +16,8 @@ import { Route as CidadaoRouteImport } from './routes/cidadao'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppVisitasRouteImport } from './routes/app.visitas'
+import { Route as AppTriagemRouteImport } from './routes/app.triagem'
 import { Route as AppSessoesRouteImport } from './routes/app.sessoes'
 import { Route as AppRelatoriosRouteImport } from './routes/app.relatorios'
 import { Route as AppRecepcaoRouteImport } from './routes/app.recepcao'
@@ -29,6 +31,7 @@ import { Route as AppAuditoriaRouteImport } from './routes/app.auditoria'
 import { Route as AppAgendasRouteImport } from './routes/app.agendas'
 import { Route as AppAgendarRouteImport } from './routes/app.agendar'
 import { Route as AppAgendaDiaRouteImport } from './routes/app.agenda-dia'
+import { Route as AppVisitasNovaRouteImport } from './routes/app.visitas.nova'
 import { Route as AppConfiguracoesSistemaRouteImport } from './routes/app.configuracoes.sistema'
 import { Route as ApiPublicVersionRouteImport } from './routes/api/public/version'
 
@@ -65,6 +68,16 @@ const IndexRoute = IndexRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppVisitasRoute = AppVisitasRouteImport.update({
+  id: '/visitas',
+  path: '/visitas',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTriagemRoute = AppTriagemRouteImport.update({
+  id: '/triagem',
+  path: '/triagem',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSessoesRoute = AppSessoesRouteImport.update({
@@ -133,6 +146,11 @@ const AppAgendaDiaRoute = AppAgendaDiaRouteImport.update({
   path: '/agenda-dia',
   getParentRoute: () => AppRoute,
 } as any)
+const AppVisitasNovaRoute = AppVisitasNovaRouteImport.update({
+  id: '/nova',
+  path: '/nova',
+  getParentRoute: () => AppVisitasRoute,
+} as any)
 const AppConfiguracoesSistemaRoute = AppConfiguracoesSistemaRouteImport.update({
   id: '/sistema',
   path: '/sistema',
@@ -164,9 +182,12 @@ export interface FileRoutesByFullPath {
   '/app/recepcao': typeof AppRecepcaoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
+  '/app/triagem': typeof AppTriagemRoute
+  '/app/visitas': typeof AppVisitasRouteWithChildren
   '/app/': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
+  '/app/visitas/nova': typeof AppVisitasNovaRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -187,9 +208,12 @@ export interface FileRoutesByTo {
   '/app/recepcao': typeof AppRecepcaoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
+  '/app/triagem': typeof AppTriagemRoute
+  '/app/visitas': typeof AppVisitasRouteWithChildren
   '/app': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
+  '/app/visitas/nova': typeof AppVisitasNovaRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -212,9 +236,12 @@ export interface FileRoutesById {
   '/app/recepcao': typeof AppRecepcaoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
+  '/app/triagem': typeof AppTriagemRoute
+  '/app/visitas': typeof AppVisitasRouteWithChildren
   '/app/': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
+  '/app/visitas/nova': typeof AppVisitasNovaRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -238,9 +265,12 @@ export interface FileRouteTypes {
     | '/app/recepcao'
     | '/app/relatorios'
     | '/app/sessoes'
+    | '/app/triagem'
+    | '/app/visitas'
     | '/app/'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
+    | '/app/visitas/nova'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -261,9 +291,12 @@ export interface FileRouteTypes {
     | '/app/recepcao'
     | '/app/relatorios'
     | '/app/sessoes'
+    | '/app/triagem'
+    | '/app/visitas'
     | '/app'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
+    | '/app/visitas/nova'
   id:
     | '__root__'
     | '/'
@@ -285,9 +318,12 @@ export interface FileRouteTypes {
     | '/app/recepcao'
     | '/app/relatorios'
     | '/app/sessoes'
+    | '/app/triagem'
+    | '/app/visitas'
     | '/app/'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
+    | '/app/visitas/nova'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -349,6 +385,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/visitas': {
+      id: '/app/visitas'
+      path: '/visitas'
+      fullPath: '/app/visitas'
+      preLoaderRoute: typeof AppVisitasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/triagem': {
+      id: '/app/triagem'
+      path: '/triagem'
+      fullPath: '/app/triagem'
+      preLoaderRoute: typeof AppTriagemRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/sessoes': {
@@ -442,6 +492,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAgendaDiaRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/visitas/nova': {
+      id: '/app/visitas/nova'
+      path: '/nova'
+      fullPath: '/app/visitas/nova'
+      preLoaderRoute: typeof AppVisitasNovaRouteImport
+      parentRoute: typeof AppVisitasRoute
+    }
     '/app/configuracoes/sistema': {
       id: '/app/configuracoes/sistema'
       path: '/sistema'
@@ -470,6 +527,18 @@ const AppConfiguracoesRouteChildren: AppConfiguracoesRouteChildren = {
 const AppConfiguracoesRouteWithChildren =
   AppConfiguracoesRoute._addFileChildren(AppConfiguracoesRouteChildren)
 
+interface AppVisitasRouteChildren {
+  AppVisitasNovaRoute: typeof AppVisitasNovaRoute
+}
+
+const AppVisitasRouteChildren: AppVisitasRouteChildren = {
+  AppVisitasNovaRoute: AppVisitasNovaRoute,
+}
+
+const AppVisitasRouteWithChildren = AppVisitasRoute._addFileChildren(
+  AppVisitasRouteChildren,
+)
+
 interface AppRouteChildren {
   AppAgendaDiaRoute: typeof AppAgendaDiaRoute
   AppAgendarRoute: typeof AppAgendarRoute
@@ -484,6 +553,8 @@ interface AppRouteChildren {
   AppRecepcaoRoute: typeof AppRecepcaoRoute
   AppRelatoriosRoute: typeof AppRelatoriosRoute
   AppSessoesRoute: typeof AppSessoesRoute
+  AppTriagemRoute: typeof AppTriagemRoute
+  AppVisitasRoute: typeof AppVisitasRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -501,6 +572,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppRecepcaoRoute: AppRecepcaoRoute,
   AppRelatoriosRoute: AppRelatoriosRoute,
   AppSessoesRoute: AppSessoesRoute,
+  AppTriagemRoute: AppTriagemRoute,
+  AppVisitasRoute: AppVisitasRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
 }
 
