@@ -23,7 +23,7 @@ import { Save, Upload, X, Home, Users, User, ChevronLeft, CheckCircle2, Calendar
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { SemAcesso } from "@/components/sem-acesso";
-import { SignaturePad } from "@/components/signature-pad";
+import { SignatureDialog, type SignatureResult } from "@/components/signature-dialog";
 import { GeolocationCapture, type GeoCoord } from "@/components/geolocation-capture";
 import { MOTIVOS_VISITA, ACOMPANHAMENTOS, CONTROLE_AMBIENTAL, TURNOS, DESFECHOS } from "@/lib/visitas-constants";
 import { format } from "date-fns";
@@ -55,7 +55,7 @@ function NovaVisitaPage() {
 
   const [dataVisita, setDataVisita] = useState(format(new Date(), "yyyy-MM-dd"));
   const [turno, setTurno] = useState("manha");
-  const [desfecho, setDesfecho] = useState("realizada");
+  const [desfecho, setDesfecho] = useState("visita_realizada");
   const [motivos, setMotivos] = useState<string[]>([]);
   const [acomps, setAcomps] = useState<string[]>([]);
   const [ctrlAmb, setCtrlAmb] = useState<string[]>([]);
@@ -73,6 +73,7 @@ function NovaVisitaPage() {
   const [fotos, setFotos] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [askReplicar, setAskReplicar] = useState(false);
+  const [askAssinatura, setAskAssinatura] = useState(false);
   const [resumo, setResumo] = useState<null | {
     pacientes: { id: string; nome: string }[];
     replicado: boolean;
@@ -149,26 +150,42 @@ function NovaVisitaPage() {
     if (!familia) { toast.error("Selecione a família."); return false; }
     if (!pacienteId) { toast.error("Selecione o membro da família."); return false; }
     if (!geo) { toast.error("GPS é obrigatório para salvar a visita."); return false; }
-    if (desfecho === "realizada" && !assinatura && !recusou) {
-      toast.error("Colete a assinatura do paciente ou marque 'recusou assinar'.");
-      return false;
-    }
-    if (recusou && !motivoRecusa.trim()) {
-      toast.error("Informe o motivo da recusa de assinatura.");
-      return false;
-    }
     if (motivos.length === 0) { toast.error("Selecione ao menos um motivo da visita."); return false; }
     return true;
   };
 
   const onClickSalvar = () => {
     if (!validar()) return;
+    // Se desfecho realizada e ainda não temos assinatura ou recusa, abrir modal
+    if (desfecho === "visita_realizada" && !assinatura && !recusou) {
+      setAskAssinatura(true);
+      return;
+    }
+    prosseguirSalvar();
+  };
+
+  const prosseguirSalvar = () => {
     const totalMembros = membros?.length ?? 0;
     if (totalMembros >= 2) {
       setAskReplicar(true);
     } else {
       void salvar(false);
     }
+  };
+
+  const handleAssinaturaConfirmada = (r: SignatureResult) => {
+    setAskAssinatura(false);
+    if (r.recusou) {
+      setRecusou(true);
+      setMotivoRecusa(r.motivoRecusa);
+      setAssinatura(null);
+    } else {
+      setRecusou(false);
+      setMotivoRecusa("");
+      setAssinatura(r.assinatura);
+    }
+    // dar um tick para o estado atualizar antes de seguir
+    setTimeout(() => prosseguirSalvar(), 0);
   };
 
   const salvar = async (replicar: boolean) => {
@@ -495,17 +512,21 @@ function NovaVisitaPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader><CardTitle className="text-base">12. Assinatura do paciente / responsável</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              {!recusou && <SignaturePad value={assinatura} onChange={setAssinatura} />}
-              <label className="flex items-center gap-2 text-sm pt-2 border-t">
-                <Checkbox checked={recusou} onCheckedChange={(v) => { setRecusou(!!v); if (v) setAssinatura(null); }} />
-                <span>Paciente recusou / impossibilitado de assinar</span>
-              </label>
-              {recusou && <Input placeholder="Motivo da recusa / impossibilidade" value={motivoRecusa} onChange={(e) => setMotivoRecusa(e.target.value)} />}
-            </CardContent>
-          </Card>
+          {(assinatura || recusou) && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">12. Assinatura</CardTitle></CardHeader>
+              <CardContent className="text-sm space-y-1">
+                {recusou ? (
+                  <p className="text-amber-700">Recusa registrada{motivoRecusa ? `: ${motivoRecusa}` : ""}.</p>
+                ) : (
+                  <p className="text-emerald-700">Assinatura coletada. Será gravada ao salvar a visita.</p>
+                )}
+                <Button size="sm" variant="outline" onClick={() => { setAssinatura(null); setRecusou(false); setMotivoRecusa(""); }}>
+                  Refazer
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
 
@@ -629,6 +650,14 @@ function NovaVisitaPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SignatureDialog
+        open={askAssinatura}
+        onOpenChange={setAskAssinatura}
+        title="Assinatura do paciente / responsável"
+        description="Confirme a assinatura para concluir o registro da visita."
+        onConfirm={handleAssinaturaConfirmada}
+      />
     </div>
   );
 }

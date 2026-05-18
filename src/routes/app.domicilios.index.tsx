@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, MapPin, Users as UsersIcon } from "lucide-react";
+import { Plus, Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { LoadingState } from "@/components/loading-state";
 import { EmptyState } from "@/components/empty-state";
@@ -52,7 +52,6 @@ function DomiciliosPage() {
                   <TableHead>Microárea</TableHead>
                   <TableHead>Moradores</TableHead>
                   <TableHead>Famílias</TableHead>
-                  <TableHead>GPS</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -65,12 +64,6 @@ function DomiciliosPage() {
                     <TableCell className="tabular-nums">{d.num_moradores ?? 0}</TableCell>
                     <TableCell className="tabular-nums">
                       <span className="inline-flex items-center gap-1"><UsersIcon className="h-3 w-3" />{d.familias?.length ?? 0}</span>
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      <a className="inline-flex items-center gap-1 underline text-muted-foreground" target="_blank" rel="noreferrer"
-                         href={`https://www.google.com/maps?q=${d.latitude},${d.longitude}`}>
-                        <MapPin className="h-3 w-3" /> mapa
-                      </a>
                     </TableCell>
                     <TableCell><Link to="/app/domicilios/$id" params={{ id: d.id }}><Button size="sm" variant="outline">Abrir</Button></Link></TableCell>
                   </TableRow>

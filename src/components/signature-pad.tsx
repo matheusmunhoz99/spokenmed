@@ -90,12 +90,15 @@ export function SignaturePad({ value, onChange, disabled, height = 200 }: Props)
   return (
     <div className="space-y-2">
       <div
-        className="rounded-md border-2 border-dashed bg-white"
-        style={{ height, touchAction: "none" }}
+        className="rounded-md border-2 border-dashed bg-white overflow-hidden select-none"
+        style={{ height, touchAction: "none", overscrollBehavior: "contain", WebkitUserSelect: "none" }}
+        onTouchStart={(e) => e.preventDefault()}
+        onTouchMove={(e) => e.preventDefault()}
       >
         <canvas
           ref={canvasRef}
-          className="h-full w-full rounded-md"
+          className="h-full w-full rounded-md block"
+          style={{ touchAction: "none" }}
           onPointerDown={handleDown}
           onPointerMove={handleMove}
           onPointerUp={handleUp}
@@ -103,14 +106,14 @@ export function SignaturePad({ value, onChange, disabled, height = 200 }: Props)
           onPointerCancel={handleUp}
         />
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         <Button type="button" size="sm" variant="outline" onClick={handleClear} disabled={disabled}>
           <Eraser className="mr-1 h-4 w-4" /> Limpar
         </Button>
         <Button type="button" size="sm" onClick={handleSave} disabled={disabled || !hasInk}>
           <Check className="mr-1 h-4 w-4" /> Confirmar assinatura
         </Button>
-        {value && <span className="text-xs text-emerald-600 self-center">Assinatura confirmada</span>}
+        {value && <span className="text-xs text-emerald-600">Assinatura confirmada</span>}
       </div>
     </div>
   );
