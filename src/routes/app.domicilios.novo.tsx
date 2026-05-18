@@ -144,7 +144,7 @@ function NovoDomicilioPage() {
 
   const salvar = async () => {
     if (!logradouro.trim()) { toast.error("Informe o logradouro."); return; }
-    if (!geo) { toast.error("GPS é obrigatório."); return; }
+    // GPS não é mais obrigatório no cadastro domiciliar; será capturado durante a visita
     if (membros.length === 0) { toast.error("Adicione ao menos um morador à família."); return; }
     if (!membros.some((m) => m.is_responsavel)) { toast.error("Indique a pessoa de referência da família."); return; }
     if (!recusou && !assinatura) {
@@ -169,10 +169,10 @@ function NovoDomicilioPage() {
         cidade: cidade || null,
         uf: uf || null,
         ponto_referencia: ponto || null,
-        latitude: geo.latitude,
-        longitude: geo.longitude,
-        gps_accuracy: geo.accuracy,
-        gps_capturado_em: geo.captured_at,
+        latitude: null,
+        longitude: null,
+        gps_accuracy: null,
+        gps_capturado_em: null,
         tipo_imovel: tipoImovel,
         tipo_domicilio: tipoDom,
         situacao_moradia: sitMor,
