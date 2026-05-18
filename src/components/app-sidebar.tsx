@@ -31,6 +31,7 @@ const modules: Module[] = [
       { title: "Recepção", url: "/app/recepcao", icon: ClipboardList, module: "recepcao" },
       { title: "Triagem", url: "/app/triagem", icon: HeartPulse, module: "triagem" },
       { title: "Visitas Domiciliares", url: "/app/visitas", icon: Home, module: "visitas" },
+      { title: "Cadastro Domiciliar", url: "/app/domicilios", icon: Home, module: "domicilios" },
       { title: "Agendar Consulta", url: "/app/agendar", icon: CalendarPlus, module: "agendar" },
       { title: "Fila de Espera", url: "/app/fila", icon: ListOrdered, module: "fila" },
       { title: "Painel de Chamada", url: "/painel", icon: MonitorPlay, module: "painel" },

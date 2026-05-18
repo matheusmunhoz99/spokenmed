@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, CalendarDays, CalendarPlus, Users, Menu, ListOrdered, ClipboardList, HeartPulse, Home } from "lucide-react";
+import { LayoutDashboard, CalendarDays, CalendarPlus, Users, Menu, ListOrdered, ClipboardList, HeartPulse, Home, House } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { haptic } from "@/hooks/use-haptics";
@@ -13,6 +13,7 @@ const allItems: Item[] = [
   { title: "Recepção", url: "/app/recepcao", icon: ClipboardList, module: "recepcao" },
   { title: "Triagem", url: "/app/triagem", icon: HeartPulse, module: "triagem" },
   { title: "Visitas", url: "/app/visitas", icon: Home, module: "visitas" },
+  { title: "Domicílios", url: "/app/domicilios", icon: House, module: "domicilios" },
   { title: "Agendar", url: "/app/agendar", icon: CalendarPlus, module: "agendar" },
   { title: "Fila", url: "/app/fila", icon: ListOrdered, module: "fila" },
   { title: "Pacientes", url: "/app/pacientes", icon: Users, module: "pacientes" },
@@ -30,7 +31,7 @@ export function MobileBottomNav() {
 
   let items: Item[];
   if (isAcs && !isAdmin) {
-    items = pick(["/app", "/app/visitas", "/app/pacientes"]);
+    items = pick(["/app", "/app/domicilios", "/app/visitas", "/app/pacientes"]);
   } else if (isTriagem && !isAdmin) {
     items = pick(["/app", "/app/agenda-dia", "/app/recepcao", "/app/triagem", "/app/agendar", "/app/pacientes"]);
   } else {

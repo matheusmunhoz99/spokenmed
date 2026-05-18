@@ -12,7 +12,8 @@ export type ModuleKey =
   | "relatorios"
   | "auditoria"
   | "triagem"
-  | "visitas";
+  | "visitas"
+  | "domicilios";
 
 export type AppRole = "admin" | "recepcionista" | "medico" | "triagem" | "acs";
 
@@ -23,6 +24,7 @@ export const MODULES: { key: ModuleKey; label: string; manageable: boolean }[] =
   { key: "recepcao", label: "Recepção do dia", manageable: true },
   { key: "triagem", label: "Triagem (Classificação de Risco)", manageable: true },
   { key: "visitas", label: "Visitas Domiciliares (ACS)", manageable: true },
+  { key: "domicilios", label: "Cadastro Domiciliar (CDS)", manageable: true },
   { key: "pacientes", label: "Pacientes", manageable: true },
   { key: "profissionais", label: "Profissionais", manageable: true },
   { key: "agendas", label: "Agendas (configuração)", manageable: true },
@@ -67,8 +69,8 @@ export function defaultPermsFor(role: AppRole): PermRow[] {
   }
   if (role === "acs") {
     return MODULES.map((m) => {
-      if (m.key === "visitas") return { module: m.key, can_view: true, can_manage: true };
-      if (m.key === "pacientes") return { module: m.key, can_view: true, can_manage: false };
+      if (m.key === "visitas" || m.key === "domicilios") return { module: m.key, can_view: true, can_manage: true };
+      if (m.key === "pacientes") return { module: m.key, can_view: true, can_manage: true };
       return { module: m.key, can_view: false, can_manage: false };
     });
   }

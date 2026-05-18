@@ -4,8 +4,8 @@ import { SemAcesso } from "@/components/sem-acesso";
 
 function Guard() {
   const { can } = useAuth();
-  if (!can("visitas")) return <SemAcesso />;
+  if (!can("domicilios")) return <SemAcesso />;
   return <Outlet />;
 }
 
-export const Route = createFileRoute("/app/visitas")({ component: Guard });
+export const Route = createFileRoute("/app/domicilios")({ component: Guard });

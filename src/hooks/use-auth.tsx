@@ -84,8 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isAdmin) return true;
     const p = permissions[module];
     if (p) return action === "manage" ? p.manage : p.view;
-    // Fallback: aplica defaults do papel quando não há permissões explícitas no banco
-    const role: AppRole | null = isMedico ? "medico" : isAdministrativo ? "recepcionista" : null;
+    const role: AppRole | null = isAcs ? "acs" : isTriagem ? "triagem" : isMedico ? "medico" : isAdministrativo ? "recepcionista" : null;
     if (!role) return false;
     const def = defaultPermsFor(role).find((d) => d.module === module);
     if (!def) return false;

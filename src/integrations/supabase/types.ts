@@ -587,6 +587,131 @@ export type Database = {
         }
         Relationships: []
       }
+      domicilios: {
+        Row: {
+          abastecimento_agua: string | null
+          acs_user_id: string
+          agua_consumo: string | null
+          animais: Json
+          assinatura_recusa_motivo: string | null
+          assinatura_recusada: boolean
+          assinatura_responsavel: string | null
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          complemento: string | null
+          created_at: string
+          destino_lixo: string | null
+          energia_eletrica: boolean | null
+          esgoto: string | null
+          foto_fachada: string | null
+          gps_accuracy: number | null
+          gps_capturado_em: string
+          id: string
+          latitude: number
+          logradouro: string
+          longitude: number
+          material_paredes: string | null
+          microarea: string | null
+          num_comodos: number | null
+          num_dormitorios: number | null
+          num_moradores: number | null
+          numero: string | null
+          observacoes: string | null
+          ponto_referencia: string | null
+          situacao_moradia: string | null
+          tipo_domicilio: string | null
+          tipo_imovel: string | null
+          uf: string | null
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          abastecimento_agua?: string | null
+          acs_user_id: string
+          agua_consumo?: string | null
+          animais?: Json
+          assinatura_recusa_motivo?: string | null
+          assinatura_recusada?: boolean
+          assinatura_responsavel?: string | null
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          created_at?: string
+          destino_lixo?: string | null
+          energia_eletrica?: boolean | null
+          esgoto?: string | null
+          foto_fachada?: string | null
+          gps_accuracy?: number | null
+          gps_capturado_em: string
+          id?: string
+          latitude: number
+          logradouro: string
+          longitude: number
+          material_paredes?: string | null
+          microarea?: string | null
+          num_comodos?: number | null
+          num_dormitorios?: number | null
+          num_moradores?: number | null
+          numero?: string | null
+          observacoes?: string | null
+          ponto_referencia?: string | null
+          situacao_moradia?: string | null
+          tipo_domicilio?: string | null
+          tipo_imovel?: string | null
+          uf?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          abastecimento_agua?: string | null
+          acs_user_id?: string
+          agua_consumo?: string | null
+          animais?: Json
+          assinatura_recusa_motivo?: string | null
+          assinatura_recusada?: boolean
+          assinatura_responsavel?: string | null
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          created_at?: string
+          destino_lixo?: string | null
+          energia_eletrica?: boolean | null
+          esgoto?: string | null
+          foto_fachada?: string | null
+          gps_accuracy?: number | null
+          gps_capturado_em?: string
+          id?: string
+          latitude?: number
+          logradouro?: string
+          longitude?: number
+          material_paredes?: string | null
+          microarea?: string | null
+          num_comodos?: number | null
+          num_dormitorios?: number | null
+          num_moradores?: number | null
+          numero?: string | null
+          observacoes?: string | null
+          ponto_referencia?: string | null
+          situacao_moradia?: string | null
+          tipo_domicilio?: string | null
+          tipo_imovel?: string | null
+          uf?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domicilios_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       especialidades: {
         Row: {
           ativo: boolean
@@ -610,6 +735,102 @@ export type Database = {
           nome?: string
         }
         Relationships: []
+      }
+      familia_membros: {
+        Row: {
+          created_at: string
+          familia_id: string
+          id: string
+          is_responsavel: boolean
+          paciente_id: string
+          parentesco: string | null
+        }
+        Insert: {
+          created_at?: string
+          familia_id: string
+          id?: string
+          is_responsavel?: boolean
+          paciente_id: string
+          parentesco?: string | null
+        }
+        Update: {
+          created_at?: string
+          familia_id?: string
+          id?: string
+          is_responsavel?: boolean
+          paciente_id?: string
+          parentesco?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "familia_membros_familia_id_fkey"
+            columns: ["familia_id"]
+            isOneToOne: false
+            referencedRelation: "familias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "familia_membros_paciente_id_fkey"
+            columns: ["paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      familias: {
+        Row: {
+          bolsa_familia: boolean
+          created_at: string
+          domicilio_id: string
+          id: string
+          observacoes: string | null
+          prontuario_familiar: string | null
+          renda_familiar: number | null
+          responsavel_paciente_id: string | null
+          situacao_rua: boolean
+          updated_at: string
+        }
+        Insert: {
+          bolsa_familia?: boolean
+          created_at?: string
+          domicilio_id: string
+          id?: string
+          observacoes?: string | null
+          prontuario_familiar?: string | null
+          renda_familiar?: number | null
+          responsavel_paciente_id?: string | null
+          situacao_rua?: boolean
+          updated_at?: string
+        }
+        Update: {
+          bolsa_familia?: boolean
+          created_at?: string
+          domicilio_id?: string
+          id?: string
+          observacoes?: string | null
+          prontuario_familiar?: string | null
+          renda_familiar?: number | null
+          responsavel_paciente_id?: string | null
+          situacao_rua?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "familias_domicilio_id_fkey"
+            columns: ["domicilio_id"]
+            isOneToOne: false
+            referencedRelation: "domicilios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "familias_responsavel_paciente_id_fkey"
+            columns: ["responsavel_paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fila_espera: {
         Row: {
@@ -1473,7 +1694,9 @@ export type Database = {
           created_at: string
           data_visita: string
           desfecho: string
+          domicilio_id: string | null
           endereco_visitado: string | null
+          familia_id: string | null
           fotos: Json
           gps_accuracy: number | null
           gps_capturado_em: string
@@ -1503,7 +1726,9 @@ export type Database = {
           created_at?: string
           data_visita?: string
           desfecho: string
+          domicilio_id?: string | null
           endereco_visitado?: string | null
+          familia_id?: string | null
           fotos?: Json
           gps_accuracy?: number | null
           gps_capturado_em: string
@@ -1533,7 +1758,9 @@ export type Database = {
           created_at?: string
           data_visita?: string
           desfecho?: string
+          domicilio_id?: string | null
           endereco_visitado?: string | null
+          familia_id?: string | null
           fotos?: Json
           gps_accuracy?: number | null
           gps_capturado_em?: string
@@ -1550,7 +1777,22 @@ export type Database = {
           unidade_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "visitas_domiciliares_domicilio_id_fkey"
+            columns: ["domicilio_id"]
+            isOneToOne: false
+            referencedRelation: "domicilios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitas_domiciliares_familia_id_fkey"
+            columns: ["familia_id"]
+            isOneToOne: false
+            referencedRelation: "familias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

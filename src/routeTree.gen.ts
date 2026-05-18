@@ -26,12 +26,17 @@ import { Route as AppPacientesRouteImport } from './routes/app.pacientes'
 import { Route as AppMeuPerfilRouteImport } from './routes/app.meu-perfil'
 import { Route as AppHistoricoAtendimentosRouteImport } from './routes/app.historico-atendimentos'
 import { Route as AppFilaRouteImport } from './routes/app.fila'
+import { Route as AppDomiciliosRouteImport } from './routes/app.domicilios'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
 import { Route as AppAuditoriaRouteImport } from './routes/app.auditoria'
 import { Route as AppAgendasRouteImport } from './routes/app.agendas'
 import { Route as AppAgendarRouteImport } from './routes/app.agendar'
 import { Route as AppAgendaDiaRouteImport } from './routes/app.agenda-dia'
+import { Route as AppVisitasIndexRouteImport } from './routes/app.visitas.index'
+import { Route as AppDomiciliosIndexRouteImport } from './routes/app.domicilios.index'
 import { Route as AppVisitasNovaRouteImport } from './routes/app.visitas.nova'
+import { Route as AppDomiciliosNovoRouteImport } from './routes/app.domicilios.novo'
+import { Route as AppDomiciliosIdRouteImport } from './routes/app.domicilios.$id'
 import { Route as AppConfiguracoesSistemaRouteImport } from './routes/app.configuracoes.sistema'
 import { Route as ApiPublicVersionRouteImport } from './routes/api/public/version'
 
@@ -121,6 +126,11 @@ const AppFilaRoute = AppFilaRouteImport.update({
   path: '/fila',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDomiciliosRoute = AppDomiciliosRouteImport.update({
+  id: '/domicilios',
+  path: '/domicilios',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppConfiguracoesRoute = AppConfiguracoesRouteImport.update({
   id: '/configuracoes',
   path: '/configuracoes',
@@ -146,10 +156,30 @@ const AppAgendaDiaRoute = AppAgendaDiaRouteImport.update({
   path: '/agenda-dia',
   getParentRoute: () => AppRoute,
 } as any)
+const AppVisitasIndexRoute = AppVisitasIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppVisitasRoute,
+} as any)
+const AppDomiciliosIndexRoute = AppDomiciliosIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppDomiciliosRoute,
+} as any)
 const AppVisitasNovaRoute = AppVisitasNovaRouteImport.update({
   id: '/nova',
   path: '/nova',
   getParentRoute: () => AppVisitasRoute,
+} as any)
+const AppDomiciliosNovoRoute = AppDomiciliosNovoRouteImport.update({
+  id: '/novo',
+  path: '/novo',
+  getParentRoute: () => AppDomiciliosRoute,
+} as any)
+const AppDomiciliosIdRoute = AppDomiciliosIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AppDomiciliosRoute,
 } as any)
 const AppConfiguracoesSistemaRoute = AppConfiguracoesSistemaRouteImport.update({
   id: '/sistema',
@@ -174,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/app/agendas': typeof AppAgendasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
+  '/app/domicilios': typeof AppDomiciliosRouteWithChildren
   '/app/fila': typeof AppFilaRoute
   '/app/historico-atendimentos': typeof AppHistoricoAtendimentosRoute
   '/app/meu-perfil': typeof AppMeuPerfilRoute
@@ -187,7 +218,11 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
+  '/app/domicilios/$id': typeof AppDomiciliosIdRoute
+  '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
+  '/app/domicilios/': typeof AppDomiciliosIndexRoute
+  '/app/visitas/': typeof AppVisitasIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -209,11 +244,14 @@ export interface FileRoutesByTo {
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
   '/app/triagem': typeof AppTriagemRoute
-  '/app/visitas': typeof AppVisitasRouteWithChildren
   '/app': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
+  '/app/domicilios/$id': typeof AppDomiciliosIdRoute
+  '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
+  '/app/domicilios': typeof AppDomiciliosIndexRoute
+  '/app/visitas': typeof AppVisitasIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -228,6 +266,7 @@ export interface FileRoutesById {
   '/app/agendas': typeof AppAgendasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
+  '/app/domicilios': typeof AppDomiciliosRouteWithChildren
   '/app/fila': typeof AppFilaRoute
   '/app/historico-atendimentos': typeof AppHistoricoAtendimentosRoute
   '/app/meu-perfil': typeof AppMeuPerfilRoute
@@ -241,7 +280,11 @@ export interface FileRoutesById {
   '/app/': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
+  '/app/domicilios/$id': typeof AppDomiciliosIdRoute
+  '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
+  '/app/domicilios/': typeof AppDomiciliosIndexRoute
+  '/app/visitas/': typeof AppVisitasIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -257,6 +300,7 @@ export interface FileRouteTypes {
     | '/app/agendas'
     | '/app/auditoria'
     | '/app/configuracoes'
+    | '/app/domicilios'
     | '/app/fila'
     | '/app/historico-atendimentos'
     | '/app/meu-perfil'
@@ -270,7 +314,11 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
+    | '/app/domicilios/$id'
+    | '/app/domicilios/novo'
     | '/app/visitas/nova'
+    | '/app/domicilios/'
+    | '/app/visitas/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -292,11 +340,14 @@ export interface FileRouteTypes {
     | '/app/relatorios'
     | '/app/sessoes'
     | '/app/triagem'
-    | '/app/visitas'
     | '/app'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
+    | '/app/domicilios/$id'
+    | '/app/domicilios/novo'
     | '/app/visitas/nova'
+    | '/app/domicilios'
+    | '/app/visitas'
   id:
     | '__root__'
     | '/'
@@ -310,6 +361,7 @@ export interface FileRouteTypes {
     | '/app/agendas'
     | '/app/auditoria'
     | '/app/configuracoes'
+    | '/app/domicilios'
     | '/app/fila'
     | '/app/historico-atendimentos'
     | '/app/meu-perfil'
@@ -323,7 +375,11 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
+    | '/app/domicilios/$id'
+    | '/app/domicilios/novo'
     | '/app/visitas/nova'
+    | '/app/domicilios/'
+    | '/app/visitas/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -457,6 +513,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFilaRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/domicilios': {
+      id: '/app/domicilios'
+      path: '/domicilios'
+      fullPath: '/app/domicilios'
+      preLoaderRoute: typeof AppDomiciliosRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/configuracoes': {
       id: '/app/configuracoes'
       path: '/configuracoes'
@@ -492,12 +555,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAgendaDiaRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/visitas/': {
+      id: '/app/visitas/'
+      path: '/'
+      fullPath: '/app/visitas/'
+      preLoaderRoute: typeof AppVisitasIndexRouteImport
+      parentRoute: typeof AppVisitasRoute
+    }
+    '/app/domicilios/': {
+      id: '/app/domicilios/'
+      path: '/'
+      fullPath: '/app/domicilios/'
+      preLoaderRoute: typeof AppDomiciliosIndexRouteImport
+      parentRoute: typeof AppDomiciliosRoute
+    }
     '/app/visitas/nova': {
       id: '/app/visitas/nova'
       path: '/nova'
       fullPath: '/app/visitas/nova'
       preLoaderRoute: typeof AppVisitasNovaRouteImport
       parentRoute: typeof AppVisitasRoute
+    }
+    '/app/domicilios/novo': {
+      id: '/app/domicilios/novo'
+      path: '/novo'
+      fullPath: '/app/domicilios/novo'
+      preLoaderRoute: typeof AppDomiciliosNovoRouteImport
+      parentRoute: typeof AppDomiciliosRoute
+    }
+    '/app/domicilios/$id': {
+      id: '/app/domicilios/$id'
+      path: '/$id'
+      fullPath: '/app/domicilios/$id'
+      preLoaderRoute: typeof AppDomiciliosIdRouteImport
+      parentRoute: typeof AppDomiciliosRoute
     }
     '/app/configuracoes/sistema': {
       id: '/app/configuracoes/sistema'
@@ -527,12 +618,30 @@ const AppConfiguracoesRouteChildren: AppConfiguracoesRouteChildren = {
 const AppConfiguracoesRouteWithChildren =
   AppConfiguracoesRoute._addFileChildren(AppConfiguracoesRouteChildren)
 
+interface AppDomiciliosRouteChildren {
+  AppDomiciliosIdRoute: typeof AppDomiciliosIdRoute
+  AppDomiciliosNovoRoute: typeof AppDomiciliosNovoRoute
+  AppDomiciliosIndexRoute: typeof AppDomiciliosIndexRoute
+}
+
+const AppDomiciliosRouteChildren: AppDomiciliosRouteChildren = {
+  AppDomiciliosIdRoute: AppDomiciliosIdRoute,
+  AppDomiciliosNovoRoute: AppDomiciliosNovoRoute,
+  AppDomiciliosIndexRoute: AppDomiciliosIndexRoute,
+}
+
+const AppDomiciliosRouteWithChildren = AppDomiciliosRoute._addFileChildren(
+  AppDomiciliosRouteChildren,
+)
+
 interface AppVisitasRouteChildren {
   AppVisitasNovaRoute: typeof AppVisitasNovaRoute
+  AppVisitasIndexRoute: typeof AppVisitasIndexRoute
 }
 
 const AppVisitasRouteChildren: AppVisitasRouteChildren = {
   AppVisitasNovaRoute: AppVisitasNovaRoute,
+  AppVisitasIndexRoute: AppVisitasIndexRoute,
 }
 
 const AppVisitasRouteWithChildren = AppVisitasRoute._addFileChildren(
@@ -545,6 +654,7 @@ interface AppRouteChildren {
   AppAgendasRoute: typeof AppAgendasRoute
   AppAuditoriaRoute: typeof AppAuditoriaRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRouteWithChildren
+  AppDomiciliosRoute: typeof AppDomiciliosRouteWithChildren
   AppFilaRoute: typeof AppFilaRoute
   AppHistoricoAtendimentosRoute: typeof AppHistoricoAtendimentosRoute
   AppMeuPerfilRoute: typeof AppMeuPerfilRoute
@@ -564,6 +674,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAgendasRoute: AppAgendasRoute,
   AppAuditoriaRoute: AppAuditoriaRoute,
   AppConfiguracoesRoute: AppConfiguracoesRouteWithChildren,
+  AppDomiciliosRoute: AppDomiciliosRouteWithChildren,
   AppFilaRoute: AppFilaRoute,
   AppHistoricoAtendimentosRoute: AppHistoricoAtendimentosRoute,
   AppMeuPerfilRoute: AppMeuPerfilRoute,
