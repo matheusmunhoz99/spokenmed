@@ -284,7 +284,7 @@ def login_e_captura_sid() -> tuple[str, str, str] | None:
         if rr.status_code >= 400:
             log.error("dummy poll falhou: status=%s", rr.status_code)
             return None
-        if not _looks_logged_in(rr.text):
+        if _looks_login_rejected(rr.text):
             log.error("login NÃO autenticado — Fiorilli rejeitou usuário/senha durante validação.")
             log.debug("dummy body: %s", rr.text[:800])
             return None
