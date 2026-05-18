@@ -936,7 +936,7 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
               size="lg"
             >
               <Send className="h-5 w-5" />
-              Finalizar e enviar ao eSUS
+              Finalizar e enviar ao e-SUS APS
             </Button>
           </div>
         </div>
