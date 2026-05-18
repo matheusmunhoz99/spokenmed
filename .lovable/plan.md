@@ -1,47 +1,38 @@
-## O que vou entregar
+## Plano
 
-### 1. Histórico do agendamento — fim do JSON cru
+### 1) Notificação em tempo real pro médico quando paciente fica "triado"
 
-Reescrever `src/components/historico-dialog.tsx` para nunca mais mostrar `{"status":"chegou"}`. Cada evento vira um card com timeline lateral:
+**`src/routes/app.agenda-dia.tsx`** — adicionar canal realtime:
+- `useEffect` cria `supabase.channel("agenda-dia-realtime")` com `postgres_changes` (event UPDATE, table `agendamentos`, filter `profissional_id=eq.{meuProf}` para médicos, ou sem filter para admin).
+- Em qualquer mudança: `qc.invalidateQueries(["agenda-dia", ...])`.
+- Quando `payload.new.status === "triado"` e `old.status !== "triado"`:
+  - `toast.success("Paciente pronto pra consulta", { description: nome, action: "Atender" })` — clique abre `ConsultorioDialog` direto.
+  - Tocar bipe curto (`new Audio` com data-uri) e piscar o título do navegador `document.title` por 5s ("● Paciente pronto").
+  - Badge contador no header da agenda (já existe banner verde — agora incrementado em tempo real sem reload).
 
-- **Criado / Encaixe**: card com data, hora, profissional, unidade, sala, "encaixe — prioridade alta" quando aplicável (resolve nomes de `slot_id`, `profissional_id`, `unidade_id` via consultas simples).
-- **Status alterado**: dois chips coloridos com seta no meio — ex.: `Em triagem → Pronto p/ consulta`, usando as mesmas cores do `StatusBadge` do app.
-- **Reagendado**: bloco "de → para" com data/hora antiga e nova, profissional e unidade legíveis.
-- **Cancelado**: motivo destacado.
-- **Observação / outros**: texto livre.
+Limpeza no unmount: `supabase.removeChannel(ch)`.
 
-Cada card mostra autor (quando houver `user_email`/`user_role`) e timestamp relativo ("há 5 min") com tooltip no datetime completo. Zero `<pre>`, zero `JSON.stringify`.
+### 2) Botão "Finalizar e enviar ao eSUS" mais visível no mobile
 
-### 2. Triagem → liberar paciente pro médico (mais óbvio)
+Status atual em `src/components/consultorio/consultorio-dialog.tsx`:
+- Header: botão visível só em `sm:inline-flex` (≥640px).
+- Mobile: existe barra fixa no rodapé (linha 883) com "Salvar" + "Finalizar e enviar", mas é `sticky bottom-0` dentro do dialog — em alguns Androids o dialog rola junto e a barra "some" atrás do teclado/URL bar.
 
-O fluxo já existe (`em_triagem → triado`), mas o botão está discreto. Vou:
+Mudanças:
+- Trocar `sticky` por `fixed bottom-0 inset-x-0` com `z-50` quando em mobile, garantindo que sempre apareça acima do conteúdo.
+- Aumentar altura/peso visual: botão "Finalizar" `size="lg"`, gradiente primário, ícone `Send`, texto "Finalizar e enviar ao eSUS".
+- Adicionar safe-area inset (`pb-[max(0.75rem,env(safe-area-inset-bottom))]`) — já existe, manter.
+- Adicionar `pb-24 sm:pb-0` no container de conteúdo do dialog pra não esconder o último campo atrás da barra fixa.
+- No header desktop, deixar "Finalizar e enviar ao eSUS PEC" com cor primária sólida + ícone destacado (hoje é só primário padrão, pode passar despercebido).
+- Adicionar atalho visível: pequeno hint "Ctrl+Enter" abaixo do botão no desktop.
 
-- Em `src/routes/app.recepcao.tsx`, na coluna **"Em triagem"** do kanban: trocar o botão "Liberar" por um CTA primário verde **"Finalizar triagem"** (full-width no card, com ícone Stethoscope) e mostrar há quanto tempo está em triagem.
-- Na coluna **"Prontos p/ consulta"**: card com selo "Aguardando médico há Xmin" + botão **"Chamar no painel"** direto (já existe o `onChamar`, vou destacar visualmente em verde).
-- Em `src/routes/app.agenda-dia.tsx`, na linha do paciente em `em_triagem` mostrar o botão **"Finalizar triagem"** (label visível, não só ícone) pra enfermagem/recepção que estiver na agenda também conseguir liberar.
-- Tooltip no botão "Atender" do médico quando bloqueado: já existe, vou reforçar a cor (âmbar) + ícone de relógio pra ficar claro que é só esperar a triagem.
+### 3) Polimento mobile geral do consultório
 
-### 3. Painel de chamada — bloqueio defensivo
+- Tabs com scroll horizontal já existe; garantir que `tab-atendimento.tsx` e `tab-conduta.tsx` tenham padding inferior `pb-4` pra não colar na barra fixa.
+- Botão "Salvar" no mobile fica menor (`size="default"`), "Finalizar" ocupa `flex-1` (já está).
 
-Em `src/components/chamar-dialog.tsx`, recusar abrir/chamar quando `status === 'em_triagem'` com toast "Paciente ainda está em triagem". Evita chamada acidental.
+### Arquivos tocados
+- `src/routes/app.agenda-dia.tsx` — canal realtime + toast/som/título piscando.
+- `src/components/consultorio/consultorio-dialog.tsx` — barra de ação fixa reforçada, padding bottom no conteúdo, destaque visual do "Finalizar".
 
-### 4. Polimento visual da Recepção
-
-- KPIs com gradientes sutis por tom (sky/violet/emerald/amber), número grande, ícone com bg translúcido.
-- Cards do kanban: nome do paciente em destaque, linha 2 com idade • profissional • horário, badge de tempo de espera com cor dinâmica (verde <15min, âmbar <30min, vermelho ≥30min).
-- Header da página com chip "Atualizado agora" + botão refresh manual.
-- Tabela detalhada: zebra striping, hover, sticky header, badge de status com ícone.
-
-### 5. Pequenos toques
-
-- Banner "X paciente(s) pronto(s) pra você" no topo da agenda do médico vira card com gradiente verde + botão "Ver primeiro" que rola até a linha.
-- Card de paciente em `triado` na agenda-dia ganha glow verde suave (`ring-emerald-500/40`) pra chamar atenção do médico.
-
-## Arquivos tocados
-
-- `src/components/historico-dialog.tsx` (reescrita)
-- `src/routes/app.recepcao.tsx` (kanban e tabela)
-- `src/routes/app.agenda-dia.tsx` (botões + banner)
-- `src/components/chamar-dialog.tsx` (guarda contra `em_triagem`)
-
-Sem migrations novas — o status `triado` e o gatilho `fn_ag_carimbos` já estão no banco.
+Sem migrações novas (realtime para `agendamentos` já está habilitado).
