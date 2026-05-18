@@ -539,6 +539,7 @@ export type Database = {
           cep: string | null
           cidade: string | null
           cns: string | null
+          cns_secundario: string | null
           complemento: string | null
           cpf: string | null
           created_at: string
@@ -550,6 +551,7 @@ export type Database = {
           nome_mae: string | null
           numero: string | null
           observacoes: string | null
+          outro_cns: string | null
           rg: string | null
           sexo: Database["public"]["Enums"]["sexo_tipo"] | null
           telefone: string | null
@@ -562,6 +564,7 @@ export type Database = {
           cep?: string | null
           cidade?: string | null
           cns?: string | null
+          cns_secundario?: string | null
           complemento?: string | null
           cpf?: string | null
           created_at?: string
@@ -573,6 +576,7 @@ export type Database = {
           nome_mae?: string | null
           numero?: string | null
           observacoes?: string | null
+          outro_cns?: string | null
           rg?: string | null
           sexo?: Database["public"]["Enums"]["sexo_tipo"] | null
           telefone?: string | null
@@ -585,6 +589,7 @@ export type Database = {
           cep?: string | null
           cidade?: string | null
           cns?: string | null
+          cns_secundario?: string | null
           complemento?: string | null
           cpf?: string | null
           created_at?: string
@@ -596,6 +601,7 @@ export type Database = {
           nome_mae?: string | null
           numero?: string | null
           observacoes?: string | null
+          outro_cns?: string | null
           rg?: string | null
           sexo?: Database["public"]["Enums"]["sexo_tipo"] | null
           telefone?: string | null
