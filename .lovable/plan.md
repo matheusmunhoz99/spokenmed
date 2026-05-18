@@ -1,88 +1,64 @@
-## O que vou fazer
+# Plano — Scanner QR em /verificar + checagem final
 
-Três frentes, executadas em ordem.
+## Contexto importante (boa notícia)
 
----
+A leitura pela **câmera nativa** do celular **já funciona hoje**:
+- O QR impresso nos PDFs aponta para `https://spokenmed.lovable.app/verificar?p=PROTOCOLO`.
+- A página `/verificar` já tem `useEffect` que, ao detectar `?p=` na URL, **preenche o campo e valida automaticamente** (chama `verificar_documento`).
+- Ou seja: apontou a câmera do iPhone/Android → toca no link → abre o site **já validado**. Sem precisar digitar nada.
 
-### 1. CPF no topo do cadastro de paciente
+O que falta é o **scanner dentro da própria página** (botão "Escanear QR") para quem está no portal e quer validar um documento físico sem digitar o protocolo.
 
-Na tela **Pacientes → Novo**, o CPF vira o primeiro campo, com foco automático.
+## 1. Adicionar scanner por câmera em `/verificar`
 
-- Ao digitar 11 dígitos válidos, dispara busca no CADSUS automaticamente (sem precisar clicar em "Buscar").
-- Se o CADSUS retornar, preenche sozinho: nome, nome social, CNS, nascimento, sexo, nome da mãe, telefone, endereço (CEP/logradouro/bairro/cidade/UF).
-- Indicador visual de "buscando…" no campo, e um toast quando preenche ("Dados do CADSUS preenchidos — confira antes de salvar").
-- Se CPF já existe no banco local, mostra aviso "Paciente já cadastrado" e oferece abrir o registro existente.
-- No mobile, `inputMode="numeric"` + máscara, pra abrir o teclado numérico direto.
+**Biblioteca:** `@zxing/browser` (~50 kB, sem dependências nativas, funciona em Worker/SSR pois só roda no cliente).
+- Alternativa considerada: `html5-qrcode` (mais pesada, UI própria que conflita com o design system). Descartada.
 
----
+**UX:**
+- Botão **"Escanear QR"** ao lado do botão "Verificar" (ícone `Camera` do lucide).
+- No mobile, o botão aparece em destaque acima do input.
+- Ao tocar: abre um `Dialog` em tela cheia com o vídeo da câmera traseira (`facingMode: "environment"`).
+- Overlay com moldura/cantos animados indicando a área de leitura.
+- Ao detectar um QR:
+  1. Se for URL do próprio domínio com `?p=`, extrai só o protocolo.
+  2. Preenche o input, fecha o dialog, dispara `consultar()` automaticamente.
+  3. Vibra o aparelho (`navigator.vibrate(80)`) como feedback.
+- Botão "Cancelar" e tratamento de permissão negada (mensagem clara: "Permita acesso à câmera nas configurações do navegador").
+- HTTPS já garantido pelo domínio Lovable, então `getUserMedia` funciona.
 
-### 2. Redesign do consultório
+**Arquivos:**
+- `bun add @zxing/browser @zxing/library`
+- Criar `src/components/verificar/qr-scanner-dialog.tsx` (componente isolado, lazy-loaded com `React.lazy` para não pesar no bundle de quem só digita).
+- Editar `src/routes/verificar.tsx`: importar lazy, adicionar botão e estado `scannerOpen`.
 
-Reescrita visual e de UX do `consultorio-dialog.tsx` + abas + overlay, inspirado no eSUS PEC mas mais limpo.
+## 2. Pequenas melhorias de robustez no /verificar
 
-**Visual + cores + hierarquia**
-- Header sticky com nome do paciente, idade, sexo, CNS, alergias em destaque (chip vermelho).
-- Cards coloridos por seção SOAP: Subjetivo (azul claro), Objetivo (teal), Avaliação (âmbar), Plano/Conduta (verde).
-- Bloco de sinais vitais em grid com ícones (PA, FC, FR, Temp, SatO2, Peso, Altura, IMC calculado).
-- Badges para CID, procedimentos, encaminhamentos.
-- Tipografia maior nos campos clínicos, espaçamento generoso.
+- Normalizar protocolo colado com URL completa: se o usuário colar `https://.../verificar?p=ABC`, extrair `ABC` automaticamente.
+- Adicionar `inputMode="text"` + `autoCapitalize="characters"` no input.
+- Botão "Copiar protocolo" no card de resultado.
 
-**Mobile turbinado**
-- Dialog vira full-screen no mobile (`max-w-full h-[100dvh]`).
-- Abas atuais (Atendimento / Conduta) viram um stepper horizontal grande, com barra de progresso.
-- Bottom bar fixa com ações principais: "Salvar rascunho", "Próximo", "Finalizar". Some o footer pequeno atual.
-- Campos com altura mínima 44px, teclado correto por campo (`inputMode` + `autoComplete`).
-- `Textarea` cresce automaticamente conforme digita.
+## 3. Varredura de bugs antes do lançamento
 
-**Atalhos e produtividade**
-- Salvar rascunho automático a cada 15s e ao trocar de aba (em `localStorage` por agendamento_id, recuperado ao reabrir).
-- Atalhos: `Ctrl+S` salva rascunho, `Ctrl+Enter` finaliza, `Alt+1/2` troca de aba, `Ctrl+/` abre lista de atalhos.
-- Autocomplete de CID e medicamentos com debounce menor e resultado em popover maior, navegável por seta.
-- Botão "copiar do último atendimento" no Subjetivo.
+Vou verificar (sem alterar lógica de negócio):
+- `bun run build` limpa (sem erros TS / imports quebrados).
+- Console e network do preview sem erros.
+- Rota `/verificar` carrega anônima (sem exigir login) — confirmar que não está atrás do `_authenticated`.
+- Linter do Supabase (`supabase--linter`) sem alertas novos após a migração de `documentos_emitidos`.
+- Smoke test no preview: gerar um PDF → ler QR → validar.
 
-**Fluxo de envio eSUS / finalização**
-- `envio-esus-overlay.tsx` reescrito: timeline vertical com 4 passos (Validando → Salvando atendimento → Gerando documentos → Enviando ao eSUS), cada passo com check verde, spinner, ou erro vermelho com mensagem clara e botão "Tentar de novo".
-- Ao final, tela de sucesso com resumo dos documentos gerados e botões pra baixar/imprimir cada PDF + "Voltar à fila".
-- Erros do eSUS vêm com mensagem traduzida (mapa dos códigos comuns).
+Se encontrar bug, corrijo no mesmo loop e reporto.
 
----
+## 4. APK — precisa regerar?
 
-### 3. PDFs nível profissional
+**Não.** O projeto **não tem app nativo / Capacitor**. A pasta `spokenmed-agent/` é um agente Python desktop (scripts `.bat`, `.vbs`, `agent.py`) — não é Android.
 
-Refatoração de `pdf-shared.ts` pra centralizar:
-- Cabeçalho com logo da unidade, nome, endereço, CNES, telefone.
-- Bloco do paciente padronizado (nome, CNS, CPF, nascimento + idade, sexo).
-- Bloco do profissional padronizado (nome, CRM/CRO, especialidade).
-- Rodapé com data/hora, código de verificação, paginação "Pág X de Y", linha de assinatura.
-- Fonte Helvetica em tamanhos consistentes (título 14, seção 11, corpo 10, rodapé 8).
-- Margens 18mm, cores discretas (cinza pra linhas, primário só nos títulos).
+A verificação é 100% web: o QR aponta para uma URL pública, qualquer leitor de QR nativo (câmera do iOS/Android, Google Lens, etc.) já abre o navegador na página validada. Não há APK para reconstruir.
 
-Por documento:
-
-- **Receita** — bloco grande de medicamentos numerados (1, 2, 3…), cada um com nome em negrito, apresentação, posologia em linha separada, duração. Suporta receita comum e controlada (segundo bloco "via farmácia").
-- **Atestado** — texto centrado em fonte maior, dias por extenso e em número, CID quando o paciente autorizou, observação opcional.
-- **SADT** — tabela com colunas: nº, código SIGTAP, descrição do exame, quantidade. Bloco de hipóteses diagnósticas (CID + descrição) e justificativa clínica embaixo.
-- **LME** — formulário fiel ao oficial: identificação, anamnese, exames, CID, medicamento solicitado, dosagem, tempo de tratamento, médico solicitante.
-- **Comprovante** — bloco grande com data/hora destacada, unidade, profissional, especialidade, procedimento, instruções de preparo (se houver), QR code com URL pública de verificação.
-
-QA: vou renderizar cada PDF em imagem (`pdftoppm`) e revisar antes de entregar — sem texto cortado, sem sobreposição, alinhamento certo nos dois tamanhos (A4 e meia folha quando aplicável).
-
----
+Se no futuro você quiser empacotar como app (Capacitor/PWA), aí sim seria preciso build separado — mas hoje **não é necessário para essa entrega**.
 
 ## Detalhes técnicos
 
-- Arquivos tocados: `src/routes/app.pacientes.tsx`, `src/components/consultorio/*.tsx`, `src/lib/pdf-shared.ts`, `src/lib/pdf-receita.ts`, `src/lib/pdf-atestado.ts`, `src/lib/pdf-sadt.ts`, `src/lib/pdf-lme.ts`, `src/lib/pdf-comprovante.ts`. Nenhuma mudança de schema do banco.
-- Tokens de cor adicionados em `src/styles.css` (clinical-subjective, clinical-objective, clinical-assessment, clinical-plan) em oklch, com versões dark.
-- Rascunho automático usa `localStorage` (sem coluna nova no banco).
-- Sem novas dependências.
-- Logo da unidade: se a tabela `unidades` já tem coluna pra logo, uso. Se não tem, deixo o cabeçalho elegante só com o nome (não vou criar coluna nova sem você pedir).
-
-## Ordem de entrega
-
-1. CPF no topo (rápido, baixo risco).
-2. Tokens de cor + redesign visual do consultório.
-3. Mobile + atalhos + auto-save.
-4. Overlay de envio + tela de sucesso.
-5. PDFs (um por um, com QA visual entre cada).
-
-Depois que você aprovar, executo tudo de uma vez e te aviso quando terminar.
+- `@zxing/browser` expõe `BrowserMultiFormatReader.decodeFromVideoDevice(deviceId|undefined, videoEl, callback)`. Passando `undefined` ele escolhe a câmera padrão; usamos `getUserMedia({ video: { facingMode: { ideal: "environment" } } })` antes para forçar a traseira no mobile.
+- Cleanup obrigatório: `reader.reset()` + `stream.getTracks().forEach(t => t.stop())` ao fechar o dialog, senão a luz da câmera fica ligada.
+- Lazy import: `const QrScannerDialog = lazy(() => import("@/components/verificar/qr-scanner-dialog"))` + `<Suspense>` para não carregar ZXing na visita inicial.
+- Sem mudanças no backend, RLS, ou nos PDFs já gerados.

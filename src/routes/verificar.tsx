@@ -1,13 +1,33 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { z } from "zod";
-import { CheckCircle2, FileText, Search, ShieldAlert, ShieldCheck, Stethoscope } from "lucide-react";
+import { Camera, CheckCircle2, Copy, FileText, Search, ShieldAlert, ShieldCheck, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import logoUrl from "@/assets/spokenmed-logo.png";
+
+const QrScannerDialog = lazy(() => import("@/components/verificar/qr-scanner-dialog"));
+
+// Extrai o protocolo de uma string que pode ser uma URL com ?p= ou o próprio código
+function extrairProtocolo(input: string): string {
+  const s = input.trim();
+  if (!s) return "";
+  try {
+    if (/^https?:\/\//i.test(s)) {
+      const u = new URL(s);
+      const p = u.searchParams.get("p");
+      if (p) return p.trim().toUpperCase();
+    }
+  } catch { /* noop */ }
+  // Se vier "?p=XXX" ou apenas o código
+  const m = s.match(/[?&]p=([^&\s]+)/i);
+  if (m) return decodeURIComponent(m[1]).toUpperCase();
+  return s.toUpperCase();
+}
 
 const searchSchema = z.object({ p: z.string().optional() });
 
@@ -58,9 +78,10 @@ function VerificarPage() {
   const [doc, setDoc] = useState<Documento | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const consultar = async (proto: string) => {
-    const p = proto.trim().toUpperCase();
+    const p = extrairProtocolo(proto);
     if (!p) return;
     setLoading(true);
     setDoc(null);
@@ -89,8 +110,28 @@ function VerificarPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate({ search: { p: codigo.trim().toUpperCase() }, replace: true });
-    consultar(codigo);
+    const p = extrairProtocolo(codigo);
+    setCodigo(p);
+    navigate({ search: { p }, replace: true });
+    consultar(p);
+  };
+
+  const handleScanned = (text: string) => {
+    const p = extrairProtocolo(text);
+    setScannerOpen(false);
+    setCodigo(p);
+    navigate({ search: { p }, replace: true });
+    consultar(p);
+  };
+
+  const copiarProtocolo = async () => {
+    if (!doc) return;
+    try {
+      await navigator.clipboard.writeText(doc.protocolo);
+      toast.success("Protocolo copiado");
+    } catch {
+      toast.error("Não foi possível copiar");
+    }
   };
 
   return (
@@ -127,15 +168,42 @@ function VerificarPage() {
                 onChange={(e) => setCodigo(e.target.value.toUpperCase())}
                 placeholder="Ex.: RECT-A8K2QR-X3LM"
                 className="font-mono uppercase tracking-wide"
+                autoCapitalize="characters"
+                inputMode="text"
                 autoFocus
               />
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setScannerOpen(true)}
+              className="gap-2"
+              title="Escanear QR Code"
+            >
+              <Camera className="h-4 w-4" />
+              <span className="sm:hidden">Escanear QR</span>
+              <span className="hidden sm:inline">QR</span>
+            </Button>
             <Button type="submit" disabled={loading || !codigo.trim()} className="gap-2">
               <Search className="h-4 w-4" />
               {loading ? "Consultando…" : "Verificar"}
             </Button>
           </form>
+
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            Dica: pelo celular, basta apontar a câmera nativa para o QR do documento — o link já abre validado.
+          </p>
         </div>
+
+        {scannerOpen && (
+          <Suspense fallback={null}>
+            <QrScannerDialog
+              open={scannerOpen}
+              onClose={() => setScannerOpen(false)}
+              onDetected={handleScanned}
+            />
+          </Suspense>
+        )}
 
         {/* Resultado */}
         {doc && (
@@ -152,7 +220,11 @@ function VerificarPage() {
             </div>
             <div className="space-y-4 p-6">
               <Row label="Tipo" value={TIPO_LABEL[doc.tipo] ?? doc.tipo} />
-              <Row label="Protocolo" value={doc.protocolo} mono />
+              <Row label="Protocolo" value={doc.protocolo} mono action={
+                <button type="button" onClick={copiarProtocolo} className="text-primary hover:underline inline-flex items-center gap-1" title="Copiar">
+                  <Copy className="h-3 w-3" />
+                </button>
+              } />
               <Row label="Paciente" value={doc.paciente_nome_iniciais} />
               {doc.paciente_cpf_mask && <Row label="CPF" value={doc.paciente_cpf_mask} mono />}
               <Row label="Profissional" value={doc.profissional_nome} icon={Stethoscope} />
@@ -202,13 +274,14 @@ function VerificarPage() {
   );
 }
 
-function Row({ label, value, mono, icon: Icon }: { label: string; value: string; mono?: boolean; icon?: React.ComponentType<{ className?: string }> }) {
+function Row({ label, value, mono, icon: Icon, action }: { label: string; value: string; mono?: boolean; icon?: React.ComponentType<{ className?: string }>; action?: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b pb-2 last:border-0 last:pb-0">
       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
       <span className={`inline-flex items-center gap-1.5 text-sm font-medium text-foreground ${mono ? "font-mono" : ""}`}>
         {Icon && <Icon className="h-3.5 w-3.5 text-primary" />}
         {value}
+        {action}
       </span>
     </div>
   );
