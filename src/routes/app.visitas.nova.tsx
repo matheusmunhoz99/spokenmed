@@ -221,12 +221,16 @@ function NovaVisitaPage() {
       const { error } = await supabase.from("visitas_domiciliares").insert(rows);
       if (error) throw new Error(error.message);
 
+      const pacientesAlvo = (membros ?? [])
+        .filter((m) => alvos.includes(m.paciente_id))
+        .map((m) => ({ id: m.paciente_id, nome: m.pacientes?.nome ?? "—" }));
+
       toast.success(
         rows.length > 1
           ? `Visita registrada para ${rows.length} pacientes da família`
           : "Visita registrada com sucesso",
       );
-      nav({ to: "/app/visitas" });
+      setResumo({ pacientes: pacientesAlvo, replicado: replicar, fotosCount: fotosMeta.length });
     } catch (e: any) {
       toast.error(e.message ?? "Erro ao salvar");
     } finally {
