@@ -503,6 +503,14 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
                 value={formatCEP(form.cep ?? "")}
                 onChange={(e) => set("cep", e.target.value)}
                 onBlur={handleCepBlur}
+                onKeyDown={async (e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  await handleCepBlur();
+                  const next = document.querySelector<HTMLInputElement>('[data-field="numero"]');
+                  next?.focus();
+                }}
                 placeholder="00000-000"
               />
               {cepLoading && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
