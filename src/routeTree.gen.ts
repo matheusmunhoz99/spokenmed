@@ -27,6 +27,7 @@ import { Route as AppAgendasRouteImport } from './routes/app.agendas'
 import { Route as AppAgendarRouteImport } from './routes/app.agendar'
 import { Route as AppAgendaDiaRouteImport } from './routes/app.agenda-dia'
 import { Route as AppConfiguracoesSistemaRouteImport } from './routes/app.configuracoes.sistema'
+import { Route as ApiPublicVersionRouteImport } from './routes/api/public/version'
 
 const PainelRoute = PainelRouteImport.update({
   id: '/painel',
@@ -119,6 +120,11 @@ const AppConfiguracoesSistemaRoute = AppConfiguracoesSistemaRouteImport.update({
   path: '/sistema',
   getParentRoute: () => AppConfiguracoesRoute,
 } as any)
+const ApiPublicVersionRoute = ApiPublicVersionRouteImport.update({
+  id: '/api/public/version',
+  path: '/api/public/version',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
   '/app/': typeof AppIndexRoute
+  '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
 }
 export interface FileRoutesByTo {
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
   '/app': typeof AppIndexRoute
+  '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
 }
 export interface FileRoutesById {
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
   '/app/': typeof AppIndexRoute
+  '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
 }
 export interface FileRouteTypes {
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/app/relatorios'
     | '/app/sessoes'
     | '/app/'
+    | '/api/public/version'
     | '/app/configuracoes/sistema'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/app/relatorios'
     | '/app/sessoes'
     | '/app'
+    | '/api/public/version'
     | '/app/configuracoes/sistema'
   id:
     | '__root__'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/app/relatorios'
     | '/app/sessoes'
     | '/app/'
+    | '/api/public/version'
     | '/app/configuracoes/sistema'
   fileRoutesById: FileRoutesById
 }
@@ -248,6 +260,7 @@ export interface RootRouteChildren {
   CidadaoRoute: typeof CidadaoRoute
   LoginRoute: typeof LoginRoute
   PainelRoute: typeof PainelRoute
+  ApiPublicVersionRoute: typeof ApiPublicVersionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -378,6 +391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConfiguracoesSistemaRouteImport
       parentRoute: typeof AppConfiguracoesRoute
     }
+    '/api/public/version': {
+      id: '/api/public/version'
+      path: '/api/public/version'
+      fullPath: '/api/public/version'
+      preLoaderRoute: typeof ApiPublicVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -430,6 +450,7 @@ const rootRouteChildren: RootRouteChildren = {
   CidadaoRoute: CidadaoRoute,
   LoginRoute: LoginRoute,
   PainelRoute: PainelRoute,
+  ApiPublicVersionRoute: ApiPublicVersionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
