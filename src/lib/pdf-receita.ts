@@ -472,26 +472,39 @@ export async function gerarReceitaPdf(opts: GerarReceitaOpts) {
     }
   }
 
-  const protocolo = gerarProtocolo("RECT");
-  const conteudoHash = await hashConteudoClient(protocolo + '|' + opts.paciente.nome);
-  const sig = await tentarAssinar({ protocolo, tipo: 'receita', conteudo_hash: conteudoHash });
-  const qr = await buildQrDataUrl(buildVerifyUrl(protocolo));
-  drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr , assinatura: sig?.assinatura, assinadoEm: sig?.assinado_em });
-  drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
-  await registrarDocumento({
-    protocolo, tipo: "receita",
-    paciente: { nome: opts.paciente.nome, cpf: opts.paciente.cpf },
-    profissional: opts.profissional,
-    unidade: { nome: opts.unidade?.nome, cnes: opts.unidade?.cnes },
-    metadata: {
-      tipo_receita: opts.tipo,
-      qtd_medicamentos: opts.medicamentos.length,
-      conteudo_hash: conteudoHash,
-      ...(opts.notificacao ? { notificacao_numero: opts.notificacao.numero, uf_emissao: opts.notificacao.uf_emissao } : {}),
-    },
-    assinatura: sig?.assinatura ?? null,
-    assinatura_payload_sha: sig?.assinatura_payload_sha ?? null,
-    assinado_em: sig?.assinado_em ?? null,
-  });
+  if (isNotif) {
+    // Receitas controladas: número e assinatura vêm do servidor (tabela `receitas`).
+    const numero = opts.notificacao!.numero;
+    const qr = await buildQrDataUrl(buildVerifyUrl(numero));
+    drawVerificationOnAllPages(doc, {
+      protocolo: numero,
+      qrDataUrl: qr,
+      assinatura: opts.notificacao?.assinatura ?? null,
+      assinadoEm: opts.notificacao?.emitido_em ?? null,
+    });
+    drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
+  } else {
+    // Receitas comuns/controle especial/antimicrobiano: protocolo + documentos_emitidos (legado).
+    const protocolo = gerarProtocolo("RECT");
+    const conteudoHash = await hashConteudoClient(protocolo + "|" + opts.paciente.nome);
+    const sig = await tentarAssinar({ protocolo, tipo: "receita", conteudo_hash: conteudoHash });
+    const qr = await buildQrDataUrl(buildVerifyUrl(protocolo));
+    drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr, assinatura: sig?.assinatura, assinadoEm: sig?.assinado_em });
+    drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
+    await registrarDocumento({
+      protocolo, tipo: "receita",
+      paciente: { nome: opts.paciente.nome, cpf: opts.paciente.cpf },
+      profissional: opts.profissional,
+      unidade: { nome: opts.unidade?.nome, cnes: opts.unidade?.cnes },
+      metadata: {
+        tipo_receita: opts.tipo,
+        qtd_medicamentos: opts.medicamentos.length,
+        conteudo_hash: conteudoHash,
+      },
+      assinatura: sig?.assinatura ?? null,
+      assinatura_payload_sha: sig?.assinatura_payload_sha ?? null,
+      assinado_em: sig?.assinado_em ?? null,
+    });
+  }
   openPdf(doc, `receita-${opts.paciente.nome.replace(/\s+/g, "-").toLowerCase()}.pdf`);
 }
