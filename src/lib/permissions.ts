@@ -12,7 +12,8 @@ export type ModuleKey =
   | "relatorios"
   | "auditoria"
   | "triagem"
-  | "visitas";
+  | "visitas"
+  | "domicilios";
 
 export type AppRole = "admin" | "recepcionista" | "medico" | "triagem" | "acs";
 
