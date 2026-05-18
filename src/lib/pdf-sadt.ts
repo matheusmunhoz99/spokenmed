@@ -182,5 +182,12 @@ export async function gerarSadtPdf(opts: SadtOpts) {
   const qr = await buildQrDataUrl(`https://spokenmed.lovable.app/verificar?p=${protocolo}`);
   drawVerificationOnAllPages(doc, { protocolo, qrDataUrl: qr });
   drawFooterAllPages(doc, { logo, emitidoPor: opts.usuarioNome });
+  await registrarDocumento({
+    protocolo, tipo: "sadt",
+    paciente: { nome: opts.paciente.nome, cpf: opts.paciente.cpf },
+    profissional: opts.profissional,
+    unidade: { nome: opts.unidade?.nome, cnes: opts.unidade?.cnes },
+    metadata: { qtd_exames: opts.exames.length, carater: opts.carater },
+  });
   openPdf(doc, `sadt-${opts.paciente.nome.replace(/\s+/g, "-").toLowerCase()}.pdf`);
 }
