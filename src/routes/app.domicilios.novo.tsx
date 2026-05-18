@@ -13,7 +13,7 @@ import { Save, X, Plus, UserPlus, Users as UsersIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { SignaturePad } from "@/components/signature-pad";
-import { GeolocationCapture, type GeoCoord } from "@/components/geolocation-capture";
+
 import {
   TIPO_IMOVEL, TIPO_DOMICILIO, SITUACAO_MORADIA, MATERIAL_PAREDES,
   ABASTECIMENTO_AGUA, AGUA_CONSUMO, ESGOTO, DESTINO_LIXO, ANIMAIS, PARENTESCO,
