@@ -1,51 +1,138 @@
-## Objetivo
 
-Tornar obrigatório que toda visita seja vinculada a um **paciente que pertença a uma família** cadastrada em um **domicílio** (com microárea/área), e oferecer a opção de **replicar a visita para todos os membros da família** ao salvar.
+# Teleconsulta — SpokenMED
 
-## Mudanças
+Adiciona modalidade **teleconsulta** ao agendamento, usando Daily.co para o vídeo, com acesso do paciente por link único e/ou painel do cidadão, gravação com consentimento, avaliação NPS, resumo do médico e download dos documentos emitidos.
 
-### 1. Fluxo da tela `/app/visitas/nova`
+## 1. Modelo de dados (migration)
 
-Substituir a busca livre de paciente por um seletor em 3 passos:
+```text
+agendamentos
+  + modalidade text default 'presencial' check (in ('presencial','teleconsulta'))
+  + tele_sala_id uuid references teleconsulta_salas(id)
 
-1. **Selecionar Domicílio** — busca/lista dos domicílios cadastrados pelo ACS (próprios, via RLS). Cada item mostra logradouro/nº, bairro, microárea e nº de famílias. Botão "Cadastrar novo domicílio" → `/app/domicilios/novo`.
-2. **Selecionar Família** — lista das famílias do domicílio escolhido. Mostra responsável e nº de membros.
-3. **Selecionar Paciente (membro)** — lista somente os membros da família selecionada (`familia_membros` → `pacientes`). Sem busca livre por CPF/nome solto.
+teleconsulta_salas
+  id uuid pk
+  agendamento_id uuid unique → agendamentos
+  daily_room_name text unique
+  daily_room_url text
+  token_paciente text unique         -- usado em /tele/{token}
+  consentimento_gravacao boolean default false
+  consentimento_em timestamptz
+  gravar boolean default false
+  recording_id text                  -- id Daily da gravação
+  recording_url text                 -- link expirável armazenado
+  iniciada_em timestamptz
+  encerrada_em timestamptz
+  duracao_seg int
+  status text default 'agendada'     -- agendada|em_andamento|encerrada|cancelada
+  created_at, updated_at
 
-Se o domicílio não tiver família, ou a família não tiver membros, mostrar aviso com link para editar o domicílio.
+teleconsulta_avaliacoes
+  id, sala_id unique → teleconsulta_salas
+  nota int check (1..5)
+  nps int check (0..10)
+  comentario text
+  audio_ok, video_ok boolean
+  created_at
 
-Endereço da visita passa a ser pré-preenchido com o endereço do domicílio (e GPS sugerido a partir das coordenadas salvas, mas ainda obrigatória a captura no momento da visita).
+teleconsulta_resumos
+  id, agendamento_id unique → agendamentos
+  resumo_paciente text               -- visível ao paciente
+  notas_internas text                -- só médico/admin
+  publicado boolean default false
+  publicado_em timestamptz
+  created_at, updated_at
+```
 
-### 2. Replicar visita para a família
+**RLS:**
+- `teleconsulta_salas`: admin total; médico do agendamento RW; staff da unidade SELECT; **acesso público** via RPC `tele_paciente_entrar(p_token)` (security definer) — não há policy aberta na tabela.
+- `teleconsulta_avaliacoes`: insert público via RPC `tele_avaliar(p_token,...)`; SELECT pelo staff da unidade.
+- `teleconsulta_resumos`: RW pelo médico; SELECT staff; leitura pública filtrada por `publicado=true` via RPC `cidadao_consultar` estendida.
 
-Antes de salvar, se a família tiver 2+ membros, mostrar um `AlertDialog`:
+## 2. Backend — server functions (`src/lib/tele.functions.ts`)
 
-> "Replicar esta visita para todos os **N** membros da família?"
-> Botões: **Sim, replicar para todos** / **Não, apenas para [nome do paciente]**.
+| Função | Quem | O que faz |
+|---|---|---|
+| `criarSalaTele({agendamento_id})` | médico/recep autenticado | cria room no Daily (`POST /rooms`), gera `token_paciente` (32 bytes hex), grava em `teleconsulta_salas`, marca `agendamentos.modalidade='teleconsulta'`. |
+| `gerarTokenMedico({sala_id})` | médico do agendamento | retorna meeting token Daily com `is_owner:true`, expira em 2h. |
+| `iniciarGravacao({sala_id})` | médico | exige `consentimento_gravacao=true`; chama Daily `start-recording`; salva `recording_id`. |
+| `pararGravacao({sala_id})` | médico | `stop-recording`, atualiza `encerrada_em`, busca download link e persiste em `recording_url`. |
+| `salvarResumo({agendamento_id, resumo_paciente, notas_internas, publicar})` | médico | upsert em `teleconsulta_resumos`. |
 
-- **Não** → comportamento atual: 1 insert em `visitas_domiciliares` para o paciente selecionado.
-- **Sim** → 1 insert por membro da família, todos com os mesmos campos da visita (data, turno, motivos, acompanhamentos, GPS, fotos, observações, etc.) e mesma assinatura/recusa. Cada registro fica individual (auditável separadamente), todos vinculados ao mesmo `domicilio_id` e `familia_id`.
+`DAILY_API_KEY` lida via `process.env` dentro do handler. Todas com `requireSupabaseAuth`.
 
-Toast final: "Visita registrada para N pacientes."
+**RPCs públicas (security definer, sem auth):**
+- `tele_paciente_entrar(p_token)` → valida token, devolve `{room_url, meeting_token (não-owner, 1h), nome_paciente, consentimento_pendente, sala_id}`. Marca `status='em_andamento'` e `iniciada_em` na primeira chamada.
+- `tele_aceitar_gravacao(p_token)` → seta `consentimento_gravacao=true`.
+- `tele_avaliar(p_token, nota, nps, comentario, audio_ok, video_ok)` → insert em `teleconsulta_avaliacoes`.
+- `cidadao_consultar_documentos(p_cpf, p_data_nasc)` → lista agendamentos teleconsulta encerrados nas últimas 72h + documentos emitidos vinculados + resumo publicado. Usa CPF+DN (não código).
 
-### 3. Banco
+## 3. Frontend
 
-Tornar `domicilio_id` e `familia_id` **NOT NULL** em `visitas_domiciliares` (após o backfill: como ainda não há visitas com esses campos preenchidos em produção, basta um check — se houver linhas antigas sem domicílio, deixar nullable e validar apenas no frontend; confirmo durante a migração).
+### 3.1 Médico — `app.atendimento.$agendamentoId.tsx` (nova)
+- Botão "Iniciar teleconsulta" → cria sala se não existir, abre painel split: vídeo (iframe `<DailyIframe>` com meeting token owner) + abas SOAP/Receita/Atestado/SADT (reusa fluxos existentes).
+- Toggle "Gravar consulta" desabilitado até paciente aceitar (badge mostra status).
+- Ao final: "Encerrar" → para gravação, abre form de **Resumo do paciente** (publicar SIM/NÃO) → marca agendamento como `atendido`.
 
-Plano seguro: validar **no frontend** que `domicilio_id` e `familia_id` são obrigatórios na criação, **sem** alterar a coluna (mantém visitas antigas válidas).
+### 3.2 Agendamento — `app.agendar.tsx`
+- Adicionar campo **Modalidade** (Presencial / Teleconsulta).
+- Quando teleconsulta: ao salvar, dispara `criarSalaTele`, mostra modal com **link único** (`https://.../tele/{token}`) e botão "Enviar por WhatsApp" (usa `wa.me` com mensagem pré-preenchida contendo data/hora + link).
 
-### 4. Permissões
+### 3.3 Paciente — `tele.$token.tsx` (nova, pública)
+- Tela de sala de espera com nome do paciente, nome do médico, data/hora.
+- Botão "Entrar na consulta" (ativo de -15 min até +60 min do horário).
+- Modal de **consentimento de gravação** antes de entrar (se médico quiser gravar).
+- Iframe Daily com meeting token não-owner.
+- Ao detectar `left-meeting`: redireciona para `/tele/{token}/avaliar`.
 
-Sem mudanças — ACS já tem `manage` em `visitas` e `domicilios`.
+### 3.4 Avaliação — `tele.$token.avaliar.tsx`
+- Estrelas 1–5, NPS 0–10, checkboxes "áudio ok" / "vídeo ok", comentário opcional.
+- Após enviar: CTA "Acessar meus documentos" → leva para `/cidadao` já com prefill.
 
-## Arquivos
+### 3.5 Painel do cidadão — `cidadao.tsx` (estendido)
+- Nova aba **"Minhas teleconsultas"** com login por **CPF + data de nascimento** (RPC nova).
+- Lista as consultas teleconsulta dos últimos 72h com:
+  - Resumo publicado pelo médico
+  - Download dos documentos (receitas, atestados, SADT) — links assinados de `documentos_emitidos`
+  - Botão "Avaliar" se ainda não avaliou
+  - Status da gravação ("Disponível por 7 dias") com link
 
-- **editar** `src/routes/app.visitas.nova.tsx` — novo seletor domicílio→família→paciente, dialog de replicação, loop de inserts.
-- **(opcional) novo** `src/components/visita-replicar-dialog.tsx` — extrair o AlertDialog se ficar grande.
+## 4. Daily.co — integração
 
-## Pontos técnicos
+- Secret: `DAILY_API_KEY` (pedir via `add_secret`).
+- Lib: usar `@daily-co/daily-js` no browser (iframe) e `fetch` direto na REST API `https://api.daily.co/v1/...` no server (sem SDK Node — compatível com Worker).
+- Rooms: privadas, `exp = horário_agendado + 2h`, `enable_recording: 'cloud'` apenas se consentido.
+- Tokens: gerados via `POST /meeting-tokens` com `room_name`, `user_name`, `is_owner`, `exp`.
 
-- Buscar domicílios do ACS: `domicilios` filtrado por `acs_user_id = auth.uid()` (RLS já garante).
-- Buscar famílias: `familias.select('*, familia_membros(paciente_id, parentesco, is_responsavel, pacientes(id, nome, cpf, data_nascimento))').eq('domicilio_id', selectedDomicilio.id)`.
-- Replicação: `Promise.all(membros.map(m => supabase.from('visitas_domiciliares').insert({...payload, paciente_id: m.paciente_id})))`. Upload das fotos acontece **uma única vez**; os metadados são reaproveitados em todos os inserts.
-- Assinatura: a mesma assinatura do responsável é replicada para os registros dos demais membros (PEC permite — responsável familiar assina pela família). Manter campo `assinatura_recusada` igual em todos.
+## 5. Segurança / LGPD
+
+- Token do paciente é o único segredo na URL — 32 bytes random, comparado em RPC server-side (proteção contra enumeração).
+- Painel do cidadão usa CPF + DN com rate limit (reaproveita padrão de `cidadao_consulta_tentativas`).
+- Gravação só inicia com `consentimento_gravacao=true` (timestamp + IP gravados).
+- Documentos baixados pelo cidadão são gerados sob demanda via signed URL (60s).
+- Audit log já existente cobre `teleconsulta_salas` e `teleconsulta_resumos` se adicionados aos triggers de auditoria.
+
+## 6. Arquivos a criar/editar
+
+**Criar**
+- `supabase/migrations/*_teleconsulta.sql`
+- `src/lib/tele.functions.ts`, `src/lib/tele-daily.server.ts`
+- `src/routes/tele.$token.tsx`, `src/routes/tele.$token.avaliar.tsx`
+- `src/routes/app.atendimento.$agendamentoId.tsx`
+- `src/components/tele/DailyEmbed.tsx`, `ResumoMedicoForm.tsx`, `ConsentimentoGravacao.tsx`
+- `src/components/cidadao/MinhasTeleconsultas.tsx`
+
+**Editar**
+- `src/routes/app.agendar.tsx` — campo modalidade + modal pós-salvamento
+- `src/routes/app.agenda-dia.tsx` / `app.recepcao.tsx` — badge "🎥 Tele" + atalho "Iniciar"
+- `src/routes/cidadao.tsx` — abas (Agendamento / Teleconsultas)
+- `src/lib/permissions.ts` — módulo `teleconsulta`
+- `src/components/app-sidebar.tsx` — atalho "Atendimento" para médicos
+
+## 7. Secret necessário
+
+`DAILY_API_KEY` — criar conta em daily.co (free tier: 10k min/mês com gravação), gerar API key em Developers → API keys.
+
+---
+
+**Próximo passo após aprovação:** pedir `DAILY_API_KEY` via `add_secret`, criar migration, implementar server functions, depois UI.
