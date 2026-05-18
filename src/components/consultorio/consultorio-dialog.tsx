@@ -362,16 +362,26 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
               </div>
             </div>
 
-            {/* cronômetro */}
-            <div className="hidden items-center gap-1.5 rounded-lg border bg-card/60 px-3 py-1.5 sm:flex">
-              <Timer className="h-3.5 w-3.5 text-primary" />
-              <span className="text-xs font-medium text-muted-foreground">Atendimento</span>
-              <span className="font-mono text-sm font-semibold tabular-nums">{elapsedFmt}</span>
+            {/* cronômetro + auto-save */}
+            <div className="hidden flex-col items-end gap-0.5 sm:flex">
+              <div className="flex items-center gap-1.5 rounded-lg border bg-card/60 px-3 py-1.5">
+                <Timer className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-medium text-muted-foreground">Atendimento</span>
+                <span className="font-mono text-sm font-semibold tabular-nums">{elapsedFmt}</span>
+              </div>
+              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                <span className={`inline-block h-1.5 w-1.5 rounded-full ${savedAt ? "bg-emerald-500" : "bg-amber-400"}`} />
+                {savedAtFmt}
+              </span>
             </div>
 
             {/* actions */}
             <div className="flex items-center gap-1.5">
-              <Button onClick={finalizar} className="gap-2 shadow-sm">
+              <Button variant="outline" size="sm" onClick={salvarRascunhoManual} className="hidden gap-1.5 md:inline-flex" title="Salvar rascunho (Ctrl+S)">
+                <Save className="h-4 w-4" />
+                <span>Salvar</span>
+              </Button>
+              <Button onClick={finalizar} className="gap-2 shadow-sm" title="Finalizar (Ctrl+Enter)">
                 <Send className="h-4 w-4" />
                 <span className="hidden sm:inline">Finalizar e enviar ao eSUS PEC</span>
                 <span className="sm:hidden">Finalizar</span>
