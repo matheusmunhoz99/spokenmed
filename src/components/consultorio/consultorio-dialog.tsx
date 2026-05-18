@@ -328,6 +328,75 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 
   if (!open || !agendamento) return null;
 
+  const sidebarJsx = (
+    <div className="space-y-3">
+      <Card icon={User} title="Resumo do paciente">
+        <dl className="space-y-1.5 text-sm">
+          <Dl k="Sexo" v="Não informado" />
+          <Dl k="Idade" v="—" />
+          <Dl k="Raça/Cor" v="—" />
+          <Dl k="Telefone" v={agendamento.pacientes?.telefone ?? "—"} />
+        </dl>
+      </Card>
+
+      <div className={`rounded-xl border p-4 shadow-xs ${alergias.some(a=>a.gravidade==="grave") ? "border-rose-300 bg-rose-50/70 dark:border-rose-900/40 dark:bg-rose-950/20 animate-in fade-in" : "border-rose-200 bg-rose-50/40 dark:border-rose-900/30 dark:bg-rose-950/10"}`}>
+        <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-300">
+          <AlertTriangle className="h-3.5 w-3.5" /> Alergias ativas
+          {alergias.length > 0 && <Badge className="ml-auto bg-rose-600 text-white">{alergias.length}</Badge>}
+        </div>
+        {alergias.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhuma alergia registrada.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {alergias.map((al) => (
+              <li key={al.id} className="text-xs">
+                <span className="font-semibold">{al.substancia}</span>
+                {al.reacao && <span className="text-muted-foreground"> — {al.reacao}</span>}
+                <Badge variant="outline" className={`ml-1.5 text-[9px] ${al.gravidade==="grave" ? "border-rose-400 text-rose-700" : al.gravidade==="moderada" ? "border-amber-400 text-amber-700" : "border-slate-300 text-slate-600"}`}>
+                  {al.gravidade}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <Card icon={Activity} title="Sinais vitais">
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="PA (mmHg)" v={pa} onChange={setPa} placeholder="120x80" />
+          <Field label="FC (bpm)" v={fc} onChange={setFc} placeholder="78" />
+          <Field label="FR (irpm)" v={fr} onChange={setFr} placeholder="16" />
+          <Field label="Temp (°C)" v={temp} onChange={setTemp} placeholder="36,5" />
+          <Field label="SatO₂ (%)" v={sat} onChange={setSat} placeholder="98" />
+          <Field label="Peso (kg)" v={peso} onChange={setPeso} placeholder="70" />
+          <Field label="Altura (cm)" v={altura} onChange={setAltura} placeholder="170" />
+          {(() => {
+            const pesoN = parseFloat(peso.replace(",", "."));
+            const altN = parseFloat(altura.replace(",", ".")) / 100;
+            const imc = pesoN > 0 && altN > 0 ? (pesoN / (altN * altN)).toFixed(1) : "";
+            return (
+              <div>
+                <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">IMC</Label>
+                <div className="grid h-8 place-items-center rounded-md border bg-muted/30 text-sm font-semibold tabular-nums">
+                  {imc || "—"}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </Card>
+
+      <Card icon={Workflow} title="Status do atendimento">
+        <ul className="space-y-1 text-xs">
+          <StatusLi ok={!!atend.tipoAtendimento}>Tipo de atendimento</StatusLi>
+          <StatusLi ok={!!(s||o||a||p)}>SOAP preenchido</StatusLi>
+          <StatusLi ok={cids.length>0}>CID-10 codificado</StatusLi>
+          <StatusLi ok={conduta.desfechos.length>0}>Conduta definida</StatusLi>
+        </ul>
+      </Card>
+    </div>
+  );
+
   return (
     <>
       <div className="fixed inset-0 z-[100] flex h-[100dvh] flex-col bg-background animate-in fade-in duration-200">
