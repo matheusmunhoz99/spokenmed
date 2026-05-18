@@ -37,6 +37,7 @@ import { Route as AppVisitasIndexRouteImport } from './routes/app.visitas.index'
 import { Route as AppDomiciliosIndexRouteImport } from './routes/app.domicilios.index'
 import { Route as TeleTokenAvaliarRouteImport } from './routes/tele.$token.avaliar'
 import { Route as AppVisitasNovaRouteImport } from './routes/app.visitas.nova'
+import { Route as AppTeleAgendamentoIdRouteImport } from './routes/app.tele.$agendamentoId'
 import { Route as AppDomiciliosNovoRouteImport } from './routes/app.domicilios.novo'
 import { Route as AppDomiciliosIdRouteImport } from './routes/app.domicilios.$id'
 import { Route as AppConfiguracoesSistemaRouteImport } from './routes/app.configuracoes.sistema'
@@ -183,6 +184,11 @@ const AppVisitasNovaRoute = AppVisitasNovaRouteImport.update({
   path: '/nova',
   getParentRoute: () => AppVisitasRoute,
 } as any)
+const AppTeleAgendamentoIdRoute = AppTeleAgendamentoIdRouteImport.update({
+  id: '/tele/$agendamentoId',
+  path: '/tele/$agendamentoId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDomiciliosNovoRoute = AppDomiciliosNovoRouteImport.update({
   id: '/novo',
   path: '/novo',
@@ -233,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
   '/app/domicilios/$id': typeof AppDomiciliosIdRoute
   '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
+  '/app/tele/$agendamentoId': typeof AppTeleAgendamentoIdRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
   '/tele/$token/avaliar': typeof TeleTokenAvaliarRoute
   '/app/domicilios/': typeof AppDomiciliosIndexRoute
@@ -264,6 +271,7 @@ export interface FileRoutesByTo {
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
   '/app/domicilios/$id': typeof AppDomiciliosIdRoute
   '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
+  '/app/tele/$agendamentoId': typeof AppTeleAgendamentoIdRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
   '/tele/$token/avaliar': typeof TeleTokenAvaliarRoute
   '/app/domicilios': typeof AppDomiciliosIndexRoute
@@ -299,6 +307,7 @@ export interface FileRoutesById {
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
   '/app/domicilios/$id': typeof AppDomiciliosIdRoute
   '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
+  '/app/tele/$agendamentoId': typeof AppTeleAgendamentoIdRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
   '/tele/$token/avaliar': typeof TeleTokenAvaliarRoute
   '/app/domicilios/': typeof AppDomiciliosIndexRoute
@@ -335,6 +344,7 @@ export interface FileRouteTypes {
     | '/app/configuracoes/sistema'
     | '/app/domicilios/$id'
     | '/app/domicilios/novo'
+    | '/app/tele/$agendamentoId'
     | '/app/visitas/nova'
     | '/tele/$token/avaliar'
     | '/app/domicilios/'
@@ -366,6 +376,7 @@ export interface FileRouteTypes {
     | '/app/configuracoes/sistema'
     | '/app/domicilios/$id'
     | '/app/domicilios/novo'
+    | '/app/tele/$agendamentoId'
     | '/app/visitas/nova'
     | '/tele/$token/avaliar'
     | '/app/domicilios'
@@ -400,6 +411,7 @@ export interface FileRouteTypes {
     | '/app/configuracoes/sistema'
     | '/app/domicilios/$id'
     | '/app/domicilios/novo'
+    | '/app/tele/$agendamentoId'
     | '/app/visitas/nova'
     | '/tele/$token/avaliar'
     | '/app/domicilios/'
@@ -615,6 +627,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVisitasNovaRouteImport
       parentRoute: typeof AppVisitasRoute
     }
+    '/app/tele/$agendamentoId': {
+      id: '/app/tele/$agendamentoId'
+      path: '/tele/$agendamentoId'
+      fullPath: '/app/tele/$agendamentoId'
+      preLoaderRoute: typeof AppTeleAgendamentoIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/domicilios/novo': {
       id: '/app/domicilios/novo'
       path: '/novo'
@@ -705,6 +724,7 @@ interface AppRouteChildren {
   AppTriagemRoute: typeof AppTriagemRoute
   AppVisitasRoute: typeof AppVisitasRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
+  AppTeleAgendamentoIdRoute: typeof AppTeleAgendamentoIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -725,6 +745,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTriagemRoute: AppTriagemRoute,
   AppVisitasRoute: AppVisitasRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
+  AppTeleAgendamentoIdRoute: AppTeleAgendamentoIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
