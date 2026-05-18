@@ -293,30 +293,59 @@ def login_e_captura_sid() -> tuple[str, str, str] | None:
 
     log.info("✓ /sis/ login OK — abrindo sub-app ambulatorio…")
 
+    def _setup_menu_events(start_seq: int) -> int:
+        """Replica eventos que o navegador dispara ao montar o menu principal."""
+        events = [
+            ("OD4 afterrender", f"Ajax=1&IsEvent=1&Obj=OD4&Evt=afterrender&this=OD4&_S_ID={sid}&_seq_={{seq}}&_uo_=O0"),
+            ("OE5 tabchange", f"Ajax=1&IsEvent=1&Obj=OE5&Evt=tabchange&tab=O34C&_S_ID={sid}&_seq_={{seq}}&_uo_=O0"),
+            ("O34C tabchange", f"Ajax=1&IsEvent=1&Obj=O34C&Evt=tabchange&tab=OCC&_S_ID={sid}&_seq_={{seq}}&_uo_=OE5"),
+            ("O106 load", f"Ajax=1&IsEvent=1&Obj=O106&Evt=load&node=O10A&_S_ID={sid}&_seq_={{seq}}&_uo_=OCC"),
+            ("O3B1 resize", f"Ajax=1&IsEvent=1&Obj=O3B1&Evt=resize&w%3D1920&h%3D937&_S_ID={sid}&_seq_={{seq}}&_a_=1&_uo_=O0"),
+        ]
+        seq = start_seq
+        for label, template in events:
+            rr = _post(seq, template.format(seq=f"{seq:x}"), label)
+            if rr is None:
+                return seq
+            log.debug("%s resp (%s bytes): %r", label, len(rr.text), rr.text[:500])
+            seq += 1
+        return seq
+
+    def _open_ambulatorio(seq: int, label: str) -> tuple[str | None, int]:
+        log.info("→ tentando abrir ambulatorio (%s)", label)
+        itemclick = (
+            f"Ajax=1&IsEvent=1&Obj=O106&Evt=itemclick&id=1"
+            f"&_S_ID={sid}&_seq_={seq:x}&_uo_=OCC&_fp_={fp_tree}"
+        )
+        r = _post(seq, itemclick, f"O106 itemclick id=1 ({label})")
+        seq += 1
+        if r is None:
+            return None, seq
+        log.debug("itemclick %s status=%s len=%s headers=%s", label, r.status_code, len(r.text), dict(r.headers))
+        log.debug("itemclick %s resp repr: %r", label, r.text[:1200])
+        m = re.search(r'(/?ambulatorio/ambulatorio\.dll/\?user=[0-9A-Fa-f]+)', r.text.replace("\\/", "/"))
+        if not m:
+            return None, seq
+        amb_path_found = m.group(1)
+        if not amb_path_found.startswith("/"):
+            amb_path_found = "/" + amb_path_found
+        return amb_path_found, seq
+
     # 7) clicar no item de menu O106 id=1 — dispara o window.open do ambulatorio.
     # _fp_ carrega o estado do tree component O10A (nó selecionado=1). Sem ele o
     # uniGUI ignora o clique e devolve body vazio. Vide HAR entry #22.
     ETX = "\x03"
     fp_tree_raw = f"&O10A={STX}0{STX}{STX}{ETX}1{ETX}"
     fp_tree = up.quote(fp_tree_raw, safe="")
-    itemclick = (
-        f"Ajax=1&IsEvent=1&Obj=O106&Evt=itemclick&id=1"
-        f"&_S_ID={sid}&_fp_={fp_tree}&_seq_={next_seq:x}&_uo_=OCC"
-    )
-    r_ic = _post(next_seq, itemclick, "O106 itemclick id=1 (abrir ambulatorio)")
-    if r_ic is None:
-        return None
-    next_seq += 1
-    log.debug("itemclick resp (%s bytes): %s", len(r_ic.text), r_ic.text[:800])
 
-    # extrai a URL /ambulatorio/...?user=<token> da resposta JS uniGUI
-    m_url = re.search(r'(/?ambulatorio/ambulatorio\.dll/\?user=[0-9A-Fa-f]+)', r_ic.text)
-    if not m_url:
-        log.error("não achei URL do ambulatorio na resposta do itemclick. resp=%s", r_ic.text[:600])
+    amb_path, next_seq = _open_ambulatorio(next_seq, "direto")
+    if not amb_path:
+        log.warning("itemclick direto não abriu ambulatorio; enviando eventos preparatórios do menu")
+        next_seq = _setup_menu_events(next_seq)
+        amb_path, next_seq = _open_ambulatorio(next_seq, "apos setup menu")
+    if not amb_path:
+        log.error("não achei URL do ambulatorio após fallback; veja itemclick resp repr no agent.log")
         return None
-    amb_path = m_url.group(1)
-    if not amb_path.startswith("/"):
-        amb_path = "/" + amb_path
     amb_url = OPP_BASE + amb_path
     log.info("   → URL ambulatorio capturada (%s chars)", len(amb_path))
 
