@@ -3,7 +3,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, Stethoscope, CalendarCog, CalendarPlus,
   CalendarDays, Building2, Settings, LogOut, MonitorPlay, ListOrdered, ShieldCheck, BarChart3, KeyRound,
-  Activity, FolderPlus, UserCog, ChevronRight, History, ClipboardList,
+  Activity, FolderPlus, UserCog, ChevronRight, History, ClipboardList, HeartPulse, Home,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
