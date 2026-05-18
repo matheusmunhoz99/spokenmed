@@ -513,6 +513,8 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
           </Field>
           <Field label="Cartão SUS (CNS)"><Input data-field="cns" className={hl("cns")} value={formatCNS(form.cns ?? "")} onChange={(e) => set("cns", e.target.value)} /></Field>
           <Field label="RG"><Input value={form.rg ?? ""} onChange={(e) => set("rg", e.target.value)} /></Field>
+          <Field label="CNS secundário"><Input data-field="cns_secundario" className={hl("cns_secundario")} value={formatCNS(form.cns_secundario ?? "")} onChange={(e) => set("cns_secundario", e.target.value)} /></Field>
+          <Field label="Outro CNS"><Input data-field="outro_cns" className={hl("outro_cns")} value={formatCNS(form.outro_cns ?? "")} onChange={(e) => set("outro_cns", e.target.value)} /></Field>
         </Section>
 
         <Section title="Contato">
