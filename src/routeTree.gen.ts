@@ -36,6 +36,7 @@ import { Route as AppVisitasIndexRouteImport } from './routes/app.visitas.index'
 import { Route as AppDomiciliosIndexRouteImport } from './routes/app.domicilios.index'
 import { Route as AppVisitasNovaRouteImport } from './routes/app.visitas.nova'
 import { Route as AppDomiciliosNovoRouteImport } from './routes/app.domicilios.novo'
+import { Route as AppDomiciliosIdRouteImport } from './routes/app.domicilios.$id'
 import { Route as AppConfiguracoesSistemaRouteImport } from './routes/app.configuracoes.sistema'
 import { Route as ApiPublicVersionRouteImport } from './routes/api/public/version'
 
@@ -175,6 +176,11 @@ const AppDomiciliosNovoRoute = AppDomiciliosNovoRouteImport.update({
   path: '/novo',
   getParentRoute: () => AppDomiciliosRoute,
 } as any)
+const AppDomiciliosIdRoute = AppDomiciliosIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AppDomiciliosRoute,
+} as any)
 const AppConfiguracoesSistemaRoute = AppConfiguracoesSistemaRouteImport.update({
   id: '/sistema',
   path: '/sistema',
@@ -212,6 +218,7 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
+  '/app/domicilios/$id': typeof AppDomiciliosIdRoute
   '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
   '/app/domicilios/': typeof AppDomiciliosIndexRoute
@@ -240,6 +247,7 @@ export interface FileRoutesByTo {
   '/app': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
+  '/app/domicilios/$id': typeof AppDomiciliosIdRoute
   '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
   '/app/domicilios': typeof AppDomiciliosIndexRoute
@@ -272,6 +280,7 @@ export interface FileRoutesById {
   '/app/': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
+  '/app/domicilios/$id': typeof AppDomiciliosIdRoute
   '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
   '/app/domicilios/': typeof AppDomiciliosIndexRoute
@@ -305,6 +314,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
+    | '/app/domicilios/$id'
     | '/app/domicilios/novo'
     | '/app/visitas/nova'
     | '/app/domicilios/'
@@ -333,6 +343,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
+    | '/app/domicilios/$id'
     | '/app/domicilios/novo'
     | '/app/visitas/nova'
     | '/app/domicilios'
@@ -364,6 +375,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
+    | '/app/domicilios/$id'
     | '/app/domicilios/novo'
     | '/app/visitas/nova'
     | '/app/domicilios/'
@@ -571,6 +583,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDomiciliosNovoRouteImport
       parentRoute: typeof AppDomiciliosRoute
     }
+    '/app/domicilios/$id': {
+      id: '/app/domicilios/$id'
+      path: '/$id'
+      fullPath: '/app/domicilios/$id'
+      preLoaderRoute: typeof AppDomiciliosIdRouteImport
+      parentRoute: typeof AppDomiciliosRoute
+    }
     '/app/configuracoes/sistema': {
       id: '/app/configuracoes/sistema'
       path: '/sistema'
@@ -600,11 +619,13 @@ const AppConfiguracoesRouteWithChildren =
   AppConfiguracoesRoute._addFileChildren(AppConfiguracoesRouteChildren)
 
 interface AppDomiciliosRouteChildren {
+  AppDomiciliosIdRoute: typeof AppDomiciliosIdRoute
   AppDomiciliosNovoRoute: typeof AppDomiciliosNovoRoute
   AppDomiciliosIndexRoute: typeof AppDomiciliosIndexRoute
 }
 
 const AppDomiciliosRouteChildren: AppDomiciliosRouteChildren = {
+  AppDomiciliosIdRoute: AppDomiciliosIdRoute,
   AppDomiciliosNovoRoute: AppDomiciliosNovoRoute,
   AppDomiciliosIndexRoute: AppDomiciliosIndexRoute,
 }
