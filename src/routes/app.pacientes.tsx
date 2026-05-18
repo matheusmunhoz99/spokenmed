@@ -249,7 +249,7 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
   const [dup, setDup] = useState<{ paciente: Paciente; reason: string; origem: "save" | "cadsus" } | null>(null);
   const buscarCadSus = useServerFn(buscarPacienteCpf);
   const [form, setForm] = useState<any>(editing ?? {
-    nome: "", cpf: "", cns: "", rg: "", data_nascimento: "", sexo: "",
+    nome: "", cpf: "", cns: "", cns_secundario: "", outro_cns: "", rg: "", data_nascimento: "", sexo: "",
     nome_mae: "", telefone: "", email: "",
     cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "",
     observacoes: "",
@@ -371,6 +371,8 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
         ["data_nascimento", parseDate(dados.data_nascimento)],
         ["sexo", dados.sexo],
         ["cns", dados.cns],
+        ["cns_secundario", (dados as any).cns_secundario],
+        ["outro_cns", (dados as any).outro_cns],
         ["telefone", dados.telefone],
         ["cep", dados.cep],
         ["logradouro", dados.logradouro],
@@ -414,6 +416,8 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
       ...form,
       cpf: cpfDigits || null,
       cns: form.cns ? onlyDigits(form.cns) : null,
+      cns_secundario: form.cns_secundario ? onlyDigits(form.cns_secundario) : null,
+      outro_cns: form.outro_cns ? onlyDigits(form.outro_cns) : null,
       telefone: form.telefone ? onlyDigits(form.telefone) : null,
       cep: form.cep ? onlyDigits(form.cep) : null,
       data_nascimento: form.data_nascimento || null,
@@ -509,6 +513,8 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
           </Field>
           <Field label="Cartão SUS (CNS)"><Input data-field="cns" className={hl("cns")} value={formatCNS(form.cns ?? "")} onChange={(e) => set("cns", e.target.value)} /></Field>
           <Field label="RG"><Input value={form.rg ?? ""} onChange={(e) => set("rg", e.target.value)} /></Field>
+          <Field label="CNS secundário"><Input data-field="cns_secundario" className={hl("cns_secundario")} value={formatCNS(form.cns_secundario ?? "")} onChange={(e) => set("cns_secundario", e.target.value)} /></Field>
+          <Field label="Outro CNS"><Input data-field="outro_cns" className={hl("outro_cns")} value={formatCNS(form.outro_cns ?? "")} onChange={(e) => set("outro_cns", e.target.value)} /></Field>
         </Section>
 
         <Section title="Contato">
