@@ -721,13 +721,15 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 
                 {(recTipo === "notificacao_a" || recTipo === "notificacao_b") && (
                   <div className={`rounded-lg border p-3 ${recTipo === "notificacao_a" ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-950/20" : "border-blue-400 bg-blue-50 dark:bg-blue-950/20"}`}>
-                    <Label className="text-xs font-semibold">Dados da Notificação de Receita (Portaria 344/98)</Label>
+                    <Label className="text-xs font-semibold">Notificação de Receita {recTipo === "notificacao_a" ? "A (amarela)" : "B (azul)"} — Portaria 344/98</Label>
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      Informe o número sequencial impresso no talonário oficial fornecido pela Vigilância Sanitária.
+                      O número será gerado automaticamente pelo sistema no formato <span className="font-mono font-semibold">{(notifUf || profile?.conselho_uf || "UF").toUpperCase()}-{recTipo === "notificacao_a" ? "A" : "B"}-000000</span>, registrado no banco com hash SHA-256 e assinatura digital HMAC. Imutável após a emissão e validável por QR Code.
                     </p>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-[2fr_1fr]">
-                      <Input placeholder="Nº da Notificação (do talão)" value={notifNum} onChange={(e) => setNotifNum(e.target.value)} />
-                      <Input placeholder="UF de emissão (ex: RJ)" maxLength={2} value={notifUf} onChange={(e) => setNotifUf(e.target.value.toUpperCase())} />
+                    <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_2fr]">
+                      <Input placeholder={`UF de emissão (ex: ${profile?.conselho_uf || "RJ"})`} maxLength={2} value={notifUf} onChange={(e) => setNotifUf(e.target.value.toUpperCase())} />
+                      <div className="flex items-center text-[11px] text-muted-foreground">
+                        Padrão a partir do seu cadastro: <span className="ml-1 font-mono">{(profile?.conselho_uf || "—").toUpperCase()}</span>
+                      </div>
                     </div>
                   </div>
                 )}
