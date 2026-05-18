@@ -1,13 +1,33 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { z } from "zod";
-import { CheckCircle2, FileText, Search, ShieldAlert, ShieldCheck, Stethoscope } from "lucide-react";
+import { Camera, CheckCircle2, Copy, FileText, Search, ShieldAlert, ShieldCheck, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import logoUrl from "@/assets/spokenmed-logo.png";
+
+const QrScannerDialog = lazy(() => import("@/components/verificar/qr-scanner-dialog"));
+
+// Extrai o protocolo de uma string que pode ser uma URL com ?p= ou o próprio código
+function extrairProtocolo(input: string): string {
+  const s = input.trim();
+  if (!s) return "";
+  try {
+    if (/^https?:\/\//i.test(s)) {
+      const u = new URL(s);
+      const p = u.searchParams.get("p");
+      if (p) return p.trim().toUpperCase();
+    }
+  } catch { /* noop */ }
+  // Se vier "?p=XXX" ou apenas o código
+  const m = s.match(/[?&]p=([^&\s]+)/i);
+  if (m) return decodeURIComponent(m[1]).toUpperCase();
+  return s.toUpperCase();
+}
 
 const searchSchema = z.object({ p: z.string().optional() });
 
