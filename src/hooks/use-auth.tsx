@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
-import type { AppRole, ModuleKey } from "@/lib/permissions";
+import { defaultPermsFor, type AppRole, type ModuleKey } from "@/lib/permissions";
 
 type PermMap = Record<string, { view: boolean; manage: boolean }>;
 
@@ -79,8 +79,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const can = (module: ModuleKey, action: "view" | "manage" = "view") => {
     if (isAdmin) return true;
     const p = permissions[module];
-    if (!p) return false;
-    return action === "manage" ? p.manage : p.view;
+    if (p) return action === "manage" ? p.manage : p.view;
+    // Fallback: aplica defaults do papel quando não há permissões explícitas no banco
+    const role: AppRole | null = isMedico ? "medico" : isAdministrativo ? "recepcionista" : null;
+    if (!role) return false;
+    const def = defaultPermsFor(role).find((d) => d.module === module);
+    if (!def) return false;
+    return action === "manage" ? def.can_manage : def.can_view;
   };
 
   const signIn: AuthContextType["signIn"] = async (email, password) => {
