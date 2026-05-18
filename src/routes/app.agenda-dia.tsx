@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -109,6 +109,95 @@ function AgendaDiaPage() {
       return (await q).data ?? [];
     },
   });
+
+  // Realtime: avisar médico quando paciente fica "triado" (pronto pra consulta)
+  const notifiedRef = useRef<Set<string>>(new Set());
+  const titleRestoreRef = useRef<{ original: string; timer: any } | null>(null);
+  useEffect(() => {
+    if (!unidades) return;
+    const flashTitle = () => {
+      if (typeof document === "undefined") return;
+      if (titleRestoreRef.current) {
+        clearInterval(titleRestoreRef.current.timer);
+      }
+      const original = titleRestoreRef.current?.original ?? document.title;
+      let on = false;
+      const timer = setInterval(() => {
+        on = !on;
+        document.title = on ? "● Paciente pronto — " + original : original;
+      }, 800);
+      titleRestoreRef.current = { original, timer };
+      setTimeout(() => {
+        clearInterval(timer);
+        document.title = original;
+        titleRestoreRef.current = null;
+      }, 6000);
+    };
+    const beep = () => {
+      try {
+        const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (!AC) return;
+        const ctx = new AC();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = "sine"; o.frequency.value = 880;
+        g.gain.setValueAtTime(0.0001, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(); o.stop(ctx.currentTime + 0.36);
+        setTimeout(() => ctx.close().catch(() => {}), 600);
+      } catch {}
+    };
+
+    const ch = supabase.channel("agenda-dia-realtime")
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "agendamentos" },
+        async (payload: any) => {
+          const newRow = payload.new;
+          const oldRow = payload.old;
+          if (!newRow) return;
+          // Filtra por profissional logado quando médico
+          if (isMedico && meuProf && newRow.profissional_id !== meuProf) return;
+          // Filtra por data visualizada
+          if (newRow.data !== data) {
+            qc.invalidateQueries({ queryKey: ["agenda-dia"] });
+            return;
+          }
+          qc.invalidateQueries({ queryKey: ["agenda-dia"] });
+          // Notifica apenas em transição -> triado
+          if (newRow.status === "triado" && oldRow?.status !== "triado" && !notifiedRef.current.has(newRow.id)) {
+            notifiedRef.current.add(newRow.id);
+            // Busca nome do paciente
+            const { data: pac } = await supabase.from("pacientes").select("nome").eq("id", newRow.paciente_id).maybeSingle();
+            const nome = pac?.nome ?? "Paciente";
+            beep();
+            flashTitle();
+            toast.success("Paciente pronto pra consulta", {
+              description: `${nome} — triagem finalizada`,
+              duration: 12000,
+              action: {
+                label: "Atender",
+                onClick: async () => {
+                  const { data: full } = await supabase.from("agendamentos")
+                    .select("id, hora_inicio, status, paciente_id, profissional_id, unidade_id, pacientes(nome, cpf), profissionais(id, nome, sala, especialidades(nome)), unidades(nome)")
+                    .eq("id", newRow.id).maybeSingle();
+                  if (full) setConsultorio(full);
+                },
+              },
+            });
+          }
+        })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+      if (titleRestoreRef.current) {
+        clearInterval(titleRestoreRef.current.timer);
+        document.title = titleRestoreRef.current.original;
+        titleRestoreRef.current = null;
+      }
+    };
+  }, [unidades, isMedico, meuProf, data, qc]);
 
   const updateStatus = async (a: any, status: "agendado"|"confirmado"|"atendido"|"faltou"|"cancelado") => {
     const { error } = await supabase.from("agendamentos").update({ status }).eq("id", a.id);
