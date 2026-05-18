@@ -21,9 +21,21 @@ const allItems: Item[] = [
 export function MobileBottomNav() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { setOpenMobile } = useSidebar();
-  const { can } = useAuth();
+  const { can, isAdmin, isAcs, isTriagem } = useAuth();
 
-  const items = allItems.filter((it) => !it.module || can(it.module, "view"));
+  const pick = (urls: string[]) =>
+    urls
+      .map((u) => allItems.find((it) => it.url === u))
+      .filter((it): it is Item => !!it && (!it.module || can(it.module, "view")));
+
+  let items: Item[];
+  if (isAcs && !isAdmin) {
+    items = pick(["/app", "/app/visitas", "/app/pacientes"]);
+  } else if (isTriagem && !isAdmin) {
+    items = pick(["/app", "/app/agenda-dia", "/app/recepcao", "/app/triagem", "/app/agendar", "/app/pacientes"]);
+  } else {
+    items = pick(["/app", "/app/agenda-dia", "/app/recepcao", "/app/agendar", "/app/pacientes"]);
+  }
 
   const isActive = (u: string, exact?: boolean) =>
     exact ? path === u : path === u || path.startsWith(u + "/") || path === u;
