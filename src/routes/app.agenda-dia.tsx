@@ -276,13 +276,26 @@ function AgendaDiaPage() {
                   <div className="flex items-center justify-between gap-2 md:contents">
                     <StatusBadge status={a.status} />
                     <div className="flex flex-wrap gap-1">
-                      {/* MÉDICO: Atender (abre consultório) — só pra agendamentos dele e ainda não atendidos */}
-                      {isMedico && meuProf && a.profissional_id === meuProf && a.status !== "atendido" && a.status !== "cancelado" && (
-                        <Button size="sm" className="h-9 gap-1 px-2.5" title="Atender (consultório)" onClick={() => setConsultorio(a)}>
-                          <Stethoscope className="h-4 w-4" /> Atender
-                        </Button>
-                      )}
-                      {a.unidade_id && canManage && (
+                      {/* MÉDICO: Atender — habilitado só quando paciente pronto (triado, confirmado ou agendado); bloqueado em chegou/em_triagem */}
+                      {isMedico && meuProf && a.profissional_id === meuProf && a.status !== "atendido" && a.status !== "cancelado" && a.status !== "faltou" && (() => {
+                        const aguardando = a.status === "chegou" || a.status === "em_triagem";
+                        const pronto = a.status === "triado";
+                        const tip = a.status === "chegou" ? "Paciente chegou, aguardando triagem"
+                          : a.status === "em_triagem" ? "Em triagem com a enfermagem"
+                          : pronto ? "Pronto pra atender" : "Atender";
+                        return (
+                          <Button
+                            size="sm"
+                            disabled={aguardando}
+                            className={`h-9 gap-1 px-2.5 ${pronto ? "animate-pulse ring-2 ring-emerald-400/60" : ""}`}
+                            title={tip}
+                            onClick={() => !aguardando && setConsultorio(a)}
+                          >
+                            <Stethoscope className="h-4 w-4" /> {pronto ? "Atender agora" : "Atender"}
+                          </Button>
+                        );
+                      })()}
+                      {a.unidade_id && canManage && a.status !== "em_triagem" && (
                         <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-primary" title="Chamar paciente" onClick={() => setChamar(a)}><Megaphone className="h-4 w-4" /></Button>
                       )}
                       {canManage && (a.status === "agendado" || a.status === "confirmado") && (
@@ -293,6 +306,9 @@ function AgendaDiaPage() {
                       )}
                       {canManage && a.status === "chegou" && (
                         <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-violet-600" title="Chamar para triagem" onClick={() => updateStatus(a, "em_triagem" as any)}><Activity className="h-4 w-4" /></Button>
+                      )}
+                      {canManage && a.status === "em_triagem" && (
+                        <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-emerald-700" title="Liberar pra consulta" onClick={() => updateStatus(a, "triado" as any)}><Stethoscope className="h-4 w-4" /></Button>
                       )}
                       {canManage && a.status !== "atendido" && a.status !== "cancelado" && (
                         <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Faltou" onClick={() => updateStatus(a, "faltou")}><AlertTriangle className="h-4 w-4" /></Button>
