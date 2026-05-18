@@ -202,7 +202,39 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
     setSadt([]); setSadtCarater("eletivo"); setSadtIndic("");
     setLmeMed(""); setLmeApres(""); setLmeCid(""); setLmePos(""); setLmeQtd(""); setLmeTempo(""); setLmeAnam(""); setLmeExames("");
     setTab("atendimento");
+    setSavedAt(null);
+    if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
   };
+
+  const salvarRascunhoManual = () => {
+    if (!draftKey) return;
+    try {
+      const payload = {
+        s, o, a, p, pa, fc, fr, temp, sat, peso, altura,
+        cids, alergias, meds, recTipo, recOri,
+        sadt, sadtCarater, sadtIndic,
+        atDias, atCid, atRepouso, atMencCid,
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(draftKey, JSON.stringify(payload));
+      setSavedAt(new Date());
+      toast.success("Rascunho salvo");
+    } catch { toast.error("Não foi possível salvar o rascunho."); }
+  };
+
+  // Atalhos: Ctrl/Cmd+S salva rascunho, Ctrl/Cmd+Enter finaliza
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      if (e.key.toLowerCase() === "s") { e.preventDefault(); salvarRascunhoManual(); }
+      else if (e.key === "Enter") { e.preventDefault(); finalizar(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, s, o, a, p, cids, conduta]);
 
 
   const profissional = {
