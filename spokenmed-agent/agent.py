@@ -181,8 +181,9 @@ def _looks_logged_in(text: str) -> bool:
     if not text:
         return False
     low = text.lower()
-    bad = ("usuário ou senha", "usuario ou senha", "senha inválida", "senha invalida",
-           "credenciais inválidas", "credenciais invalidas", "login inválido", "login invalido")
+    bad = ("usuário ou senha", "usuario ou senha", "usuario e/ou senha", "usuário e/ou senha",
+           "senha inválida", "senha invalida", "credenciais inválidas", "credenciais invalidas",
+           "login inválido", "login invalido", "tentativas")
     if any(b in low for b in bad):
         return False
     return (
