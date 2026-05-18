@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, AlertTriangle, Loader2, Download, Trash2, Megaphone, CalendarClock, History, Zap, Paperclip, ListOrdered, Stethoscope, LogIn, Activity, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, Loader2, Download, Trash2, Megaphone, CalendarClock, History, Zap, Paperclip, ListOrdered, Stethoscope, LogIn, Activity, Clock, Video } from "lucide-react";
 import { ConsultorioDialog } from "@/components/consultorio/consultorio-dialog";
 import { LoadingState } from "@/components/loading-state";
 import { PullToRefresh } from "@/components/pull-to-refresh";
