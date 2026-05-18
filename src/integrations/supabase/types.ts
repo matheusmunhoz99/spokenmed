@@ -116,6 +116,10 @@ export type Database = {
         Row: {
           atendido_em: string | null
           chegou_em: string | null
+          cid10: string | null
+          classificacao_risco:
+            | Database["public"]["Enums"]["classificacao_risco"]
+            | null
           codigo: string
           created_at: string
           criado_por: string | null
@@ -135,6 +139,10 @@ export type Database = {
           reagendado_de: string | null
           reagendado_em: string | null
           slot_id: string | null
+          solicitante_cbo: string | null
+          solicitante_cnes: string | null
+          solicitante_cns: string | null
+          solicitante_nome: string | null
           status: Database["public"]["Enums"]["agendamento_status"]
           triado_em: string | null
           triagem_em: string | null
@@ -145,6 +153,10 @@ export type Database = {
         Insert: {
           atendido_em?: string | null
           chegou_em?: string | null
+          cid10?: string | null
+          classificacao_risco?:
+            | Database["public"]["Enums"]["classificacao_risco"]
+            | null
           codigo?: string
           created_at?: string
           criado_por?: string | null
@@ -164,6 +176,10 @@ export type Database = {
           reagendado_de?: string | null
           reagendado_em?: string | null
           slot_id?: string | null
+          solicitante_cbo?: string | null
+          solicitante_cnes?: string | null
+          solicitante_cns?: string | null
+          solicitante_nome?: string | null
           status?: Database["public"]["Enums"]["agendamento_status"]
           triado_em?: string | null
           triagem_em?: string | null
@@ -174,6 +190,10 @@ export type Database = {
         Update: {
           atendido_em?: string | null
           chegou_em?: string | null
+          cid10?: string | null
+          classificacao_risco?:
+            | Database["public"]["Enums"]["classificacao_risco"]
+            | null
           codigo?: string
           created_at?: string
           criado_por?: string | null
@@ -193,6 +213,10 @@ export type Database = {
           reagendado_de?: string | null
           reagendado_em?: string | null
           slot_id?: string | null
+          solicitante_cbo?: string | null
+          solicitante_cnes?: string | null
+          solicitante_cns?: string | null
+          solicitante_nome?: string | null
           status?: Database["public"]["Enums"]["agendamento_status"]
           triado_em?: string | null
           triagem_em?: string | null
@@ -422,6 +446,54 @@ export type Database = {
         }
         Relationships: []
       }
+      cotas_especialidade: {
+        Row: {
+          competencia: string
+          created_at: string
+          especialidade_id: string
+          id: string
+          observacoes: string | null
+          unidade_id: string
+          updated_at: string
+          vagas_totais: number
+        }
+        Insert: {
+          competencia: string
+          created_at?: string
+          especialidade_id: string
+          id?: string
+          observacoes?: string | null
+          unidade_id: string
+          updated_at?: string
+          vagas_totais: number
+        }
+        Update: {
+          competencia?: string
+          created_at?: string
+          especialidade_id?: string
+          id?: string
+          observacoes?: string | null
+          unidade_id?: string
+          updated_at?: string
+          vagas_totais?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cotas_especialidade_especialidade_id_fkey"
+            columns: ["especialidade_id"]
+            isOneToOne: false
+            referencedRelation: "especialidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotas_especialidade_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documento_verificacoes: {
         Row: {
           consultado_em: string
@@ -542,12 +614,21 @@ export type Database = {
       fila_espera: {
         Row: {
           agendamento_id: string | null
+          cid10: string | null
+          classificacao_risco:
+            | Database["public"]["Enums"]["classificacao_risco"]
+            | null
           created_at: string
           criado_por: string | null
           especialidade_id: string
           id: string
           observacoes: string | null
           paciente_id: string
+          procedimento_id: string | null
+          solicitante_cbo: string | null
+          solicitante_cnes: string | null
+          solicitante_cns: string | null
+          solicitante_nome: string | null
           status: Database["public"]["Enums"]["fila_status"]
           unidade_id: string
           updated_at: string
@@ -555,12 +636,21 @@ export type Database = {
         }
         Insert: {
           agendamento_id?: string | null
+          cid10?: string | null
+          classificacao_risco?:
+            | Database["public"]["Enums"]["classificacao_risco"]
+            | null
           created_at?: string
           criado_por?: string | null
           especialidade_id: string
           id?: string
           observacoes?: string | null
           paciente_id: string
+          procedimento_id?: string | null
+          solicitante_cbo?: string | null
+          solicitante_cnes?: string | null
+          solicitante_cns?: string | null
+          solicitante_nome?: string | null
           status?: Database["public"]["Enums"]["fila_status"]
           unidade_id: string
           updated_at?: string
@@ -568,12 +658,21 @@ export type Database = {
         }
         Update: {
           agendamento_id?: string | null
+          cid10?: string | null
+          classificacao_risco?:
+            | Database["public"]["Enums"]["classificacao_risco"]
+            | null
           created_at?: string
           criado_por?: string | null
           especialidade_id?: string
           id?: string
           observacoes?: string | null
           paciente_id?: string
+          procedimento_id?: string | null
+          solicitante_cbo?: string | null
+          solicitante_cnes?: string | null
+          solicitante_cns?: string | null
+          solicitante_nome?: string | null
           status?: Database["public"]["Enums"]["fila_status"]
           unidade_id?: string
           updated_at?: string
@@ -599,6 +698,13 @@ export type Database = {
             columns: ["paciente_id"]
             isOneToOne: false
             referencedRelation: "pacientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fila_espera_procedimento_id_fkey"
+            columns: ["procedimento_id"]
+            isOneToOne: false
+            referencedRelation: "procedimentos"
             referencedColumns: ["id"]
           },
           {
@@ -1129,6 +1235,51 @@ export type Database = {
           },
         ]
       }
+      tme_config: {
+        Row: {
+          classificacao_risco: Database["public"]["Enums"]["classificacao_risco"]
+          created_at: string
+          especialidade_id: string | null
+          id: string
+          tme_dias: number
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          classificacao_risco: Database["public"]["Enums"]["classificacao_risco"]
+          created_at?: string
+          especialidade_id?: string | null
+          id?: string
+          tme_dias: number
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          classificacao_risco?: Database["public"]["Enums"]["classificacao_risco"]
+          created_at?: string
+          especialidade_id?: string | null
+          id?: string
+          tme_dias?: number
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tme_config_especialidade_id_fkey"
+            columns: ["especialidade_id"]
+            isOneToOne: false
+            referencedRelation: "especialidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tme_config_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       unidades: {
         Row: {
           ativo: boolean
@@ -1238,7 +1389,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      cotas_uso: {
+        Row: {
+          competencia: string | null
+          consumidas: number | null
+          disponiveis: number | null
+          especialidade_id: string | null
+          id: string | null
+          unidade_id: string | null
+          vagas_totais: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cotas_especialidade_especialidade_id_fkey"
+            columns: ["especialidade_id"]
+            isOneToOne: false
+            referencedRelation: "especialidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotas_especialidade_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       cidadao_consultar: {
@@ -1299,6 +1476,14 @@ export type Database = {
       set_audit_context: {
         Args: { p_ip?: string; p_modulo?: string; p_ua?: string }
         Returns: undefined
+      }
+      tme_aplicavel: {
+        Args: {
+          _classificacao: Database["public"]["Enums"]["classificacao_risco"]
+          _especialidade_id: string
+          _unidade_id: string
+        }
+        Returns: number
       }
       verificar_documento: {
         Args: { p_protocolo: string }
@@ -1364,6 +1549,7 @@ export type Database = {
         | "foto"
         | "outro"
       app_role: "admin" | "recepcionista" | "medico"
+      classificacao_risco: "vermelho" | "laranja" | "amarelo" | "verde" | "azul"
       fila_status: "aguardando" | "agendado" | "concluido" | "cancelado"
       fila_urgencia: "normal" | "prioritaria" | "urgente"
       sexo_tipo: "M" | "F" | "O"
@@ -1507,6 +1693,7 @@ export const Constants = {
       ],
       anexo_categoria: ["pedido_medico", "exame", "documento", "foto", "outro"],
       app_role: ["admin", "recepcionista", "medico"],
+      classificacao_risco: ["vermelho", "laranja", "amarelo", "verde", "azul"],
       fila_status: ["aguardando", "agendado", "concluido", "cancelado"],
       fila_urgencia: ["normal", "prioritaria", "urgente"],
       sexo_tipo: ["M", "F", "O"],
