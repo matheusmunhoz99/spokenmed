@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, MapPin, Users as UsersIcon } from "lucide-react";
+import { Plus, Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { LoadingState } from "@/components/loading-state";
 import { EmptyState } from "@/components/empty-state";
