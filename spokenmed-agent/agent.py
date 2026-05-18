@@ -258,7 +258,7 @@ def login_e_captura_sid() -> tuple[str, str, str] | None:
         return None
 
     # 5) clique no botão Entrar (O40). _fp_ no formato uniGUI:
-    #    &O30=<STX>0<STX><STX>admin&O34=<STX>0<STX><STX>123
+    #    &O30=<STX>0<STX><STX>usuario&O34=<STX>0<STX><STX>senha
     #    O '0' antes do segundo STX é o contador de revisões (0 = primeira escrita).
     STX = "\x02"
     fp_raw = f"&O30={STX}0{STX}{STX}{OPP_USERNAME}&O34={STX}0{STX}{STX}{OPP_PASSWORD}"
