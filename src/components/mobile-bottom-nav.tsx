@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, CalendarDays, CalendarPlus, Users, Menu, ListOrdered, ClipboardList } from "lucide-react";
+import { LayoutDashboard, CalendarDays, CalendarPlus, Users, Menu, ListOrdered, ClipboardList, HeartPulse, Home } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { haptic } from "@/hooks/use-haptics";
