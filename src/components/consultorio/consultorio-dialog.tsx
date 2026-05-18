@@ -89,8 +89,9 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
   // Receita
   const [recTipo, setRecTipo] = useState<ReceitaTipo>("comum");
   const [recOri, setRecOri] = useState("");
-  const [notifNum, setNotifNum] = useState("");
-  const [notifUf, setNotifUf] = useState("RJ");
+  const [notifUf, setNotifUf] = useState("");
+  const [emitindo, setEmitindo] = useState(false);
+  const emitirReceitaFn = useServerFn(emitirReceita);
   const [meds, setMeds] = useState<MedItem[]>([]);
   const [medNome, setMedNome] = useState(""); const [medApres, setMedApres] = useState(""); const [medPos, setMedPos] = useState(""); const [medQtd, setMedQtd] = useState(""); const [medDur, setMedDur] = useState("");
 
