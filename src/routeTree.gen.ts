@@ -16,6 +16,7 @@ import { Route as CidadaoRouteImport } from './routes/cidadao'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as TeleTokenRouteImport } from './routes/tele.$token'
 import { Route as AppVisitasRouteImport } from './routes/app.visitas'
 import { Route as AppTriagemRouteImport } from './routes/app.triagem'
 import { Route as AppSessoesRouteImport } from './routes/app.sessoes'
@@ -34,6 +35,7 @@ import { Route as AppAgendarRouteImport } from './routes/app.agendar'
 import { Route as AppAgendaDiaRouteImport } from './routes/app.agenda-dia'
 import { Route as AppVisitasIndexRouteImport } from './routes/app.visitas.index'
 import { Route as AppDomiciliosIndexRouteImport } from './routes/app.domicilios.index'
+import { Route as TeleTokenAvaliarRouteImport } from './routes/tele.$token.avaliar'
 import { Route as AppVisitasNovaRouteImport } from './routes/app.visitas.nova'
 import { Route as AppDomiciliosNovoRouteImport } from './routes/app.domicilios.novo'
 import { Route as AppDomiciliosIdRouteImport } from './routes/app.domicilios.$id'
@@ -74,6 +76,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
+} as any)
+const TeleTokenRoute = TeleTokenRouteImport.update({
+  id: '/tele/$token',
+  path: '/tele/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppVisitasRoute = AppVisitasRouteImport.update({
   id: '/visitas',
@@ -166,6 +173,11 @@ const AppDomiciliosIndexRoute = AppDomiciliosIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppDomiciliosRoute,
 } as any)
+const TeleTokenAvaliarRoute = TeleTokenAvaliarRouteImport.update({
+  id: '/avaliar',
+  path: '/avaliar',
+  getParentRoute: () => TeleTokenRoute,
+} as any)
 const AppVisitasNovaRoute = AppVisitasNovaRouteImport.update({
   id: '/nova',
   path: '/nova',
@@ -215,12 +227,14 @@ export interface FileRoutesByFullPath {
   '/app/sessoes': typeof AppSessoesRoute
   '/app/triagem': typeof AppTriagemRoute
   '/app/visitas': typeof AppVisitasRouteWithChildren
+  '/tele/$token': typeof TeleTokenRouteWithChildren
   '/app/': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
   '/app/domicilios/$id': typeof AppDomiciliosIdRoute
   '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
+  '/tele/$token/avaliar': typeof TeleTokenAvaliarRoute
   '/app/domicilios/': typeof AppDomiciliosIndexRoute
   '/app/visitas/': typeof AppVisitasIndexRoute
 }
@@ -244,12 +258,14 @@ export interface FileRoutesByTo {
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/sessoes': typeof AppSessoesRoute
   '/app/triagem': typeof AppTriagemRoute
+  '/tele/$token': typeof TeleTokenRouteWithChildren
   '/app': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
   '/app/domicilios/$id': typeof AppDomiciliosIdRoute
   '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
+  '/tele/$token/avaliar': typeof TeleTokenAvaliarRoute
   '/app/domicilios': typeof AppDomiciliosIndexRoute
   '/app/visitas': typeof AppVisitasIndexRoute
 }
@@ -277,12 +293,14 @@ export interface FileRoutesById {
   '/app/sessoes': typeof AppSessoesRoute
   '/app/triagem': typeof AppTriagemRoute
   '/app/visitas': typeof AppVisitasRouteWithChildren
+  '/tele/$token': typeof TeleTokenRouteWithChildren
   '/app/': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
   '/app/domicilios/$id': typeof AppDomiciliosIdRoute
   '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
   '/app/visitas/nova': typeof AppVisitasNovaRoute
+  '/tele/$token/avaliar': typeof TeleTokenAvaliarRoute
   '/app/domicilios/': typeof AppDomiciliosIndexRoute
   '/app/visitas/': typeof AppVisitasIndexRoute
 }
@@ -311,12 +329,14 @@ export interface FileRouteTypes {
     | '/app/sessoes'
     | '/app/triagem'
     | '/app/visitas'
+    | '/tele/$token'
     | '/app/'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
     | '/app/domicilios/$id'
     | '/app/domicilios/novo'
     | '/app/visitas/nova'
+    | '/tele/$token/avaliar'
     | '/app/domicilios/'
     | '/app/visitas/'
   fileRoutesByTo: FileRoutesByTo
@@ -340,12 +360,14 @@ export interface FileRouteTypes {
     | '/app/relatorios'
     | '/app/sessoes'
     | '/app/triagem'
+    | '/tele/$token'
     | '/app'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
     | '/app/domicilios/$id'
     | '/app/domicilios/novo'
     | '/app/visitas/nova'
+    | '/tele/$token/avaliar'
     | '/app/domicilios'
     | '/app/visitas'
   id:
@@ -372,12 +394,14 @@ export interface FileRouteTypes {
     | '/app/sessoes'
     | '/app/triagem'
     | '/app/visitas'
+    | '/tele/$token'
     | '/app/'
     | '/api/public/version'
     | '/app/configuracoes/sistema'
     | '/app/domicilios/$id'
     | '/app/domicilios/novo'
     | '/app/visitas/nova'
+    | '/tele/$token/avaliar'
     | '/app/domicilios/'
     | '/app/visitas/'
   fileRoutesById: FileRoutesById
@@ -389,6 +413,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PainelRoute: typeof PainelRoute
   VerificarRoute: typeof VerificarRoute
+  TeleTokenRoute: typeof TeleTokenRouteWithChildren
   ApiPublicVersionRoute: typeof ApiPublicVersionRoute
 }
 
@@ -442,6 +467,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/tele/$token': {
+      id: '/tele/$token'
+      path: '/tele/$token'
+      fullPath: '/tele/$token'
+      preLoaderRoute: typeof TeleTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/app/visitas': {
       id: '/app/visitas'
@@ -569,6 +601,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDomiciliosIndexRouteImport
       parentRoute: typeof AppDomiciliosRoute
     }
+    '/tele/$token/avaliar': {
+      id: '/tele/$token/avaliar'
+      path: '/avaliar'
+      fullPath: '/tele/$token/avaliar'
+      preLoaderRoute: typeof TeleTokenAvaliarRouteImport
+      parentRoute: typeof TeleTokenRoute
+    }
     '/app/visitas/nova': {
       id: '/app/visitas/nova'
       path: '/nova'
@@ -690,6 +729,18 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface TeleTokenRouteChildren {
+  TeleTokenAvaliarRoute: typeof TeleTokenAvaliarRoute
+}
+
+const TeleTokenRouteChildren: TeleTokenRouteChildren = {
+  TeleTokenAvaliarRoute: TeleTokenAvaliarRoute,
+}
+
+const TeleTokenRouteWithChildren = TeleTokenRoute._addFileChildren(
+  TeleTokenRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
@@ -697,8 +748,19 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PainelRoute: PainelRoute,
   VerificarRoute: VerificarRoute,
+  TeleTokenRoute: TeleTokenRouteWithChildren,
   ApiPublicVersionRoute: ApiPublicVersionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
