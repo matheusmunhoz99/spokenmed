@@ -13,6 +13,7 @@ import {
   useLocalParticipant,
   useParticipants,
   useConnectionState,
+  useRoomContext,
   ParticipantTile,
 } from "@livekit/components-react";
 import { ConnectionState, Track, type Room } from "livekit-client";
@@ -98,14 +99,8 @@ export const CallStage = forwardRef<CallStageHandle, Props>(function CallStage(
 /* ------------------------------ subcomponentes ------------------------------ */
 
 function RoomCapture({ roomRef }: { roomRef: React.MutableRefObject<Room | null> }) {
-  // Captura o Room context através do hook para podermos disconnect externamente
-  const { localParticipant } = useLocalParticipant();
-  useEffect(() => {
-    if (localParticipant) {
-      // @ts-expect-error — acesso interno; presente em runtime
-      roomRef.current = (localParticipant.room ?? null) as Room | null;
-    }
-  }, [localParticipant, roomRef]);
+  const room = useRoomContext();
+  useEffect(() => { roomRef.current = room ?? null; }, [room, roomRef]);
   return null;
 }
 
