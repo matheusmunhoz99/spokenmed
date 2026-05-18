@@ -13,6 +13,7 @@ const allItems: Item[] = [
   { title: "Recepção", url: "/app/recepcao", icon: ClipboardList, module: "recepcao" },
   { title: "Triagem", url: "/app/triagem", icon: HeartPulse, module: "triagem" },
   { title: "Visitas", url: "/app/visitas", icon: Home, module: "visitas" },
+  { title: "Domicílios", url: "/app/domicilios", icon: House, module: "domicilios" },
   { title: "Agendar", url: "/app/agendar", icon: CalendarPlus, module: "agendar" },
   { title: "Fila", url: "/app/fila", icon: ListOrdered, module: "fila" },
   { title: "Pacientes", url: "/app/pacientes", icon: Users, module: "pacientes" },
