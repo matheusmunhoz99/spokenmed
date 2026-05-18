@@ -77,6 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAdmin = roles.includes("admin");
   const isMedico = roles.includes("medico");
   const isAdministrativo = roles.includes("recepcionista");
+  const isTriagem = roles.includes("triagem");
+  const isAcs = roles.includes("acs");
 
   const can = (module: ModuleKey, action: "view" | "manage" = "view") => {
     if (isAdmin) return true;
