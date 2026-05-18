@@ -11,22 +11,31 @@ export type ReceitaMed = {
   duracao?: string;
 };
 
-export type ReceitaTipo = "comum" | "controle_especial" | "antimicrobiano";
+export type ReceitaTipo =
+  | "comum"
+  | "controle_especial"
+  | "antimicrobiano"
+  | "notificacao_a"   // AMARELA — entorpecentes / psicotrópicos A1/A2/A3 (Venvanse, Ritalina, morfina)
+  | "notificacao_b";  // AZUL — psicotrópicos B1/B2 (Rivotril, Stilnox)
 
 export type GerarReceitaOpts = {
   tipo: ReceitaTipo;
   paciente: { nome: string; cpf?: string; cns?: string; endereco?: string };
   profissional: { nome: string; crm?: string; uf?: string; cbo?: string };
-  unidade?: { nome?: string; cnes?: string; endereco?: string };
+  unidade?: { nome?: string; cnes?: string; endereco?: string; telefone?: string };
   medicamentos: ReceitaMed[];
   orientacoes?: string;
   usuarioNome?: string;
+  notificacao?: { numero: string; uf_emissao: string; validade_dias?: number };
+  comprador?: { nome?: string; rg?: string; endereco?: string };
 };
 
 const TIPO_LABEL: Record<ReceitaTipo, string> = {
   comum: "Receituário Comum",
   controle_especial: "Receituário de Controle Especial",
   antimicrobiano: "Receita de Antimicrobiano",
+  notificacao_a: "Notificação de Receita A",
+  notificacao_b: "Notificação de Receita B",
 };
 
 function dataExt() {
