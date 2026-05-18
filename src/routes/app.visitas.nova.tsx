@@ -512,17 +512,21 @@ function NovaVisitaPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader><CardTitle className="text-base">12. Assinatura do paciente / responsável</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              {!recusou && <SignaturePad value={assinatura} onChange={setAssinatura} />}
-              <label className="flex items-center gap-2 text-sm pt-2 border-t">
-                <Checkbox checked={recusou} onCheckedChange={(v) => { setRecusou(!!v); if (v) setAssinatura(null); }} />
-                <span>Paciente recusou / impossibilitado de assinar</span>
-              </label>
-              {recusou && <Input placeholder="Motivo da recusa / impossibilidade" value={motivoRecusa} onChange={(e) => setMotivoRecusa(e.target.value)} />}
-            </CardContent>
-          </Card>
+          {(assinatura || recusou) && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">12. Assinatura</CardTitle></CardHeader>
+              <CardContent className="text-sm space-y-1">
+                {recusou ? (
+                  <p className="text-amber-700">Recusa registrada{motivoRecusa ? `: ${motivoRecusa}` : ""}.</p>
+                ) : (
+                  <p className="text-emerald-700">Assinatura coletada. Será gravada ao salvar a visita.</p>
+                )}
+                <Button size="sm" variant="outline" onClick={() => { setAssinatura(null); setRecusou(false); setMotivoRecusa(""); }}>
+                  Refazer
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
 
