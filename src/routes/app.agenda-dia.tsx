@@ -426,6 +426,11 @@ function AgendaDiaPage() {
                       {canManage && !a.is_encaixe && a.slot_id && (
                         <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Reagendar" onClick={() => setReagendar(a)}><CalendarClock className="h-4 w-4" /></Button>
                       )}
+                      {(canManage || isMedico) && a.status !== "cancelado" && (
+                        <Button size="sm" variant="outline" className="h-9 gap-1 px-2.5 border-sky-300 text-sky-700 dark:text-sky-300 hover:bg-sky-500/10" title="Abrir teleconsulta" onClick={() => navigate({ to: "/app/tele/$agendamentoId", params: { agendamentoId: a.id } })}>
+                          <Video className="h-4 w-4" /> <span className="hidden sm:inline">Tele</span>
+                        </Button>
+                      )}
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Anexos" onClick={() => setAnexos(a)}><Paperclip className="h-4 w-4" /></Button>
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="Histórico" onClick={() => setHistorico(a)}><History className="h-4 w-4" /></Button>
                       {isAdmin && (
