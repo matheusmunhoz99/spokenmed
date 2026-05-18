@@ -29,7 +29,7 @@ import { gerarAtestadoPdf } from "@/lib/pdf-atestado";
 import { useAuth } from "@/hooks/use-auth";
 import { saveHistorico } from "@/lib/historico-atendimentos";
 import logoUrl from "@/assets/spokenmed-logo.png";
-import { loadDraft, clearDraft, useConsultorioAutoSave } from "./use-consultorio-draft";
+
 
 
 interface Agendamento {
