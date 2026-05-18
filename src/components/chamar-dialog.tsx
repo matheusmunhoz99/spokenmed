@@ -13,6 +13,7 @@ type Props = {
   onOpenChange: (v: boolean) => void;
   agendamento: {
     id: string;
+    status?: string;
     unidade_id: string | null;
     pacientes?: { nome?: string } | null;
     profissionais?: { nome?: string; sala?: string | null } | null;
@@ -23,6 +24,7 @@ type Props = {
 export function ChamarDialog({ open, onOpenChange, agendamento, userId }: Props) {
   const [sala, setSala] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const emTriagem = agendamento?.status === "em_triagem";
 
   useEffect(() => {
     if (open && agendamento) {
@@ -33,6 +35,10 @@ export function ChamarDialog({ open, onOpenChange, agendamento, userId }: Props)
   const handleChamar = async () => {
     if (!agendamento || !agendamento.unidade_id) {
       toast.error("Agendamento sem unidade definida.");
+      return;
+    }
+    if (emTriagem) {
+      toast.error("Paciente ainda está em triagem. Aguarde a enfermagem finalizar.");
       return;
     }
     setSubmitting(true);
