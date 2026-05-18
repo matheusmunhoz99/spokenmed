@@ -1,33 +1,25 @@
-## Problema
+## Objetivo
 
-Para o CPF 245.713.528-16, o worker do Fiorilli devolveu:
+Deixar o splash screen do APK Android tão bonito quanto o PWA — fundo claro da marca + logo centralizado com respiro, sem o quadrado preto atual.
 
-- `cns: ""`
-- `cns_secundario: "700901907579199"`
+## Mudanças
 
-O Fiorilli tem dois slots de CNS (O11E7 = principal, O11E3 = secundário). Nesse paciente o número veio só no slot secundário. O formulário em `src/routes/app.pacientes.tsx` lê apenas `dados.cns`, então o campo CNS fica em branco mesmo com o dado disponível.
+### 1. `public/manifest.webmanifest`
+- Manter `background_color: #fafbfc` (tela do splash, claro da marca).
+- Atualizar `theme_color` de `#fafbfc` para `#1c7a8c` (teal primary aproximado do design system) — deixa a status bar combinando com a marca durante a abertura.
 
-## Correção
+### 2. Regerar os 3 PNGs em `public/icons/`
+Usando o `src/assets/spokenmed-logo.png` como base, gerar:
 
-**Arquivo:** `src/routes/app.pacientes.tsx`, lista `pairs` do preenchimento mágico (linha ~373).
+- `icon-512.png` (512x512) — logo SpokenMED centralizado sobre fundo `#fafbfc`, com ~22% de margem em cada lado (safe zone padrão Android 12+ para splash).
+- `icon-192.png` (192x192) — mesma composição reduzida.
+- `icon-maskable-512.png` (512x512) — mesma composição, porém com **~20% de safe zone reforçada** (Android pode cortar em círculo/squircle dependendo do launcher), fundo `#fafbfc` preenchendo até as bordas para não aparecer transparência preta.
 
-Trocar:
+Todos com fundo sólido `#fafbfc` (não transparente) — é isso que elimina o "quadrado preto" no splash do APK.
 
-```ts
-["cns", dados.cns],
-```
-
-por:
-
-```ts
-["cns", dados.cns || dados.cns_secundario || (dados as any).outro_cns || ""],
-```
-
-Assim o campo CNS é preenchido com o primeiro valor não-vazio entre `cns`, `cns_secundario` e `outro_cns`, cobrindo todos os formatos de retorno do Fiorilli.  
-  
-EU QUERO QUE PUXE OS DOIS O SECUNDADO E O OUTRO_CNS, ADICIONE O CAMPO NO MEU SISTEMA E PUXE OS DADOS E SALVE NO BANCO SEMPRE OS DOIS SE TIVER, SE TIVER SÓ UM TRAZ SÓ UM, SE TIVER DOIS OS DOIS
+### 3. Aviso obrigatório ao final
+APKs já instalados **não atualizam o splash sozinhos**: você precisa gerar um novo APK (via PWA Builder / Bubblewrap) e reinstalar no celular para ver a mudança. PWA no navegador reflete na hora.
 
 ## Fora de escopo
-
-- Worker / `opp-client.server.ts` — o dado já chega correto, não precisa mudar.
-- Outros campos do formulário — só o CNS apresenta esse comportamento de slot duplo.
+- Service worker, lógica de PWA, código da aplicação.
+- Splash screen customizado nativo Android (exigiria mexer no projeto Bubblewrap, fora do repo web).
