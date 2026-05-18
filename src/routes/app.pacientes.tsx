@@ -241,6 +241,11 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
   const [cepLoading, setCepLoading] = useState(false);
   const [cadsusLoading, setCadsusLoading] = useState(false);
   const [cpfErro, setCpfErro] = useState<string | null>(null);
+  const [highlightField, setHighlightField] = useState<string | null>(null);
+  const hl = (n: string) =>
+    highlightField === n
+      ? "ring-2 ring-primary/70 shadow-[0_0_0_4px_hsl(var(--primary)/0.18)] transition-shadow duration-300"
+      : "transition-shadow duration-300";
   const [dup, setDup] = useState<{ paciente: Paciente; reason: string; origem: "save" | "cadsus" } | null>(null);
   const buscarCadSus = useServerFn(buscarPacienteCpf);
   const [form, setForm] = useState<any>(editing ?? {
