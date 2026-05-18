@@ -67,7 +67,8 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 
   // SOAP + vitais
   const [s, setS] = useState(""); const [o, setO] = useState(""); const [a, setA] = useState(""); const [p, setP] = useState("");
-  const [pa, setPa] = useState(""); const [fc, setFc] = useState(""); const [temp, setTemp] = useState(""); const [sat, setSat] = useState(""); const [peso, setPeso] = useState("");
+  const [pa, setPa] = useState(""); const [fc, setFc] = useState(""); const [fr, setFr] = useState(""); const [temp, setTemp] = useState(""); const [sat, setSat] = useState(""); const [peso, setPeso] = useState(""); const [altura, setAltura] = useState("");
+
 
   // CID
   const [cids, setCids] = useState<string[]>([]);
