@@ -264,10 +264,15 @@ def login_e_captura_sid() -> tuple[str, str, str] | None:
 
     log.info("✓ /sis/ login OK — abrindo sub-app ambulatorio…")
 
-    # 7) clicar no item de menu O106 id=1 — dispara o window.open do ambulatorio
+    # 7) clicar no item de menu O106 id=1 — dispara o window.open do ambulatorio.
+    # _fp_ carrega o estado do tree component O10A (nó selecionado=1). Sem ele o
+    # uniGUI ignora o clique e devolve body vazio. Vide HAR entry #22.
+    ETX = "\x03"
+    fp_tree_raw = f"&O10A={STX}0{STX}{STX}{ETX}1{ETX}"
+    fp_tree = up.quote(fp_tree_raw, safe="")
     itemclick = (
         f"Ajax=1&IsEvent=1&Obj=O106&Evt=itemclick&id=1"
-        f"&_S_ID={sid}&_seq_={next_seq:x}&_uo_=OCC"
+        f"&_S_ID={sid}&_fp_={fp_tree}&_seq_={next_seq:x}&_uo_=OCC"
     )
     r_ic = _post(next_seq, itemclick, "O106 itemclick id=1 (abrir ambulatorio)")
     if r_ic is None:
