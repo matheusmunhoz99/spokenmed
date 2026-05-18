@@ -52,7 +52,7 @@ export const TURNOS = [
 ] as const;
 
 export const DESFECHOS = [
-  { value: "realizada", label: "Visita realizada" },
-  { value: "recusada", label: "Visita recusada" },
+  { value: "visita_realizada", label: "Visita realizada" },
+  { value: "visita_recusada", label: "Visita recusada" },
   { value: "ausente", label: "Ausente" },
 ] as const;
