@@ -13,6 +13,7 @@ type Props = {
   onOpenChange: (v: boolean) => void;
   agendamento: {
     id: string;
+    status?: string;
     unidade_id: string | null;
     pacientes?: { nome?: string } | null;
     profissionais?: { nome?: string; sala?: string | null } | null;
@@ -23,6 +24,7 @@ type Props = {
 export function ChamarDialog({ open, onOpenChange, agendamento, userId }: Props) {
   const [sala, setSala] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const emTriagem = agendamento?.status === "em_triagem";
 
   useEffect(() => {
     if (open && agendamento) {
@@ -33,6 +35,10 @@ export function ChamarDialog({ open, onOpenChange, agendamento, userId }: Props)
   const handleChamar = async () => {
     if (!agendamento || !agendamento.unidade_id) {
       toast.error("Agendamento sem unidade definida.");
+      return;
+    }
+    if (emTriagem) {
+      toast.error("Paciente ainda está em triagem. Aguarde a enfermagem finalizar.");
       return;
     }
     setSubmitting(true);
@@ -63,6 +69,11 @@ export function ChamarDialog({ open, onOpenChange, agendamento, userId }: Props)
             <div className="font-semibold">{agendamento?.pacientes?.nome}</div>
             <div className="text-xs text-muted-foreground">{agendamento?.profissionais?.nome}</div>
           </div>
+          {emTriagem && (
+            <div className="rounded-md border border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+              Paciente ainda está em triagem com a enfermagem. Aguarde finalizarem antes de chamar.
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs">Sala / Local *</Label>
             <Input value={sala} onChange={(e) => setSala(e.target.value)} placeholder="Ex.: Consultório 3" autoFocus />
@@ -70,7 +81,7 @@ export function ChamarDialog({ open, onOpenChange, agendamento, userId }: Props)
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleChamar} disabled={submitting || !sala.trim()}>
+          <Button onClick={handleChamar} disabled={submitting || !sala.trim() || emTriagem}>
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Megaphone className="mr-2 h-4 w-4" /> Chamar agora
           </Button>

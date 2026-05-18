@@ -249,8 +249,10 @@ function RecepcaoPage() {
           {cols.aguard.map((a: any) => (
             <PacienteCard
               key={a.id} a={a} ordem={ordemMap.get(a.id)} fmtWait={fmtWait} waitMinutes={waitMinutes} waitToneCls={waitToneCls} idadeStr={idadeStr}
-              actions={canManage ? [{ label: "Chegou", icon: LogIn, tone: "sky", onClick: () => updateStatus(a, "chegou") }] : []}
-              onChamar={canManage && a.unidade_id ? () => setChamar(a) : undefined}
+              ctaLabel={canManage ? "Marcar chegada" : undefined}
+              ctaIcon={LogIn}
+              ctaTone="sky"
+              onCta={canManage ? () => updateStatus(a, "chegou") : undefined}
             />
           ))}
         </KanbanCol>
@@ -258,8 +260,10 @@ function RecepcaoPage() {
           {cols.chegou.map((a: any) => (
             <PacienteCard
               key={a.id} a={a} ordem={ordemMap.get(a.id)} fmtWait={fmtWait} waitMinutes={waitMinutes} waitToneCls={waitToneCls} idadeStr={idadeStr}
-              actions={canManage ? [{ label: "Triagem", icon: Activity, tone: "violet", onClick: () => updateStatus(a, "em_triagem") }] : []}
-              onChamar={canManage && a.unidade_id ? () => setChamar(a) : undefined}
+              ctaLabel={canManage ? "Iniciar triagem" : undefined}
+              ctaIcon={Activity}
+              ctaTone="violet"
+              onCta={canManage ? () => updateStatus(a, "em_triagem") : undefined}
             />
           ))}
         </KanbanCol>
@@ -267,7 +271,10 @@ function RecepcaoPage() {
           {cols.triagem.map((a: any) => (
             <PacienteCard
               key={a.id} a={a} ordem={ordemMap.get(a.id)} fmtWait={fmtWait} waitMinutes={waitMinutes} waitToneCls={waitToneCls} idadeStr={idadeStr} waitFrom={a.triagem_em}
-              actions={canManage ? [{ label: "Liberar", icon: Stethoscope, tone: "emerald", onClick: () => updateStatus(a, "triado") }] : []}
+              ctaLabel={canManage ? "Finalizar triagem" : undefined}
+              ctaIcon={Stethoscope}
+              ctaTone="emerald"
+              onCta={canManage ? () => updateStatus(a, "triado") : undefined}
             />
           ))}
         </KanbanCol>
@@ -276,7 +283,10 @@ function RecepcaoPage() {
             <PacienteCard
               key={a.id} a={a} ordem={ordemMap.get(a.id)} fmtWait={fmtWait} waitMinutes={waitMinutes} waitToneCls={waitToneCls} idadeStr={idadeStr}
               highlight
-              onChamar={canManage && a.unidade_id ? () => setChamar(a) : undefined}
+              ctaLabel={canManage && a.unidade_id ? "Chamar no painel" : undefined}
+              ctaIcon={Megaphone}
+              ctaTone="primary"
+              onCta={canManage && a.unidade_id ? () => setChamar(a) : undefined}
             />
           ))}
         </KanbanCol>
@@ -434,30 +444,37 @@ function KanbanCol({ title, tone, count, children }: { title: string; tone: Tone
 }
 
 function PacienteCard({
-  a, ordem, fmtWait, waitMinutes, waitToneCls, idadeStr, actions, onChamar, highlight, waitFrom,
+  a, ordem, fmtWait, waitMinutes, waitToneCls, idadeStr, highlight, waitFrom,
+  ctaLabel, ctaIcon: CtaIcon, ctaTone = "primary", onCta,
 }: {
   a: any; ordem?: number;
   fmtWait: (iso?: string | null) => string;
   waitMinutes: (iso?: string | null) => number;
   waitToneCls: (mins: number) => string;
   idadeStr: (dn?: string | null) => string;
-  actions?: { label: string; icon: any; tone: "sky" | "violet" | "emerald"; onClick: () => void }[];
-  onChamar?: () => void;
   highlight?: boolean;
   waitFrom?: string | null;
+  ctaLabel?: string;
+  ctaIcon?: any;
+  ctaTone?: "sky" | "violet" | "emerald" | "primary";
+  onCta?: () => void;
 }) {
   const base = waitFrom ?? a.chegou_em;
   const mins = waitMinutes(base);
-  const toneBtn = (t: string) => t === "sky" ? "text-sky-700 border-sky-300" : t === "violet" ? "text-violet-700 border-violet-300" : "text-emerald-700 border-emerald-300";
+  const ctaCls =
+    ctaTone === "emerald" ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+    : ctaTone === "violet" ? "bg-violet-600 hover:bg-violet-700 text-white"
+    : ctaTone === "sky" ? "bg-sky-600 hover:bg-sky-700 text-white"
+    : "";
   return (
-    <div className={`rounded-md border bg-card p-2.5 shadow-sm ${highlight ? "ring-2 ring-emerald-400/50" : ""}`}>
+    <div className={`group rounded-lg border bg-card p-2.5 shadow-sm transition hover:shadow-md ${highlight ? "ring-2 ring-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-950/20" : ""}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             {ordem && <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded">#{ordem}</span>}
             <span className="font-mono text-xs text-muted-foreground">{formatTime(a.hora_inicio)}</span>
           </div>
-          <div className="mt-1 truncate text-sm font-medium">{a.pacientes?.nome}</div>
+          <div className="mt-1 truncate text-sm font-semibold leading-tight">{a.pacientes?.nome}</div>
           <div className="truncate text-[11px] text-muted-foreground">
             {idadeStr(a.pacientes?.data_nascimento)} · {a.profissionais?.nome ?? "—"}
           </div>
@@ -468,19 +485,14 @@ function PacienteCard({
           </div>
         )}
       </div>
-      {(actions?.length || onChamar) && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {actions?.map((act) => (
-            <Button key={act.label} size="sm" variant="outline" className={`h-7 gap-1 px-2 text-xs ${toneBtn(act.tone)}`} onClick={act.onClick}>
-              <act.icon className="h-3 w-3" /> {act.label}
-            </Button>
-          ))}
-          {onChamar && (
-            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary ml-auto" title="Chamar no painel" onClick={onChamar}>
-              <Megaphone className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
+      {ctaLabel && onCta && (
+        <Button
+          size="sm"
+          onClick={onCta}
+          className={`mt-2.5 h-8 w-full gap-1.5 text-xs font-semibold ${ctaCls}`}
+        >
+          {CtaIcon && <CtaIcon className="h-3.5 w-3.5" />} {ctaLabel}
+        </Button>
       )}
     </div>
   );
