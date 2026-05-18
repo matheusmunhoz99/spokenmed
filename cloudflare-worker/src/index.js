@@ -183,6 +183,8 @@ async function doPostConsulta(cpfDigits, env) {
     status: postRes.status,
     bodyLen: postText.length,
     seq,
+    hasGrid: postText.includes("O11B2"),
+    hasField: postText.includes("O117A"),
     preview: postText.slice(0, 200),
   });
 
