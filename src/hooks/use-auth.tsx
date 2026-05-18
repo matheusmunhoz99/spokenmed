@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         session, user, profile, roles, permissions, loading,
-        isAdmin, isMedico, isAdministrativo, can,
+        isAdmin, isMedico, isAdministrativo, isTriagem, isAcs, can,
         signIn, signUp, signOut,
       }}
     >
