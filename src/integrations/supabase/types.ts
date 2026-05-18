@@ -407,6 +407,60 @@ export type Database = {
         }
         Relationships: []
       }
+      documentos_emitidos: {
+        Row: {
+          agendamento_id: string | null
+          created_at: string
+          emitido_por: string | null
+          emitido_por_email: string | null
+          metadata: Json
+          paciente_cpf_mask: string | null
+          paciente_nome: string
+          profissional_cbo: string | null
+          profissional_conselho: string | null
+          profissional_nome: string
+          protocolo: string
+          tipo: string
+          unidade_cnes: string | null
+          unidade_id: string | null
+          unidade_nome: string | null
+        }
+        Insert: {
+          agendamento_id?: string | null
+          created_at?: string
+          emitido_por?: string | null
+          emitido_por_email?: string | null
+          metadata?: Json
+          paciente_cpf_mask?: string | null
+          paciente_nome: string
+          profissional_cbo?: string | null
+          profissional_conselho?: string | null
+          profissional_nome: string
+          protocolo: string
+          tipo: string
+          unidade_cnes?: string | null
+          unidade_id?: string | null
+          unidade_nome?: string | null
+        }
+        Update: {
+          agendamento_id?: string | null
+          created_at?: string
+          emitido_por?: string | null
+          emitido_por_email?: string | null
+          metadata?: Json
+          paciente_cpf_mask?: string | null
+          paciente_nome?: string
+          profissional_cbo?: string | null
+          profissional_conselho?: string | null
+          profissional_nome?: string
+          protocolo?: string
+          tipo?: string
+          unidade_cnes?: string | null
+          unidade_id?: string | null
+          unidade_nome?: string | null
+        }
+        Relationships: []
+      }
       especialidades: {
         Row: {
           ativo: boolean
@@ -990,6 +1044,20 @@ export type Database = {
       set_audit_context: {
         Args: { p_ip?: string; p_modulo?: string; p_ua?: string }
         Returns: undefined
+      }
+      verificar_documento: {
+        Args: { p_protocolo: string }
+        Returns: {
+          emitido_em: string
+          paciente_cpf_mask: string
+          paciente_nome_iniciais: string
+          profissional_conselho: string
+          profissional_nome: string
+          protocolo: string
+          tipo: string
+          unidade_cnes: string
+          unidade_nome: string
+        }[]
       }
     }
     Enums: {
