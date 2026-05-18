@@ -110,6 +110,10 @@ def _required_any(*names: str) -> str:
 WORKER_API_KEY = _required_cfg("WORKER_API_KEY")
 OPP_USERNAME = _required_any("FIORILLI_USERNAME", "OPP_USERNAME")
 OPP_PASSWORD = _required_any("FIORILLI_PASSWORD", "OPP_PASSWORD")
+try:
+    UNIDADE_IDX = int(_optional_cfg("FIORILLI_UNIDADE_INDEX", default="4") or "4")
+except ValueError:
+    UNIDADE_IDX = 4
 
 log = logging.getLogger("spokenmed-agent")
 log.setLevel(logging.INFO)
@@ -430,14 +434,143 @@ def login_e_captura_sid() -> tuple[str, str, str] | None:
             log.info("   [amb] shell pronto (%s bytes)", len(rr.text))
             break
 
-    # FASE A: por enquanto enviamos o sid do ambulatorio pro Worker assim mesmo.
-    # Se O117A ainda não existir (CADSUS não foi aberto), a busca vai falhar e
-    # vamos precisar adicionar os cliques de navegação (passo 10 do plano) com base
-    # nos logs DEBUG acima. Vide .lovable/plan.md.
+    # ─────────────────────────────────────────────────────────────────────────
+    # FASE B (extraída do HAR completo): navegar até a tela CadSUS para que os
+    # componentes O117A/O11B2/O1162 fiquem registrados nesse _S_ID. Sem isso o
+    # /cpf do Worker recebe grid vazio. Vide .lovable/plan.md.
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _post_seq(body_tmpl: str, label: str, *, fp: str = "") -> requests.Response | None:
+        """Manda POST substituindo {sid} e {seq}. Incrementa amb_seq via closure."""
+        nonlocal amb_seq
+        body = body_tmpl.format(sid=sid_amb, seq=f"{amb_seq:x}")
+        if fp:
+            body += f"&_fp_={fp}"
+        r = _post_amb(amb_seq, body, label)
+        amb_seq += 1
+        return r
+
+    def _dummy(label: str = "spin", *, fp: str = "") -> requests.Response | None:
+        body = (f"Ajax=1&IsEvent=1&Obj=O589&Evt=_dummy_"
+                f"&_S_ID={sid_amb}&_seq_={amb_seq:x}&_a_=1&_uo_=O0")
+        if fp:
+            body += f"&_fp_={fp}"
+        return _post_seq("Ajax=1&IsEvent=1&Obj=O589&Evt=_dummy_"
+                         "&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O0", f"timer ({label})", fp=fp)
+
+    # ── Fase 1: popup de escolha de unidade (O58D) ──────────────────────────
+    log.info("→ [amb] selecionando unidade idx=%d", UNIDADE_IDX)
+    sel_fp = (
+        "%26O5BD%3D%25020%2502%2502%2503"
+        f"{UNIDADE_IDX}"
+        "%2503NaN%2503%255B"
+        f"{UNIDADE_IDX}%252C{UNIDADE_IDX}"
+        "%255D%2503"
+    )
+    steps_unidade = [
+        ("Ajax=1&IsEvent=1&Obj=O58D&Evt=move&this=O58D&x=85&y=136&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O58D", "O58D move", ""),
+        ("Ajax=1&IsEvent=1&Obj=O58D&Evt=activate&this=O58D&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O58D", "O58D activate", ""),
+        ("Ajax=1&IsEvent=1&Obj=O58D&Evt=resize&this=O58D&w=603&h=408&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O58D", "O58D resize", ""),
+        ("Ajax=1&IsEvent=1&Obj=O5BC&Evt=load&this=O5BC&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O58D", "O5BC load", ""),
+        ("Ajax=1&IsEvent=1&Obj=O589&Evt=timer&_S_ID={sid}&_seq_={seq}&_uo_=O0", "O589 timer pre-sel", ""),
+        ("Ajax=1&IsEvent=1&Obj=O5DD&Evt=selectionchange&This=O5DD&sels=1&_S_ID={sid}&_seq_={seq}&_uo_=O58D", "O5DD selectionchange", sel_fp),
+        ("Ajax=1&IsEvent=1&Obj=O589&Evt=timer&_S_ID={sid}&_seq_={seq}&_uo_=O0", "O589 timer post-sel", ""),
+        ("Ajax=1&IsEvent=1&Obj=O5A8&Evt=click&this=O5A8&_S_ID={sid}&_seq_={seq}&_uo_=O58D", "O5A8 click OK", ""),
+        ("Ajax=1&IsEvent=1&Obj=O58D&Evt=beforeclose&this=O58D&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O58D", "O58D beforeclose", ""),
+        ("Ajax=1&IsEvent=1&Obj=O58D&Evt=deactivate&this=O58D&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O58D", "O58D deactivate", ""),
+        ("Ajax=1&IsEvent=1&Obj=O589&Evt=timer&_S_ID={sid}&_seq_={seq}&_uo_=O0", "O589 timer close-1", ""),
+        ("Ajax=1&IsEvent=1&Obj=O589&Evt=timer&_S_ID={sid}&_seq_={seq}&_uo_=O0", "O589 timer close-2", ""),
+    ]
+    for tmpl, lbl, fp in steps_unidade:
+        if _post_seq(tmpl, lbl, fp=fp) is None:
+            return None
+
+    # ── Fase 2: abrir menu Pacientes (O86 itemclick id=1) ───────────────────
+    log.info("→ [amb] abrindo menu Pacientes")
+    fp_tree_pac_0 = "%26O8A%3D%25020%2502%2502%25031%2503"  # nó 1, fase 0
+    fp_tree_pac_1 = "%26O8A%3D%25021%2502%2502%25031%2503"  # fase 1
+    fp_tree_pac_2 = "%26O8A%3D%25022%2502%2502%25031%2503"  # fase 2
+    fp_tree_pac_3 = "%26O8A%3D%25023%2502%2502%25031%2503"  # fase 3 (após tabchange)
+    fp_tree_pac_4 = "%26O8A%3D%25024%2502%2502%25031%2503"  # fase 4 (estabilizado)
+
+    steps_pacientes = [
+        ("Ajax=1&IsEvent=1&Obj=O86&Evt=itemclick&id=1&_S_ID={sid}&_seq_={seq}&_uo_=O0", "O86 itemclick id=1", fp_tree_pac_0),
+        ("Ajax=1&IsEvent=1&Obj=O58B&Evt=timer&_S_ID={sid}&_seq_={seq}&_uo_=O0", "O58B timer", fp_tree_pac_1),
+        ("Ajax=1&IsEvent=1&Obj=O589&Evt=timer&_S_ID={sid}&_seq_={seq}&_uo_=O0", "O589 timer pre-tab", fp_tree_pac_2),
+        ("Ajax=1&IsEvent=1&Obj=O65&Evt=tabchange&this=O65&tab=OD77&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O0", "O65 tabchange OD77", fp_tree_pac_3),
+        ("Ajax=1&IsEvent=1&Obj=O611&Evt=resize&this=O611&w=533&h=573&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O611", "O611 resize", ""),
+        ("Ajax=1&IsEvent=1&Obj=O611&Evt=show&this=O611&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O611", "O611 show", ""),
+        ("Ajax=1&IsEvent=1&Obj=O6A0&Evt=tabchange&this=O6A0&tab=OD1D&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O611", "O6A0 tabchange OD1D", ""),
+        ("Ajax=1&IsEvent=1&Obj=O6E8&Evt=tabchange&this=O6E8&tab=O6F1&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O611", "O6E8 tabchange O6F1", ""),
+        ("Ajax=1&IsEvent=1&Obj=OB36&Evt=tabchange&this=OB36&tab=OB3F&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O611", "OB36 tabchange OB3F", ""),
+        ("Ajax=1&IsEvent=1&Obj=O589&Evt=timer&_S_ID={sid}&_seq_={seq}&_uo_=O0", "O589 timer post-tabs", fp_tree_pac_4),
+        ("Ajax=1&IsEvent=1&Obj=O690&Evt=resize&this=O690&w=533&h=483&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O611", "O690 resize", ""),
+        ("Ajax=1&IsEvent=1&Obj=OD29&Evt=load&this=OD29&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O611", "OD29 load #1", ""),
+        ("Ajax=1&IsEvent=1&Obj=OD29&Evt=load&this=OD29&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O611", "OD29 load #2", ""),
+        ("Ajax=1&IsEvent=1&Obj=OD42&Evt=blur&this=OD42&_S_ID={sid}&_seq_={seq}&_uo_=O611", "OD42 blur", ""),
+        ("Ajax=1&IsEvent=1&Obj=O589&Evt=timer&_S_ID={sid}&_seq_={seq}&_uo_=O0", "O589 timer pre-prontuario", ""),
+    ]
+    for tmpl, lbl, fp in steps_pacientes:
+        if _post_seq(tmpl, lbl, fp=fp) is None:
+            return None
+
+    # ── Fase 3: abrir prontuário + CadSUS ───────────────────────────────────
+    log.info("→ [amb] abrindo tela prontuário")
+    steps_prontuario = [
+        ("Ajax=1&IsEvent=1&Obj=O670&Evt=click&this=O670&_S_ID={sid}&_seq_={seq}&_uo_=O611", "O670 click prontuário", ""),
+        ("Ajax=1&IsEvent=1&Obj=OD42&Evt=blur&this=OD42&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O611", "OD42 blur", ""),
+        ("Ajax=1&IsEvent=1&Obj=O6A0&Evt=tabchange&this=O6A0&tab=O6A9&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O611", "O6A0 tabchange O6A9", ""),
+        ("Ajax=1&IsEvent=1&Obj=O6C9&Evt=blur&this=O6C9&_S_ID={sid}&_seq_={seq}&_uo_=O611", "O6C9 blur", ""),
+        ("Ajax=1&IsEvent=1&Obj=OC1A&Evt=load&this=OC1A&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O611", "OC1A load", ""),
+        ("Ajax=1&IsEvent=1&Obj=OAD0&Evt=load&this=OAD0&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O611", "OAD0 load", ""),
+        ("Ajax=1&IsEvent=1&Obj=O589&Evt=timer&_S_ID={sid}&_seq_={seq}&_uo_=O0", "O589 timer pre-cadsus", ""),
+        ("Ajax=1&IsEvent=1&Obj=O7AB&Evt=blur&this=O7AB&_S_ID={sid}&_seq_={seq}&_uo_=O611", "O7AB blur", ""),
+    ]
+    for tmpl, lbl, fp in steps_prontuario:
+        if _post_seq(tmpl, lbl, fp=fp) is None:
+            return None
+
+    log.info("→ [amb] abrindo CadSUS")
+    steps_cadsus = [
+        ("Ajax=1&IsEvent=1&Obj=O7B3&Evt=click&this=O7B3&_S_ID={sid}&_seq_={seq}&_uo_=O611", "O7B3 click CadSUS", ""),
+        ("Ajax=1&IsEvent=1&Obj=O589&Evt=timer&_S_ID={sid}&_seq_={seq}&_uo_=O0", "O589 timer cadsus-open", ""),
+        ("Ajax=1&IsEvent=1&Obj=O112A&Evt=move&this=O112A&x=-14&y=49&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O112A", "O112A move", ""),
+        ("Ajax=1&IsEvent=1&Obj=O112A&Evt=activate&this=O112A&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O112A", "O112A activate", ""),
+        ("Ajax=1&IsEvent=1&Obj=O112A&Evt=resize&this=O112A&w=804&h=582&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O112A", "O112A resize", ""),
+        ("Ajax=1&IsEvent=1&Obj=O112A&Evt=move&this=O112A&x=0&y=49&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O112A", "O112A move stable", ""),
+        ("Ajax=1&IsEvent=1&Obj=O1145&Evt=tabchange&this=O1145&tab=O114E&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O112A", "O1145 tabchange O114E", ""),
+        ("Ajax=1&IsEvent=1&Obj=O11B2&Evt=load&this=O11B2&_S_ID={sid}&_seq_={seq}&_a_=1&_uo_=O112A", "O11B2 load (grid CadSUS)", ""),
+    ]
+    last_resp = None
+    for tmpl, lbl, fp in steps_cadsus:
+        last_resp = _post_seq(tmpl, lbl, fp=fp)
+        if last_resp is None:
+            return None
+
+    # ── Fase 4: aguardar O11B2 aparecer (CadSUS realmente registrado) ───────
+    cadsus_ok = bool(last_resp and ("O11B2" in last_resp.text or "O117A" in last_resp.text))
+    for i in range(20):
+        if cadsus_ok:
+            break
+        body = (f"Ajax=1&IsEvent=1&Obj=O589&Evt=_dummy_"
+                f"&_S_ID={sid_amb}&_seq_={amb_seq:x}&_a_=1&_uo_=O0")
+        rr = _post_amb(amb_seq, body, f"wait O11B2 #{i+1}")
+        amb_seq += 1
+        if rr is None:
+            return None
+        if "O11B2" in rr.text or "O117A" in rr.text:
+            cadsus_ok = True
+            break
+
     cookies = "; ".join(f"{c.name}={c.value}" for c in s.cookies)
     last_seq_hex = f"{amb_seq - 1:x}"
-    log.info("✓ ambulatorio pronto — sid=%s…%s seq=%s",
-             sid_amb[:4], sid_amb[-4:], last_seq_hex)
+    if cadsus_ok:
+        log.info("✓ CadSUS pronto — sid=%s…%s seq=%s",
+                 sid_amb[:4], sid_amb[-4:], last_seq_hex)
+    else:
+        log.warning("⚠ CadSUS pode não estar pronto (nenhuma resposta citou O11B2/O117A) "
+                    "— enviando sessão mesmo assim; sid=%s…%s seq=%s",
+                    sid_amb[:4], sid_amb[-4:], last_seq_hex)
     return sid_amb, cookies, last_seq_hex
 
 
