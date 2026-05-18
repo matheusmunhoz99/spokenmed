@@ -859,6 +859,14 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 }
 
 /* ---------- helpers ---------- */
+function Chip({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border bg-card px-2 py-0.5 text-muted-foreground ${className}`}>
+      {children}
+    </span>
+  );
+}
+
 function TT({ v, icon: Icon, children }: { v: string; icon: any; children: React.ReactNode }) {
   return (
     <TabsTrigger value={v} className="gap-1.5 whitespace-nowrap data-[state=active]:bg-card data-[state=active]:shadow-sm">
