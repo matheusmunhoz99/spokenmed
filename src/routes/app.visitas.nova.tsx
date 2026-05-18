@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Save, Upload, X, Home, Users, User, ChevronLeft } from "lucide-react";
+import { Save, Upload, X, Home, Users, User, ChevronLeft, CheckCircle2, Calendar, MapPin, ClipboardList, FileSignature, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { SemAcesso } from "@/components/sem-acesso";
