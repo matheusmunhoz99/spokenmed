@@ -477,6 +477,63 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
           }
         }}
       >
+        {/* CPF Hero — primeira coisa que a pessoa vê. Ao bater 11 dígitos, busca CADSUS sozinho. */}
+        {!editing && (
+          <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4 sm:p-5">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+              <IdCard className="h-4 w-4" />
+              Comece pelo CPF
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Digite o CPF e o sistema preenche nome, CNS, nascimento, mãe, telefone e endereço pelo CadSUS.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-stretch">
+              <div className="relative flex-1">
+                <Input
+                  data-field="cpf"
+                  autoFocus
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="000.000.000-00"
+                  className={`h-12 text-lg font-medium tracking-wide ${hl("cpf")}`}
+                  value={formatCPF(form.cpf ?? "")}
+                  onChange={(e) => { set("cpf", e.target.value); if (cpfErro) setCpfErro(null); }}
+                  onBlur={handleCpfBlur}
+                  onKeyDown={async (e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const d = onlyDigits(form.cpf ?? "");
+                    if (d.length !== 11) return;
+                    await handleBuscarCadSus();
+                    document.querySelector<HTMLInputElement>('[data-field="nome"]')?.focus();
+                  }}
+                  aria-invalid={!!cpfErro}
+                />
+                {cadsusLoading && (
+                  <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5 text-xs text-primary">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="hidden sm:inline">buscando CadSUS…</span>
+                  </div>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                title="Importar dados do cidadão pelo CadSUS"
+                disabled={cadsusLoading || onlyDigits(form.cpf ?? "").length !== 11}
+                onClick={handleBuscarCadSus}
+                tabIndex={-1}
+                className="h-12 shrink-0 gap-2 sm:w-auto"
+              >
+                {cadsusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <IdCard className="h-4 w-4" />}
+                Buscar CadSUS
+              </Button>
+            </div>
+            {cpfErro && <p className="mt-2 text-xs text-destructive">{cpfErro}</p>}
+          </div>
+        )}
+
         <Section title="Dados pessoais">
           <Field label="Nome completo *" className="md:col-span-3">
             <Input data-field="nome" className={hl("nome")} required value={form.nome} onChange={(e) => set("nome", e.target.value)} />
@@ -497,47 +554,26 @@ function PacienteDialog({ editing, onSaved, onOpenExisting }: { editing: Pacient
           <Field label="Nome da mãe" className="md:col-span-3">
             <Input data-field="nome_mae" className={hl("nome_mae")} value={form.nome_mae ?? ""} onChange={(e) => set("nome_mae", e.target.value)} />
           </Field>
-          <Field label="CPF" className="md:col-span-2">
-            <div className="flex gap-2">
+          {editing && (
+            <Field label="CPF" className="md:col-span-2">
               <Input
                 data-field="cpf"
-                className={`flex-1 ${hl("cpf")}`}
+                inputMode="numeric"
+                className={hl("cpf")}
                 value={formatCPF(form.cpf ?? "")}
                 onChange={(e) => { set("cpf", e.target.value); if (cpfErro) setCpfErro(null); }}
                 onBlur={handleCpfBlur}
-                onKeyDown={async (e) => {
-                  if (e.key !== "Enter") return;
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const d = onlyDigits(form.cpf ?? "");
-                  if (d.length !== 11) return; // não dispara com CPF incompleto
-                  await handleBuscarCadSus();
-                  // após buscar, mover foco para Telefone
-                  const next = document.querySelector<HTMLInputElement>('[data-field="telefone"]');
-                  next?.focus();
-                }}
                 aria-invalid={!!cpfErro}
               />
-              <Button
-                type="button"
-                variant="secondary"
-                title="Importar dados do cidadão pelo CadSUS"
-                disabled={cadsusLoading}
-                onClick={handleBuscarCadSus}
-                tabIndex={-1}
-                className="shrink-0 gap-2"
-              >
-                {cadsusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <IdCard className="h-4 w-4" />}
-                CadSUS
-              </Button>
-            </div>
-            {cpfErro && <p className="text-xs text-destructive mt-1">{cpfErro}</p>}
-          </Field>
+              {cpfErro && <p className="text-xs text-destructive mt-1">{cpfErro}</p>}
+            </Field>
+          )}
           <Field label="Cartão SUS (CNS)"><Input data-field="cns" className={hl("cns")} value={formatCNS(form.cns ?? "")} onChange={(e) => set("cns", e.target.value)} /></Field>
           <Field label="RG"><Input value={form.rg ?? ""} onChange={(e) => set("rg", e.target.value)} /></Field>
           <Field label="CNS secundário"><Input data-field="cns_secundario" className={hl("cns_secundario")} value={formatCNS(form.cns_secundario ?? "")} onChange={(e) => set("cns_secundario", e.target.value)} /></Field>
           <Field label="Outro CNS"><Input data-field="outro_cns" className={hl("outro_cns")} value={formatCNS(form.outro_cns ?? "")} onChange={(e) => set("outro_cns", e.target.value)} /></Field>
         </Section>
+
 
         <Section title="Contato">
           <Field label="Telefone"><Input data-field="telefone" className={hl("telefone")} value={formatPhone(form.telefone ?? "")} onChange={(e) => set("telefone", e.target.value)} /></Field>
