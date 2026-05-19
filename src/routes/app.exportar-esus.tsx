@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertCircle, CheckCircle2, Download, ExternalLink, FileText, Info, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
-import { previewExportacaoEsus, listarExportacoesEsus, type PreviewResultado } from "@/lib/esus-export.functions";
+import { previewExportacaoEsus, listarExportacoesEsus, registrarExportacaoEsus, gerarExportacaoEsus, baixarExportacaoEsus, type PreviewResultado } from "@/lib/esus-export.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { downloadCsv } from "@/lib/csv";
@@ -28,6 +28,10 @@ function ExportarEsusPage() {
   const { isAdmin } = useAuth();
   const previewFn = useServerFn(previewExportacaoEsus);
   const listarFn = useServerFn(listarExportacoesEsus);
+  const registrarFn = useServerFn(registrarExportacaoEsus);
+  const gerarFn = useServerFn(gerarExportacaoEsus);
+  const baixarFn = useServerFn(baixarExportacaoEsus);
+  const [gerando, setGerando] = useState(false);
 
   const [unidadeId, setUnidadeId] = useState<string>("");
   const [equipeId, setEquipeId] = useState<string>("");
@@ -345,11 +349,36 @@ function ExportarEsusPage() {
             )}
 
             <div className="border-t pt-3 flex flex-wrap items-center gap-3">
-              <Button disabled={!podeGerar} title={!podeGerar ? "Corrija os erros bloqueantes primeiro" : ""}>
-                <FileText className="h-4 w-4 mr-2" /> Gerar arquivo CDS .zip ({totalPronto} ficha{totalPronto === 1 ? "" : "s"})
+              <Button
+                disabled={!podeGerar || gerando}
+                title={!podeGerar ? "Corrija os erros bloqueantes primeiro" : ""}
+                onClick={async () => {
+                  if (!preview || !podeGerar) return;
+                  setGerando(true);
+                  try {
+                    const reg = await registrarFn({ data: {
+                      unidadeId, equipeId: equipeId || null, profissionalId,
+                      intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos,
+                      somenteNovos, totais: preview.prontos, validacao: { erros: preview.erros.length, avisos: preview.avisos.length },
+                    } as any });
+                    toast.info("Gerando arquivo .zip…");
+                    const r = await gerarFn({ data: { exportacaoId: (reg as any).id } });
+                    toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad}`);
+                    const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
+                    window.open(url, "_blank");
+                    refetchHistorico();
+                  } catch (e: any) {
+                    toast.error(e?.message ?? "Falha ao gerar exportação");
+                  } finally {
+                    setGerando(false);
+                  }
+                }}
+              >
+                {gerando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+                Gerar arquivo CDS .zip ({totalPronto} ficha{totalPronto === 1 ? "" : "s"})
               </Button>
               <p className="text-xs text-muted-foreground">
-                A geração do arquivo Thrift está em finalização (Fase 2). Por enquanto, a pré-validação já indica todos os campos que faltam para o e-SUS aceitar.
+                Gera <strong>.zip LEDI 7.4 (JSON)</strong> compatível com Bridge UFSC e conversores Thrift. Versão Thrift binária nativa requer os IDLs da PEC e será adicionada como variante na próxima atualização.
               </p>
             </div>
           </CardContent>
@@ -380,6 +409,7 @@ function ExportarEsusPage() {
                   <TableHead>Totais</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Lote</TableHead>
+                  <TableHead className="text-right">Arquivo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -390,11 +420,25 @@ function ExportarEsusPage() {
                     <TableCell className="text-xs">{(e.tipos_fichas ?? []).join(", ")}</TableCell>
                     <TableCell className="text-xs">FCD {e.total_fcd} · FCI {e.total_fci} · FAD {e.total_fad}</TableCell>
                     <TableCell>
-                      <Badge variant={e.status === "pronto" ? "default" : e.status === "erro" ? "destructive" : "secondary"}>
+                      <Badge variant={e.status === "concluido" ? "default" : e.status === "erro" ? "destructive" : "secondary"}>
                         {e.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-mono text-[10px]">{e.lote_uuid?.slice(0, 8)}…</TableCell>
+                    <TableCell className="text-right">
+                      {e.arquivo_path && e.status === "concluido" ? (
+                        <Button size="sm" variant="outline" onClick={async () => {
+                          try {
+                            const { url } = await baixarFn({ data: { exportacaoId: e.id } });
+                            window.open(url, "_blank");
+                          } catch (err: any) { toast.error(err?.message ?? "Erro ao gerar link"); }
+                        }}>
+                          <Download className="h-3 w-3 mr-1" /> Baixar
+                        </Button>
+                      ) : e.erro_msg ? (
+                        <span className="text-xs text-destructive" title={e.erro_msg}>ver erro</span>
+                      ) : null}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
