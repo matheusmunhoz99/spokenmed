@@ -112,7 +112,7 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
         if (!d.condicao_moradia) avisos.push({ tipo: "FCD", registroId: d.id, descricao: "Sem condição de moradia", campo: "condicao_moradia" });
         if (!d.localizacao) avisos.push({ tipo: "FCD", registroId: d.id, descricao: "Sem localização (urbana/rural)", campo: "localizacao" });
         if (eFCD.length) {
-          erros.push({ tipo: "FCD", registroId: d.id, descricao: `Campos obrigatórios faltando: ${eFCD.join(", ")}`, campo: eFCD[0], rota: { to: "/app/domicilios/$id", search: { } as any } });
+          erros.push({ tipo: "FCD", registroId: d.id, descricao: `Campos obrigatórios faltando: ${eFCD.join(", ")}`, campo: eFCD[0], rota: { to: "/app/domicilios/$id", params: { id: d.id } } });
         } else {
           prontos.fcd++;
         }
