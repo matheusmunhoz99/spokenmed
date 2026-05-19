@@ -939,6 +939,9 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
             </div>
           </main>
         </div>
+      </div>
+
+
 
       <EnvioEsusOverlay open={enviando} onClose={handleEnvioFechar} pacienteNome={paciente} />
     </>
