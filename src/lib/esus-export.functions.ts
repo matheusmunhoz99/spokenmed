@@ -75,8 +75,8 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
     if (!profissional?.cns) erros.push({ tipo: "FCD", registroId: data.profissionalId, descricao: "Profissional responsável sem CNS", campo: "cns", rota: "/app/profissionais" });
     if (!profissional?.cbo) erros.push({ tipo: "FCD", registroId: data.profissionalId, descricao: "Profissional responsável sem CBO", campo: "cbo", rota: "/app/profissionais" });
 
-    const resumo = { fcd: 0, fci: 0, fad: 0 };
-    const prontos = { fcd: 0, fci: 0, fad: 0 };
+    const resumo = { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 };
+    const prontos = { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 };
 
     // ----- FCD -----
     if (data.tiposFichas.includes("FCD")) {
