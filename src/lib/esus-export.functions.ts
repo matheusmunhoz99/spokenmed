@@ -12,10 +12,19 @@ import { buildFCDThrift } from "./esus-thrift/builders/fcd";
 import { buildFADThrift } from "./esus-thrift/builders/fad";
 import { buildFAIThrift } from "./esus-thrift/builders/fai";
 import { buildFAOThrift } from "./esus-thrift/builders/fao";
+import {
+  buildFACThrift, buildFPThrift, buildFVDThrift, buildFMCAThrift,
+  buildFAEThrift, buildFCZMThrift, buildFVThrift,
+} from "./esus-thrift/builders/_stub";
 import { packLDI, type FichaSerializada } from "./esus-thrift/pack";
 import { TipoDadoSerializado } from "./esus-thrift/transporte";
 import type { UnicaLotacaoHeaderInput } from "./esus-thrift/header";
 import { validarHeaderTransporte } from "./esus-validators";
+
+const TIPOS_FICHA = [
+  "FCD", "FCI", "FAD", "FAI", "FAO",
+  "FAC", "FP", "FVD", "FMCA", "FAE", "FCZM", "FV",
+] as const;
 
 const escopoSchema = z.object({
   unidadeId: z.string().uuid(),
@@ -23,11 +32,11 @@ const escopoSchema = z.object({
   profissionalId: z.string().uuid(),
   intervaloInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   intervaloFim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  tiposFichas: z.array(z.enum(["FCD", "FCI", "FAD", "FAI", "FAO"])).min(1),
+  tiposFichas: z.array(z.enum(TIPOS_FICHA)).min(1),
   somenteNovos: z.boolean().default(false),
 });
 
-export type FichaTipo = "FCD" | "FCI" | "FAD" | "FAI" | "FAO";
+export type FichaTipo = typeof TIPOS_FICHA[number];
 export type ErroExport = {
   tipo: FichaTipo;
   registroId: string;
