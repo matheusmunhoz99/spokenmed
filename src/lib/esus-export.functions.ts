@@ -10,6 +10,8 @@ import { buildFCD, buildFCI, buildFAD, type Cabecalho } from "./esus-ledi-builde
 import { buildFCIThrift } from "./esus-thrift/builders/fci";
 import { buildFCDThrift } from "./esus-thrift/builders/fcd";
 import { buildFADThrift } from "./esus-thrift/builders/fad";
+import { buildFAIThrift } from "./esus-thrift/builders/fai";
+import { buildFAOThrift } from "./esus-thrift/builders/fao";
 import { packLDI, type FichaSerializada } from "./esus-thrift/pack";
 import { TipoDadoSerializado } from "./esus-thrift/transporte";
 import type { UnicaLotacaoHeaderInput } from "./esus-thrift/header";
@@ -21,15 +23,16 @@ const escopoSchema = z.object({
   profissionalId: z.string().uuid(),
   intervaloInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   intervaloFim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  tiposFichas: z.array(z.enum(["FCD", "FCI", "FAD"])).min(1),
+  tiposFichas: z.array(z.enum(["FCD", "FCI", "FAD", "FAI", "FAO"])).min(1),
   somenteNovos: z.boolean().default(false),
 });
 
+export type FichaTipo = "FCD" | "FCI" | "FAD" | "FAI" | "FAO";
 export type PreviewResultado = {
-  resumo: { fcd: number; fci: number; fad: number };
-  erros: Array<{ tipo: "FCD" | "FCI" | "FAD"; registroId: string; descricao: string; campo: string; rota?: string }>;
-  avisos: Array<{ tipo: "FCD" | "FCI" | "FAD"; registroId: string; descricao: string; campo: string }>;
-  prontos: { fcd: number; fci: number; fad: number };
+  resumo: { fcd: number; fci: number; fad: number; fai: number; fao: number };
+  erros: Array<{ tipo: FichaTipo; registroId: string; descricao: string; campo: string; rota?: string }>;
+  avisos: Array<{ tipo: FichaTipo; registroId: string; descricao: string; campo: string }>;
+  prontos: { fcd: number; fci: number; fad: number; fai: number; fao: number };
   unidade: { id: string; nome: string; cnes: string | null; ibge: string | null; uf: string | null } | null;
   equipe: { id: string; ine: string | null; nome: string } | null;
   profissional: { id: string; nome: string; cns: string | null; cbo: string | null } | null;
@@ -72,8 +75,8 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
     if (!profissional?.cns) erros.push({ tipo: "FCD", registroId: data.profissionalId, descricao: "Profissional responsável sem CNS", campo: "cns", rota: "/app/profissionais" });
     if (!profissional?.cbo) erros.push({ tipo: "FCD", registroId: data.profissionalId, descricao: "Profissional responsável sem CBO", campo: "cbo", rota: "/app/profissionais" });
 
-    const resumo = { fcd: 0, fci: 0, fad: 0 };
-    const prontos = { fcd: 0, fci: 0, fad: 0 };
+    const resumo = { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 };
+    const prontos = { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 };
 
     // ----- FCD -----
     if (data.tiposFichas.includes("FCD")) {
@@ -147,6 +150,53 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
       }
     }
 
+    // ----- FAI (Atendimento Individual) -----
+    if (data.tiposFichas.includes("FAI")) {
+      const { data: ags } = await supabase
+        .from("agendamentos")
+        .select("id, paciente_id, profissional_id, status, data, hora_inicio, cid10, pacientes(cpf, cns, data_nascimento, sexo)")
+        .eq("unidade_id", data.unidadeId)
+        .eq("status", "atendido")
+        .gte("data", data.intervaloInicio)
+        .lte("data", data.intervaloFim);
+      resumo.fai = ags?.length ?? 0;
+      for (const a of (ags ?? []) as any[]) {
+        const e: string[] = [];
+        const pac = a.pacientes ?? {};
+        if (!pac.cpf && !pac.cns) e.push("CPF ou CNS do cidadão");
+        if (!pac.data_nascimento) e.push("data_nascimento");
+        if (!pac.sexo) e.push("sexo");
+        if (!a.cid10) avisos.push({ tipo: "FAI", registroId: a.id, descricao: "Atendimento sem CID-10", campo: "cid10" });
+        if (e.length) erros.push({ tipo: "FAI", registroId: a.id, descricao: `Cidadão sem dados obrigatórios: ${e.join(", ")}`, campo: e[0], rota: `/app/pacientes` });
+        else prontos.fai++;
+      }
+    }
+
+    // ----- FAO (Atendimento Odontológico) — filtra por CBO odontológico -----
+    if (data.tiposFichas.includes("FAO")) {
+      const cboOdonto = (profissional?.cbo ?? "").startsWith("2232"); // 2232xx = cirurgião-dentista
+      if (!cboOdonto) {
+        avisos.push({ tipo: "FAO", registroId: data.profissionalId, descricao: "Profissional não é cirurgião-dentista (CBO 2232*) — FAO ficará vazia.", campo: "cbo" });
+      }
+      const { data: ags } = await supabase
+        .from("agendamentos")
+        .select("id, paciente_id, profissional_id, status, data, hora_inicio, cid10, pacientes(cpf, cns, data_nascimento, sexo)")
+        .eq("unidade_id", data.unidadeId)
+        .eq("profissional_id", data.profissionalId)
+        .eq("status", "atendido")
+        .gte("data", data.intervaloInicio)
+        .lte("data", data.intervaloFim);
+      resumo.fao = ags?.length ?? 0;
+      for (const a of (ags ?? []) as any[]) {
+        const e: string[] = [];
+        const pac = a.pacientes ?? {};
+        if (!pac.cpf && !pac.cns) e.push("CPF ou CNS do cidadão");
+        if (!pac.data_nascimento) e.push("data_nascimento");
+        if (e.length) erros.push({ tipo: "FAO", registroId: a.id, descricao: `Cidadão sem dados obrigatórios: ${e.join(", ")}`, campo: e[0] });
+        else if (cboOdonto) prontos.fao++;
+      }
+    }
+
     return { resumo, erros, avisos, prontos, unidade, equipe, profissional };
   });
 
@@ -167,7 +217,10 @@ export const registrarExportacaoEsus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     escopoSchema.extend({
-      totais: z.object({ fcd: z.number().int().min(0), fci: z.number().int().min(0), fad: z.number().int().min(0) }),
+      totais: z.object({
+        fcd: z.number().int().min(0), fci: z.number().int().min(0), fad: z.number().int().min(0),
+        fai: z.number().int().min(0).default(0), fao: z.number().int().min(0).default(0),
+      }),
       validacao: z.any().optional(),
     }).parse(input),
   )
@@ -247,7 +300,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
 
       const dataAtendimento = Date.now();
       const tipos: string[] = exp.tipos_fichas ?? [];
-      const totais = { fcd: 0, fci: 0, fad: 0 };
+      const totais = { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 };
       const formato: "thrift" | "json" = data.formato;
 
       // Validações oficiais LEDI (CNS/CNES/INE/CBO/IBGE)
@@ -322,6 +375,60 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
             const bytes = buildFADThrift({ uuidFicha: u, header, visitas: visitasValidas });
             fichas.push({ tipo: TipoDadoSerializado.FICHA_ATENDIMENTO_DOMICILIAR, uuid: uuidPrefix + u, bytes });
             totais.fad = visitasValidas.length;
+          }
+        }
+
+        // ----- FAI (Atendimento Individual) -----
+        if (tipos.includes("FAI")) {
+          const { data: ags } = await supabase
+            .from("agendamentos")
+            .select("*, pacientes(cpf, cns, data_nascimento, sexo), procedimentos(codigo_sigtap)")
+            .eq("unidade_id", exp.unidade_id)
+            .eq("status", "atendido")
+            .gte("data", exp.intervalo_inicio)
+            .lte("data", exp.intervalo_fim);
+          const validos = (ags ?? []).filter((a: any) => {
+            const p = a.pacientes ?? {};
+            return (p.cpf || p.cns) && p.data_nascimento && p.sexo;
+          });
+          if (validos.length) {
+            const u = uuidv4();
+            const headerVarias = {
+              lotacaoFormPrincipal: {
+                profissionalCNS: prof.cns, cboCodigo_2002: prof.cbo,
+                cnes: unidade.cnes, ine: equipe?.ine ?? null,
+              },
+              dataAtendimentoEpochMs: dataAtendimento,
+              codigoIbgeMunicipio: unidade.ibge_municipio,
+            };
+            const bytes = buildFAIThrift({ uuidFicha: u, header: headerVarias, atendimentos: validos });
+            fichas.push({ tipo: TipoDadoSerializado.FICHA_ATENDIMENTO_INDIVIDUAL, uuid: uuidPrefix + u, bytes });
+            totais.fai = validos.length;
+          }
+        }
+
+        // ----- FAO (Atendimento Odontológico) -----
+        if (tipos.includes("FAO")) {
+          const cboOdonto = (prof.cbo ?? "").startsWith("2232");
+          if (cboOdonto) {
+            const { data: ags } = await supabase
+              .from("agendamentos")
+              .select("*, pacientes(cpf, cns, data_nascimento, sexo), procedimentos(codigo_sigtap)")
+              .eq("unidade_id", exp.unidade_id)
+              .eq("profissional_id", exp.profissional_id)
+              .eq("status", "atendido")
+              .gte("data", exp.intervalo_inicio)
+              .lte("data", exp.intervalo_fim);
+            const validos = (ags ?? []).filter((a: any) => {
+              const p = a.pacientes ?? {};
+              return (p.cpf || p.cns) && p.data_nascimento;
+            });
+            if (validos.length) {
+              const u = uuidv4();
+              const bytes = buildFAOThrift({ uuidFicha: u, header, atendimentos: validos });
+              fichas.push({ tipo: TipoDadoSerializado.FICHA_ATENDIMENTO_ODONTOLOGICO, uuid: uuidPrefix + u, bytes });
+              totais.fao = validos.length;
+            }
           }
         }
 

@@ -22,7 +22,12 @@ export const Route = createFileRoute("/app/exportar-esus")({
   component: ExportarEsusPage,
 });
 
-type FichaTipo = "FCD" | "FCI" | "FAD";
+type FichaTipo = "FCD" | "FCI" | "FAD" | "FAI" | "FAO";
+const FICHA_LABEL: Record<FichaTipo, string> = {
+  FCD: "Cadastro Domiciliar", FCI: "Cadastro Individual", FAD: "Visita Domiciliar",
+  FAI: "Atendimento Individual", FAO: "Atendimento Odontológico",
+};
+const FICHAS_ALL: FichaTipo[] = ["FCD", "FCI", "FAD", "FAI", "FAO"];
 
 function ExportarEsusPage() {
   const { isAdmin } = useAuth();
@@ -40,7 +45,7 @@ function ExportarEsusPage() {
   const trintaDias = new Date(hoje.getTime() - 30 * 24 * 3600 * 1000);
   const [inicio, setInicio] = useState(trintaDias.toISOString().slice(0, 10));
   const [fim, setFim] = useState(hoje.toISOString().slice(0, 10));
-  const [tipos, setTipos] = useState<FichaTipo[]>(["FCD", "FCI", "FAD"]);
+  const [tipos, setTipos] = useState<FichaTipo[]>(["FCD", "FCI", "FAD", "FAI", "FAO"]);
   const [formato, setFormato] = useState<"thrift" | "json">("thrift");
   const [somenteNovos, setSomenteNovos] = useState(false);
   const [preview, setPreview] = useState<PreviewResultado | null>(null);
@@ -140,7 +145,7 @@ function ExportarEsusPage() {
 
   const unidadeSelecionada = unidades.find((u) => u.id === unidadeId);
   const profSelecionado = profissionais.find((p) => p.id === profissionalId);
-  const totalPronto = preview ? preview.prontos.fcd + preview.prontos.fci + preview.prontos.fad : 0;
+  const totalPronto = preview ? preview.prontos.fcd + preview.prontos.fci + preview.prontos.fad + preview.prontos.fai + preview.prontos.fao : 0;
   const podeGerar = preview && preview.erros.length === 0 && totalPronto > 0;
 
   return (
@@ -248,9 +253,8 @@ function ExportarEsusPage() {
           <div className="space-y-2">
             <Label>Fichas a exportar *</Label>
             <div className="flex flex-wrap gap-2">
-              {(["FCD", "FCI", "FAD"] as FichaTipo[]).map((t) => {
+              {FICHAS_ALL.map((t) => {
                 const ativa = tipos.includes(t);
-                const label = t === "FCD" ? "Cadastro Domiciliar" : t === "FCI" ? "Cadastro Individual" : "Visita Domiciliar";
                 return (
                   <button
                     key={t}
@@ -258,7 +262,7 @@ function ExportarEsusPage() {
                     onClick={() => setTipos((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]))}
                     className={`px-3 py-1.5 rounded-md border text-sm transition ${ativa ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"}`}
                   >
-                    <span className="font-mono text-xs mr-1.5">{t}</span>{label}
+                    <span className="font-mono text-xs mr-1.5">{t}</span>{FICHA_LABEL[t]}
                   </button>
                 );
               })}
@@ -284,15 +288,15 @@ function ExportarEsusPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
-              {(["FCD", "FCI", "FAD"] as FichaTipo[]).map((t) => {
-                const key = t.toLowerCase() as "fcd" | "fci" | "fad";
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {FICHAS_ALL.map((t) => {
+                const key = t.toLowerCase() as keyof typeof preview.prontos;
                 const ativo = tipos.includes(t);
                 return (
                   <div key={t} className={`rounded-lg border p-3 ${ativo ? "" : "opacity-50"}`}>
                     <div className="text-xs text-muted-foreground font-mono">{t}</div>
                     <div className="text-2xl font-semibold">{preview.prontos[key]}<span className="text-base text-muted-foreground"> / {preview.resumo[key]}</span></div>
-                    <div className="text-xs text-muted-foreground">prontos para exportar</div>
+                    <div className="text-xs text-muted-foreground">prontos</div>
                   </div>
                 );
               })}
@@ -364,7 +368,7 @@ function ExportarEsusPage() {
                     } as any });
                     toast.info(formato === "thrift" ? "Gerando .zip Thrift (PEC offline)…" : "Gerando .zip JSON-LEDI (Bridge)…");
                     const r = await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
-                    toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad}`);
+                    toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad} · FAI ${(r.totais as any).fai ?? 0} · FAO ${(r.totais as any).fao ?? 0}`);
                     const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
                     window.open(url, "_blank");
                     refetchHistorico();
