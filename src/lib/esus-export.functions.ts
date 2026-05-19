@@ -540,11 +540,11 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
         });
         if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
 
-        await supabase.from("esus_exportacoes").update({
+        const { error: updErr } = await supabase.from("esus_exportacoes").update({
           status: "concluido", arquivo_path: path, arquivo_tamanho_bytes: zipBytes.byteLength,
           total_fcd: totais.fcd, total_fci: totais.fci, total_fad: totais.fad,
-          concluido_em: new Date().toISOString(),
         }).eq("id", exp.id);
+        if (updErr) throw new Error(`Falha ao salvar exportação: ${updErr.message}`);
 
         // Marca fichas exportadas para não reaparecerem na próxima geração
         try {
@@ -640,11 +640,11 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
       });
       if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
 
-      await supabase.from("esus_exportacoes").update({
+      const { error: updErr } = await supabase.from("esus_exportacoes").update({
         status: "concluido", arquivo_path: path, arquivo_tamanho_bytes: buf.byteLength,
         total_fcd: manifest.fichas.fcd, total_fci: manifest.fichas.fci, total_fad: manifest.fichas.fad,
-        concluido_em: new Date().toISOString(),
       }).eq("id", exp.id);
+      if (updErr) throw new Error(`Falha ao salvar exportação: ${updErr.message}`);
       return { ok: true, path, totais: manifest.fichas, tamanho: buf.byteLength, formato };
     } catch (err: any) {
       await supabase.from("esus_exportacoes").update({
