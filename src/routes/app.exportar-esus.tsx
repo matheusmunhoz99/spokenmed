@@ -657,9 +657,20 @@ function ExportarEsusPage() {
             <CardTitle className="text-lg">Histórico de exportações</CardTitle>
             <CardDescription>Últimos 50 lotes gerados.</CardDescription>
           </div>
-          <Button size="sm" variant="ghost" onClick={() => refetchHistorico()}>
-            <RefreshCw className="h-4 w-4 mr-1" /> Atualizar
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={() => refetchHistorico()}>
+              <RefreshCw className="h-4 w-4 mr-1" /> Atualizar
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setConfirmLimpar(true)}
+              disabled={!historico?.exportacoes?.length}
+            >
+              <Trash2 className="h-4 w-4 mr-1" /> Limpar todos os lotes
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {!historico?.exportacoes?.length ? (
