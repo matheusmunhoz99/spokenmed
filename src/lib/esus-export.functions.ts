@@ -208,7 +208,7 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
         const pac = a.pacientes ?? {};
         if (!pac.cpf && !pac.cns) e.push("CPF ou CNS do cidadão");
         if (!pac.data_nascimento) e.push("data_nascimento");
-        if (e.length) erros.push({ tipo: "FAO", registroId: a.id, descricao: `Cidadão sem dados obrigatórios: ${e.join(", ")}`, campo: e[0] });
+        if (e.length) erros.push({ tipo: "FAO", registroId: a.paciente_id ?? a.id, descricao: `Cidadão sem dados obrigatórios: ${e.join(", ")}`, campo: e[0], rota: { to: "/app/pacientes", search: { abrir: a.paciente_id ?? "" } } });
         else if (cboOdonto) prontos.fao++;
       }
     }
