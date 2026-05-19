@@ -411,39 +411,28 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
           }
         }
 
-        // ----- FAI (Atendimento Individual) -----
+        // ----- FAI (Atendimento Individual) — só atendimentos pendentes/desatualizados -----
         if (tipos.includes("FAI")) {
-          const { data: ags } = await supabase
-            .from("agendamentos")
-            .select("*, pacientes(cpf, cns, data_nascimento, sexo), procedimentos(codigo_sigtap)")
+          const { data: ats } = await supabase
+            .from("atendimentos" as any)
+            .select("*, agendamentos:agendamento_id(id, cid10, hora_inicio, data, modalidade, tele_sala_id), pacientes:paciente_id(cpf, cns, data_nascimento, sexo, numero_prontuario)")
             .eq("unidade_id", exp.unidade_id)
-            .eq("status", "atendido")
-            .gte("data", exp.intervalo_inicio)
-            .lte("data", exp.intervalo_fim);
+            .in("status_envio", ["pendente", "desatualizado"])
+            .gte("data_atendimento", exp.intervalo_inicio)
+            .lte("data_atendimento", exp.intervalo_fim);
 
-          // Carrega os atendimentos clínicos (SOAP/CIDs/modalidade/turno) gravados pelo consultório.
-          const agIds = (ags ?? []).map((a: any) => a.id);
-          const atMap = new Map<string, any>();
-          if (agIds.length) {
-            const { data: ats } = await supabase
-              .from("atendimentos" as any)
-              .select("*")
-              .in("agendamento_id", agIds);
-            for (const at of (ats ?? []) as any[]) {
-              // Mantém o mais recente por agendamento
-              const prev = atMap.get(at.agendamento_id);
-              if (!prev || new Date(at.finalizado_em) > new Date(prev.finalizado_em)) {
-                atMap.set(at.agendamento_id, at);
-              }
-            }
-          }
-          const enriched = (ags ?? []).map((a: any) => ({ ...a, atendimento: atMap.get(a.id) ?? null }));
-
-          const validos = enriched.filter((a: any) => {
+          const validos = (ats ?? []).filter((a: any) => {
             const p = a.pacientes ?? {};
             return (p.cpf || p.cns) && p.data_nascimento && p.sexo;
           });
           if (validos.length) {
+            // adapta o shape esperado pelo builder atual (espera "a.pacientes" e "a.atendimento")
+            const adapted = validos.map((a: any) => ({
+              ...a.agendamentos,
+              pacientes: a.pacientes,
+              cid10: a.agendamentos?.cid10,
+              atendimento: a,
+            }));
             const u = uuidv4();
             const headerVarias = {
               lotacaoFormPrincipal: {
@@ -453,8 +442,9 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
               dataAtendimentoEpochMs: dataAtendimento,
               codigoIbgeMunicipio: unidade.ibge_municipio,
             };
-            const bytes = buildFAIThrift({ uuidFicha: u, header: headerVarias, atendimentos: validos });
+            const bytes = buildFAIThrift({ uuidFicha: u, header: headerVarias, atendimentos: adapted });
             fichas.push({ tipo: TipoDadoSerializado.FICHA_ATENDIMENTO_INDIVIDUAL, uuid: uuidPrefix + u, bytes });
+            for (const a of validos) idsAtend.push(a.id);
             totais.fai = validos.length;
           }
         }
@@ -483,6 +473,45 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
             }
           }
         }
+
+        // ----- Fichas com builders stub (sem fonte de dados ainda) -----
+        // Mantém o registro mas pula geração até as tabelas existirem.
+        const headerVarias = {
+          lotacaoFormPrincipal: { profissionalCNS: prof.cns, cboCodigo_2002: prof.cbo, cnes: unidade.cnes, ine: equipe?.ine ?? null },
+          dataAtendimentoEpochMs: dataAtendimento,
+          codigoIbgeMunicipio: unidade.ibge_municipio,
+        };
+        if (tipos.includes("FAC")) {
+          const bytes = buildFACThrift({ uuidFicha: uuidv4(), header: headerVarias, atividades: [] });
+          if (bytes.byteLength > 0) fichas.push({ tipo: TipoDadoSerializado.FICHA_ATIVIDADE_COLETIVA, uuid: uuidPrefix + uuidv4(), bytes });
+        }
+        if (tipos.includes("FP")) {
+          const bytes = buildFPThrift({ uuidFicha: uuidv4(), header: headerVarias, procedimentos: [] });
+          if (bytes.byteLength > 0 && false) fichas.push({ tipo: TipoDadoSerializado.FICHA_PROCEDIMENTOS, uuid: uuidPrefix + uuidv4(), bytes });
+        }
+        if (tipos.includes("FAE")) {
+          const bytes = buildFAEThrift({ uuidFicha: uuidv4(), header: headerVarias, atendimentos: [] });
+          if (bytes.byteLength > 0 && false) fichas.push({ tipo: 13 as any, uuid: uuidPrefix + uuidv4(), bytes });
+        }
+        if (tipos.includes("FV")) {
+          const bytes = buildFVThrift({ uuidFicha: uuidv4(), header: headerVarias, vacinacoes: [] });
+          if (bytes.byteLength > 0 && false) fichas.push({ tipo: TipoDadoSerializado.FICHA_VACINACAO, uuid: uuidPrefix + uuidv4(), bytes });
+        }
+        if (tipos.includes("FVD")) {
+          const bytes = buildFVDThrift({ uuidFicha: uuidv4(), header, visitas: [] });
+          if (bytes.byteLength > 0 && false) fichas.push({ tipo: TipoDadoSerializado.FICHA_VISITA_DOMICILIAR, uuid: uuidPrefix + uuidv4(), bytes });
+        }
+        if (tipos.includes("FMCA")) {
+          const bytes = buildFMCAThrift({ uuidFicha: uuidv4(), header, marcadores: [] });
+          if (bytes.byteLength > 0 && false) fichas.push({ tipo: TipoDadoSerializado.FICHA_MARCADORES_CONSUMO_ALIMENTAR, uuid: uuidPrefix + uuidv4(), bytes });
+        }
+        if (tipos.includes("FCZM")) {
+          const bytes = buildFCZMThrift({ uuidFicha: uuidv4(), header, avaliacoes: [] });
+          if (bytes.byteLength > 0 && false) fichas.push({ tipo: TipoDadoSerializado.FICHA_COMPLEMENTAR_ZIKA_MICROCEFALIA, uuid: uuidPrefix + uuidv4(), bytes });
+        }
+        // Silencia warning unused
+        void buildFACThrift; void buildFPThrift; void buildFVDThrift;
+        void buildFMCAThrift; void buildFAEThrift; void buildFCZMThrift; void buildFVThrift;
 
         const { zipBytes } = await packLDI({
           cnes: unidade.cnes,
