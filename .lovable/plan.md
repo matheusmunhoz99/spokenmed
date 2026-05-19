@@ -1,107 +1,244 @@
 ## Objetivo
 
-Trocar o conteúdo do ZIP exportado para o PEC e-SUS pelo formato **XML transport** (igual aos exemplos do Fiorilli SIS), com a marca SpokenMed nos campos fixos. Cada ficha vira **1 arquivo `.xml`** dentro do ZIP, no formato `dadoTransporteTransportXml` com namespaces `ns2` (`dadoinstalacao`), `ns3` (`dadotransporte`) e `ns4` (master da ficha).
+Substituir o módulo XML atual (que ainda carrega marca/headers no estilo Fiorilli e gera strings concatenadas) por um **módulo oficial e-SUS APS LEDI**, alinhado ao Thrift/XSD publicado pela UFSC (https://integracao.esusab.ufsc.br/ledi/documentacao/thrift-xsd.html). A primeira ficha implementada de ponta-a-ponta é a **FVD — Ficha de Visita Domiciliar** (`tipoDadoSerializado = 8`), com arquitetura preparada para FAI, FP, FV, FCI, FCD.
 
-## Escopo desta entrega
+## Princípios
 
-Tipos de ficha suportados nesta primeira leva (cobrem o que o app gera hoje):
-
-- **FAI** — Ficha de Atendimento Individual (`tipoDadoSerializado=4`, ns4 `fichaatendimentoindividualmaster`)
-- **FVD** — Ficha de Visita Domiciliar (`tipoDadoSerializado=8`, ns4 `fichavisitadomiciliarmaster`) — substitui o uso atual de "FAD"
-- **FCI** — Cadastro Individual (`tipoDadoSerializado=1`)
-- **FCD** — Cadastro Domiciliar (`tipoDadoSerializado=2`)
-- **FAO** — Atendimento Odontológico (`tipoDadoSerializado=5`)
-
-Versão LEDI declarada no XML: `<versao major="6" minor="3" revision="5"/>` (igual ao exemplo Fiorilli, que é o que o PEC offline aceita via importador XML).
+- **100% padrão oficial LEDI**, sem nenhuma referência a "Fiorilli" / "SpokenMED" como rótulo de software remetente/originadora no XML. A identidade do remetente passa a ser configurável (default neutro: `contraChave = "SpokenMED-PEC"` + `versaoSistema = "1.0.0"`, sem string "FIORILLI").
+- **Sem concatenação manual de strings**. Trocar por um builder XML seguro (`xmlbuilder2`), que cuida de namespaces, ordem de filhos, escape e self-closing.
+- **TypeScript fortemente tipado**: cada bloco da LEDI vira uma interface (`HeaderTransport`, `Remetente`, `Originadora`, `Versao`, `VisitaDomiciliar`, `FichaVisitaDomiciliarMaster`, `DadoTransporte`).
+- **Separação clara**:
+  - `models/` — tipos puros (sem I/O).
+  - `serializers/` — funções `toXml(model)` que devolvem string XML usando `xmlbuilder2`.
+  - `mappers/` — convertem rows do Supabase em models (regra de negócio).
+  - `index.ts` — função pública `exportarFichaVisitaDomiciliar(...)` que orquestra mapper → serializer → ZIP.
+- **Compatibilidade com o importador XML do PEC**: namespaces oficiais, ordem de tags conforme XSD, datas em **epoch milliseconds (UTC)**, booleans como `true`/`false`, arrays como tags repetidas, UUID por ficha.
 
 ## Arquitetura
 
-### Novo módulo `src/lib/esus-xml/`
+```text
+src/lib/esus-ledi/
+  index.ts                          // API pública (exportarFichaVisitaDomiciliar, ...)
+  models/
+    header-transport.ts             // HeaderTransport
+    remetente.ts                    // Remetente, Originadora (DadoInstalacao)
+    versao.ts                       // Versao { major, minor, revision }
+    dado-transporte.ts              // DadoTransporte, TipoDadoSerializado enum
+    fvd.ts                          // VisitaDomiciliar, FichaVisitaDomiciliarMaster
+    fai.ts                          // (stub para próxima leva)
+    enums.ts                        // Turno, Sexo, Desfecho, MotivoVisita, TipoImovel, etc.
+  serializers/
+    xml-builder.ts                  // wrapper fino sobre xmlbuilder2 (create, fragment, ele)
+    envelope.ts                     // serializeDadoTransporte(dt) -> string XML
+    header-transport.ts             // ele('headerTransport', {...})
+    fvd.ts                          // serializeFichaVisitaDomiciliarMaster(model)
+  mappers/
+    fvd-from-db.ts                  // (row visita + paciente + unidade + prof) -> VisitaDomiciliar
+    header-from-db.ts               // -> HeaderTransport
+    remetente-from-config.ts        // -> Remetente / Originadora (config global)
+  validators/
+    cpf.ts, cns.ts, uuid.ts, ibge.ts, cnes.ts, ine.ts
+  uuid.ts                           // gera UUID v4 conforme LEDI (44 chars com prefixo CNES)
+  config.ts                         // RemetenteConfig (cpfOuCnpj, nomeOuRazaoSocial, versaoSistema, contraChave)
+```
+
+### Models (resumo)
+
+```ts
+export interface Versao { major: number; minor: number; revision: number }
+
+export interface DadoInstalacao {
+  contraChave: string;          // 1..255
+  uuidInstalacao: string;       // 36..44
+  cpfOuCnpj: string;            // 11..14 (apenas dígitos)
+  nomeOuRazaoSocial: string;    // 1..255
+  versaoSistema: string;        // 1..32
+}
+
+export enum TipoDadoSerializado {
+  CADASTRO_INDIVIDUAL = 1,
+  CADASTRO_DOMICILIAR = 2,
+  ATENDIMENTO_INDIVIDUAL = 4,
+  ATENDIMENTO_ODONTOLOGICO = 5,
+  PROCEDIMENTOS = 7,
+  VISITA_DOMICILIAR = 8,
+  VACINACAO = 14,
+}
+
+export interface HeaderTransport {
+  profissionalCNS: string;          // 15
+  cboCodigo_2002: string;
+  cnes: string;                     // 7
+  ine?: string;                     // 10
+  dataAtendimento: number;          // epoch ms
+  codigoIbgeMunicipio: string;      // 7
+}
+
+export interface VisitaDomiciliar {
+  uuidFicha: string;                // 44
+  turno?: 1 | 2 | 3;
+  cpfCidadao?: string;              // 11
+  cnsCidadao?: string;              // 15
+  dtNascimento?: number;            // epoch ms
+  sexo?: 0 | 1;                     // 0=F, 1=M
+  statusVisitaCompartilhadaOutroProfissional: boolean;
+  motivosVisita: number[];          // codes LEDI
+  desfecho?: 1 | 2 | 3;             // 1=realizada,2=recusada,3=ausente
+  microArea?: string;
+  stForaArea: boolean;
+  tipoDeImovel?: number;
+}
+
+export interface FichaVisitaDomiciliarMaster {
+  uuidFicha: string;
+  tpCdsOrigem: 3;
+  headerTransport: HeaderTransport;
+  visitasDomiciliares: VisitaDomiciliar[];   // repete N tags <visitasDomiciliares>
+}
+
+export interface DadoTransporte {
+  uuidDadoSerializado: string;      // 44
+  tipoDadoSerializado: TipoDadoSerializado;
+  codIbge: string;                  // 7
+  cnesDadoSerializado: string;      // 7
+  ineDadoSerializado?: string;      // 10
+  numLote: number;                  // bigint serializado como decimal
+  ficha: FichaVisitaDomiciliarMaster /* | outras fichas */;
+  remetente: DadoInstalacao;
+  originadora: DadoInstalacao;
+  versao: Versao;                   // default {6,3,5}
+}
+```
+
+### Serialização (xmlbuilder2)
+
+Wrapper `xml-builder.ts` expõe `create()`, `ele()`, `txt()`, `att()`. Os serializers montam o documento **respeitando a ordem do XSD**:
+
+```ts
+// serializers/envelope.ts
+import { create } from "xmlbuilder2";
+import { serializeFichaVisitaDomiciliarMaster } from "./fvd";
+
+export function serializeDadoTransporte(dt: DadoTransporte): string {
+  const doc = create({ version: "1.0", encoding: "UTF-8", standalone: true });
+  const root = doc.ele("ns3:dadoTransporteTransportXml", {
+    "xmlns:ns2": "http://esus.ufsc.br/dadoinstalacao",
+    "xmlns:ns3": "http://esus.ufsc.br/dadotransporte",
+    "xmlns:ns4": ns4UriFor(dt.tipoDadoSerializado),
+  });
+  root.ele("uuidDadoSerializado").txt(dt.uuidDadoSerializado);
+  root.ele("tipoDadoSerializado").txt(String(dt.tipoDadoSerializado));
+  root.ele("codIbge").txt(dt.codIbge);
+  root.ele("cnesDadoSerializado").txt(dt.cnesDadoSerializado);
+  if (dt.ineDadoSerializado) root.ele("ineDadoSerializado").txt(dt.ineDadoSerializado);
+  root.ele("numLote").txt(String(dt.numLote));
+  serializeFichaVisitaDomiciliarMaster(root, dt.ficha);   // <ns4:fichaVisitaDomiciliarMasterTransport>
+  serializeDadoInstalacao(root, "ns2:remetente", dt.remetente);
+  serializeDadoInstalacao(root, "ns2:originadora", dt.originadora);
+  const v = root.ele("versao");
+  v.att("major", String(dt.versao.major));
+  v.att("minor", String(dt.versao.minor));
+  v.att("revision", String(dt.versao.revision));
+  return doc.end({ prettyPrint: false });
+}
+```
+
+`serializeFichaVisitaDomiciliarMaster` emite:
 
 ```
-src/lib/esus-xml/
-  index.ts            // export público dos builders
-  envelope.ts         // monta <ns3:dadoTransporteTransportXml> + remetente/originadora/versao
-  escape.ts           // escapeXml + helpers
-  uuid.ts             // gera uuidDadoSerializado no padrão "<cnes>-<random10>-<sigla>-0000-0000-<seq>"
-  fai.ts              // <ns4:fichaAtendimentoIndividualMasterTransport>
-  fvd.ts              // <ns4:fichaVisitaDomiciliarMasterTransport>
-  fci.ts              // <ns4:fichaCadastroIndividualMasterTransport>
-  fcd.ts              // <ns4:fichaCadastroDomiciliarMasterTransport>
-  fao.ts              // <ns4:fichaAtendimentoOdontologicoMasterTransport>
+<ns4:fichaVisitaDomiciliarMasterTransport>
+  <uuidFicha>...</uuidFicha>
+  <tpCdsOrigem>3</tpCdsOrigem>
+  <headerTransport>...</headerTransport>
+  <visitasDomiciliares>...</visitasDomiciliares>   (1..N)
+</ns4:fichaVisitaDomiciliarMasterTransport>
 ```
 
-Cada builder recebe o objeto da ficha + header + dados da unidade/profissional e devolve uma **string XML** completa do envelope. Sem dependência de libs externas: usamos template strings + `escapeXml` (`& < > " '`) já que o conteúdo é controlado.
+`xmlbuilder2` cuida automaticamente do escape (`& < > " '`), self-closing e ordem de atributos.
 
-### Identidade SpokenMed (campos fixos `<ns2:remetente>` / `<ns2:originadora>`)
+### Validators
 
+Funções puras lançando `Error` com mensagem específica para serem capturadas pelo orquestrador:
+
+- `validateCpf(s)` — 11 dígitos + DV.
+- `validateCns(s)` — 15 dígitos + algoritmo oficial (mod 11).
+- `validateCnes(s)` — 7 dígitos.
+- `validateIne(s)` — 10 dígitos.
+- `validateIbge(s)` — 7 dígitos.
+- `validateUuidLedi(s)` — 36..44 chars, prefixo CNES + UUID v4.
+
+### UUID
+
+`uuid.ts` gera UUID v4 (via `crypto.randomUUID()`, disponível no Worker) e prefixa com CNES (`${cnes}-${uuid}`), formato recomendado pela LEDI. Funciona tanto para `uuidDadoSerializado` quanto para `uuidFicha`.
+
+### Função pública
+
+```ts
+// src/lib/esus-ledi/index.ts
+export async function exportarFichaVisitaDomiciliar(input: {
+  visitas: VisitaDomiciliarSource[];      // rows do Supabase já carregadas
+  header: HeaderTransport;
+  cnes: string;
+  ine?: string;
+  codIbge: string;
+  numLote: number;
+  remetente: DadoInstalacao;
+  originadora?: DadoInstalacao;            // default = remetente
+}): Promise<{ zip: Uint8Array; filename: string; arquivos: { name: string; uuid: string }[] }>;
 ```
-contraChave       = "SpokenMED SIS - 1.0.0"
-uuidInstalacao    = exp.lote_uuid                      // UUID por lote
-cpfOuCnpj         = "00000000000000"                   // placeholder; tornar configurável depois
-nomeOuRazaoSocial = "SpokenMED SIS - 1.0.0 - <SIGLA>"  // FAI/FVD/FCI/FCD/FAO
-versaoSistema     = "1.0.0"
+
+Faz: map → validate → serialize → JSZip com **um arquivo `data/<uuidDadoSerializado>.xml` por lote** (a LEDI permite múltiplas visitas em um único Master; vamos emitir 1 Master por exportação, contendo N `<visitasDomiciliares>`).
+
+### Integração com `esus-export.functions.ts`
+
+- Adiciona branch `formato === "xml-oficial"` (e torna default).
+- Remove os call sites para `src/lib/esus-xml/*` antigos (Fiorilli) **apenas no caminho FVD nesta entrega**; FAI/FAO/FCI/FCD continuam temporariamente apontando para o módulo antigo até serem migrados.
+- Lê config do remetente de uma nova tabela `esus_remetente_config` (uma linha por tenant) **ou** de variáveis em `process.env` se a tabela estiver vazia — assim o usuário consegue trocar `cpfOuCnpj`/`nomeOuRazaoSocial` sem deploy.
+
+### Limpeza
+
+- Remover blocos `<!-- SPOKENMED SIS LTDA -->` e nomes "SpokenMED SIS - x.y" da nova trilha. O envelope oficial não traz comentários nem branding.
+- Apagar o helper `escape.ts` antigo só depois que todas as fichas estiverem migradas (entrega futura). Nesta PR mantemos os dois módulos lado a lado.
+
+## Dependências
+
+- `bun add xmlbuilder2` — Worker-compat, sem nativos.
+- Sem outras libs novas.
+
+## Migração de banco
+
+Adicionar tabela:
+
+```sql
+create table public.esus_remetente_config (
+  id uuid primary key default gen_random_uuid(),
+  contra_chave text not null,
+  cpf_ou_cnpj text not null,
+  nome_ou_razao_social text not null,
+  versao_sistema text not null default '1.0.0',
+  uuid_instalacao uuid not null default gen_random_uuid(),
+  ativo boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+-- RLS: admin all; staff select.
 ```
 
-`<versao major="6" minor="3" revision="5"/>` fixo.
+(`num_lote` já existe em `esus_exportacoes`, ok.)
 
-### `numLote`
+## Fora de escopo
 
-Adicionar coluna `num_lote` (BIGSERIAL) na tabela `esus_exportacoes` para gerar um inteiro incremental por exportação (o XML precisa de `<numLote>`). Migration pequena.
-
-### `uuidDadoSerializado`
-
-Padrão visto no exemplo:
-`{CNES}-{10digits}-{SIGLA}-0000-0000-{10digits}`
-
-Implementação: `<cnes>-<rand10>-<sigla>-0000-0000-<numLote.padStart(10,'0')>`. Sigla por tipo: FDAI (FAI), FDVD (FVD), FDCI (FCI), FDCD (FCD), FDAO (FAO).
-
-### Mudanças em `src/lib/esus-export.functions.ts`
-
-- Trocar o default de `formato` para `"xml"` e adicionar `"xml"` ao enum (`thrift` e `json` continuam funcionando como fallback).
-- Quando `formato === "xml"`:
-  - Para cada ficha que hoje empacotamos via `packLDI`, chamar o builder XML correspondente e gravar `data/<uuidDadoSerializado>.xml` no `JSZip`.
-  - Continuar gravando `manifest.json` + `LEIA-ME.txt` curtos (informativos; o PEC ignora).
-  - `contentType: "application/zip"`, nome `${cnes}_${inicio}_${fim}_${lote}.xml.zip`.
-- Reaproveitar todo o pipeline atual de:
-  - Filtros (`finalizado_em not null` para FAI/FAO, validações de paciente).
-  - Marcação `marcar_fichas_exportadas` no final.
-  - Erro "Nenhuma ficha válida…" se zerar.
-
-### Mapeamentos de campo XML (resumo)
-
-**FAI (`<atendimentosIndividuais>`):**
-
-- `numeroProntuario`, `cpfCidadao` ou `cnsCidadao`, `dataNascimento` (epoch ms), `sexo` (0=F,1=M), `turno` (1/2/3), `tipoAtendimento`, `localDeAtendimento`.
-- `medicoes` (peso/altura quando houver) — viram nós opcionais.
-- `problemasCondicoes` — repetir para cada CID-10 / CIAP-2 em `atendimentos.cids`.
-- `condutas` — derivado de `atendimentos.conduta`.
-- `dataHoraInicialAtendimento` / `dataHoraFinalAtendimento` — `atendimentos.iniciado_em` / `finalizado_em`.
-- `exame` (repetido) — quando `atendimentos.exames` existir.
-
-**FVD (`<visitasDomiciliares>`):**
-
-- `turno`, `numProntuario`, `cpfCidadao`/`cnsCidadao`, `dtNascimento`, `sexo`, `motivosVisita` (repetido), `desfecho` (1/2/3), `microArea`, `stForaArea`, `tipoDeImovel`, `statusVisitaCompartilhadaOutroProfissional`.
-
-Campos não-mapeáveis no schema atual ficam **omitidos** (são opcionais no XSD do PEC).
-
-### `headerTransport`
-
-Reutiliza os dados que já levantamos:
-`profissionalCNS`, `cboCodigo_2002`, `cnes`, `ine`, `dataAtendimento` (epoch ms — meia-noite UTC do dia do atendimento), `codigoIbgeMunicipio`.
-
-## Fora de escopo (próxima etapa, se você pedir)
-
-- Builders XML para FAC, FP, FAE, FCZM, FV, FMCA (hoje são stubs).
-- Configurar CNPJ real / `contraChave` por tenant.
-- Validar contra o XSD oficial do PEC (faço se você anexar o XSD).
+- Migrar FAI/FAO/FCI/FCD para o novo módulo (próxima leva — mesma arquitetura, novos serializers).
+- UI para editar `esus_remetente_config` (entrega seguinte).
+- Validar contra o XSD oficial (faço se você anexar o `.xsd`).
 
 ## Plano de execução
 
-1. Migration: `ALTER TABLE esus_exportacoes ADD COLUMN num_lote BIGSERIAL;`.
-2. Criar `src/lib/esus-xml/*` (envelope + 5 builders + helpers).
-3. Em `esus-export.functions.ts`: adicionar branch `formato === "xml"`, default `xml`.
-4. Ajustar `src/routes/app.exportar-esus.tsx` para passar `formato: "xml"` no `gerarExportacaoEsus`.
-5. Smoke test: gerar um lote real, abrir um `.xml` do ZIP e comparar com os exemplos Fiorilli.
+1. **Migration** `esus_remetente_config` + RLS.
+2. `bun add xmlbuilder2`.
+3. Criar `src/lib/esus-ledi/` (models, serializers, mappers, validators, uuid, config, index).
+4. Em `esus-export.functions.ts`: novo branch FVD usando `exportarFichaVisitaDomiciliar`; default passa a ser `xml-oficial`.
+5. Smoke test: gerar 1 lote real de FVD, abrir o XML, conferir namespaces/ordem/epoch/booleans e tentar importar no PEC.
+6. Documentar no `LEIA-ME.txt` do ZIP: "XML oficial e-SUS APS LEDI 6.3.5".
 
 Posso seguir?
