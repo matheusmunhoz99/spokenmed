@@ -75,10 +75,88 @@ function ConfigPage() {
         <UnidadesCard />
         <EspecialidadesCard />
       </div>
+      <EquipesCard />
       <ProcedimentosCard />
     </div>
   );
 }
+
+function EquipesCard() {
+  const qc = useQueryClient();
+  const [unidadeId, setUnidadeId] = useState("");
+  const [nome, setNome] = useState("");
+  const [ine, setIne] = useState("");
+  const [tipo, setTipo] = useState("eSF");
+  const { data: unidades = [] } = useQuery({ queryKey: ["unidades"], queryFn: async () => (await supabase.from("unidades").select("id, nome").eq("ativo", true).order("nome")).data ?? [] });
+  const { data: equipes = [] } = useQuery({ queryKey: ["equipes"], queryFn: async () => (await supabase.from("equipes").select("id, nome, ine, tipo_equipe, unidade_id, ativo").order("nome")).data ?? [] });
+
+  const add = async () => {
+    if (!unidadeId || !nome || !ine) return toast.error("Preencha unidade, nome e INE.");
+    const ineClean = ine.replace(/\D/g, "");
+    if (ineClean.length !== 10) return toast.error("INE deve ter 10 dígitos.");
+    const { error } = await supabase.from("equipes").insert({ unidade_id: unidadeId, nome, ine: ineClean, tipo_equipe: tipo });
+    if (error) return toast.error(error.message);
+    setNome(""); setIne(""); toast.success("Equipe cadastrada");
+    qc.invalidateQueries({ queryKey: ["equipes"] });
+  };
+  const del = async (id: string) => {
+    if (!confirm("Apagar equipe?")) return;
+    const { error } = await supabase.from("equipes").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["equipes"] });
+  };
+
+  const nomeUnidade = (id: string) => unidades.find((u) => u.id === id)?.nome ?? "—";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Equipes de Saúde (eSF/eAP)</CardTitle>
+        <CardDescription>Necessário para exportação ao e-SUS PEC. INE de 10 dígitos.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-2 md:grid-cols-5">
+          <div className="md:col-span-2 space-y-1.5">
+            <Label className="text-xs">Unidade *</Label>
+            <select className="w-full h-10 rounded-md border bg-background px-2 text-sm" value={unidadeId} onChange={(e) => setUnidadeId(e.target.value)}>
+              <option value="">Selecione…</option>
+              {unidades.map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5"><Label className="text-xs">Nome da equipe *</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Equipe 01" /></div>
+          <div className="space-y-1.5"><Label className="text-xs">INE * (10 díg)</Label><Input value={ine} maxLength={10} onChange={(e) => setIne(e.target.value.replace(/\D/g, ""))} /></div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Tipo</Label>
+            <select className="w-full h-10 rounded-md border bg-background px-2 text-sm" value={tipo} onChange={(e) => setTipo(e.target.value)}>
+              <option value="eSF">eSF</option>
+              <option value="eAP1">eAP1</option>
+              <option value="eAP2">eAP2</option>
+              <option value="eSB">eSB</option>
+              <option value="eCR">eCR</option>
+            </select>
+          </div>
+          <div className="md:col-span-5 flex justify-end"><Button onClick={add}><Plus className="mr-1 h-4 w-4" />Adicionar</Button></div>
+        </div>
+        <Table>
+          <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Unidade</TableHead><TableHead>INE</TableHead><TableHead>Tipo</TableHead><TableHead></TableHead></TableRow></TableHeader>
+          <TableBody>
+            {equipes.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-sm">Nenhuma equipe cadastrada.</TableCell></TableRow>}
+            {equipes.map((e) => (
+              <TableRow key={e.id}>
+                <TableCell className="font-medium">{e.nome}</TableCell>
+                <TableCell className="text-xs">{nomeUnidade(e.unidade_id)}</TableCell>
+                <TableCell className="font-mono text-xs">{e.ine}</TableCell>
+                <TableCell><Badge variant="secondary">{e.tipo_equipe ?? "—"}</Badge></TableCell>
+                <TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => del(e.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
 
 function UnidadesCard() {
   const qc = useQueryClient();
