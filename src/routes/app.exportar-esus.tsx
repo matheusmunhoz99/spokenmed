@@ -442,6 +442,7 @@ function ExportarEsusPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-16">Ficha</TableHead>
+                        {isTodas && <TableHead className="w-40">Unidade</TableHead>}
                         <TableHead>Descrição</TableHead>
                         <TableHead className="w-24">Ação</TableHead>
                       </TableRow>
@@ -450,12 +451,17 @@ function ExportarEsusPage() {
                       {preview.erros.slice(0, 100).map((e, i) => (
                         <TableRow key={i}>
                           <TableCell><span className="font-mono text-xs">{e.tipo}</span></TableCell>
+                          {isTodas && <TableCell className="text-xs">{e.unidadeNome ?? "—"}</TableCell>}
                           <TableCell className="text-xs text-destructive">{e.descricao}</TableCell>
                           <TableCell>
                             {e.rota && (
-                              <Link to={e.rota as any} className="text-xs underline inline-flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => navigate({ to: e.rota!.to as any, params: e.rota!.params as any, search: e.rota!.search as any })}
+                                className="text-xs underline inline-flex items-center gap-1 hover:text-primary"
+                              >
                                 Abrir <ExternalLink className="h-3 w-3" />
-                              </Link>
+                              </button>
                             )}
                           </TableCell>
                         </TableRow>
