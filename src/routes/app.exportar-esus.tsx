@@ -549,8 +549,11 @@ function ExportarEsusPage() {
                       if (!resp.ok) throw new Error("Falha ao baixar o arquivo gerado");
                       const blob = await resp.blob();
                       const ext = formato === "json" ? "json.zip" : "zip";
-                      downloadBlob(blob, `esus-${unidadeSelecionada?.cnes ?? "lote"}-${inicio}_${fim}.${ext}`);
-                      toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad} · FAI ${(r.totais as any).fai ?? 0} · FAO ${(r.totais as any).fao ?? 0}`);
+                      setLoteGerado({
+                        blob,
+                        filename: `esus-${unidadeSelecionada?.cnes ?? "lote"}-${inicio}_${fim}.${ext}`,
+                        totais: r.totais as any,
+                      });
                     } else {
                       // Modo "Todas as unidades": gera cada lote e consolida num único .zip
                       const master = new JSZip();
