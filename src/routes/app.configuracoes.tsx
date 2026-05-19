@@ -75,23 +75,110 @@ function ConfigPage() {
         <UnidadesCard />
         <EspecialidadesCard />
       </div>
+      <EquipesCard />
       <ProcedimentosCard />
     </div>
   );
 }
 
+function EquipesCard() {
+  const qc = useQueryClient();
+  const [unidadeId, setUnidadeId] = useState("");
+  const [nome, setNome] = useState("");
+  const [ine, setIne] = useState("");
+  const [tipo, setTipo] = useState("eSF");
+  const { data: unidades = [] } = useQuery({ queryKey: ["unidades"], queryFn: async () => (await supabase.from("unidades").select("id, nome").eq("ativo", true).order("nome")).data ?? [] });
+  const { data: equipes = [] } = useQuery({ queryKey: ["equipes"], queryFn: async () => (await supabase.from("equipes").select("id, nome, ine, tipo_equipe, unidade_id, ativo").order("nome")).data ?? [] });
+
+  const add = async () => {
+    if (!unidadeId || !nome || !ine) return toast.error("Preencha unidade, nome e INE.");
+    const ineClean = ine.replace(/\D/g, "");
+    if (ineClean.length !== 10) return toast.error("INE deve ter 10 dígitos.");
+    const { error } = await supabase.from("equipes").insert({ unidade_id: unidadeId, nome, ine: ineClean, tipo_equipe: tipo });
+    if (error) return toast.error(error.message);
+    setNome(""); setIne(""); toast.success("Equipe cadastrada");
+    qc.invalidateQueries({ queryKey: ["equipes"] });
+  };
+  const del = async (id: string) => {
+    if (!confirm("Apagar equipe?")) return;
+    const { error } = await supabase.from("equipes").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["equipes"] });
+  };
+
+  const nomeUnidade = (id: string) => unidades.find((u) => u.id === id)?.nome ?? "—";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Equipes de Saúde (eSF/eAP)</CardTitle>
+        <CardDescription>Necessário para exportação ao e-SUS PEC. INE de 10 dígitos.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-2 md:grid-cols-5">
+          <div className="md:col-span-2 space-y-1.5">
+            <Label className="text-xs">Unidade *</Label>
+            <select className="w-full h-10 rounded-md border bg-background px-2 text-sm" value={unidadeId} onChange={(e) => setUnidadeId(e.target.value)}>
+              <option value="">Selecione…</option>
+              {unidades.map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5"><Label className="text-xs">Nome da equipe *</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Equipe 01" /></div>
+          <div className="space-y-1.5"><Label className="text-xs">INE * (10 díg)</Label><Input value={ine} maxLength={10} onChange={(e) => setIne(e.target.value.replace(/\D/g, ""))} /></div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Tipo</Label>
+            <select className="w-full h-10 rounded-md border bg-background px-2 text-sm" value={tipo} onChange={(e) => setTipo(e.target.value)}>
+              <option value="eSF">eSF</option>
+              <option value="eAP1">eAP1</option>
+              <option value="eAP2">eAP2</option>
+              <option value="eSB">eSB</option>
+              <option value="eCR">eCR</option>
+            </select>
+          </div>
+          <div className="md:col-span-5 flex justify-end"><Button onClick={add}><Plus className="mr-1 h-4 w-4" />Adicionar</Button></div>
+        </div>
+        <Table>
+          <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Unidade</TableHead><TableHead>INE</TableHead><TableHead>Tipo</TableHead><TableHead></TableHead></TableRow></TableHeader>
+          <TableBody>
+            {equipes.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-sm">Nenhuma equipe cadastrada.</TableCell></TableRow>}
+            {equipes.map((e) => (
+              <TableRow key={e.id}>
+                <TableCell className="font-medium">{e.nome}</TableCell>
+                <TableCell className="text-xs">{nomeUnidade(e.unidade_id)}</TableCell>
+                <TableCell className="font-mono text-xs">{e.ine}</TableCell>
+                <TableCell><Badge variant="secondary">{e.tipo_equipe ?? "—"}</Badge></TableCell>
+                <TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => del(e.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 function UnidadesCard() {
   const qc = useQueryClient();
   const [nome, setNome] = useState(""); const [endereco, setEndereco] = useState(""); const [telefone, setTelefone] = useState(""); const [cnes, setCnes] = useState("");
+  const [ibge, setIbge] = useState(""); const [uf, setUf] = useState(""); const [cep, setCep] = useState("");
+  const [logradouro, setLogradouro] = useState(""); const [numero, setNumero] = useState(""); const [bairro, setBairro] = useState("");
   const { data } = useQuery({ queryKey: ["unidades"], queryFn: async () => (await supabase.from("unidades").select("*").order("nome")).data ?? [] });
 
   const add = async () => {
     if (!nome) return toast.error("Informe o nome da unidade.");
     const cnesClean = cnes.replace(/\D/g, "");
     if (cnesClean.length !== 7) return toast.error("CNES é obrigatório e deve ter 7 dígitos.");
-    const { error } = await supabase.from("unidades").insert({ nome, endereco: endereco || null, telefone: telefone || null, cnes: cnesClean });
+    const ibgeClean = ibge.replace(/\D/g, "");
+    if (ibgeClean && ibgeClean.length !== 7) return toast.error("IBGE deve ter 7 dígitos.");
+    const { error } = await supabase.from("unidades").insert({
+      nome, endereco: endereco || null, telefone: telefone || null, cnes: cnesClean,
+      ibge_municipio: ibgeClean || null, uf: uf.toUpperCase() || null, cep: cep || null,
+      logradouro: logradouro || null, numero: numero || null, bairro: bairro || null,
+    });
     if (error) return toast.error(error.message);
-    setNome(""); setEndereco(""); setTelefone(""); setCnes(""); toast.success("Unidade cadastrada");
+    setNome(""); setEndereco(""); setTelefone(""); setCnes(""); setIbge(""); setUf(""); setCep(""); setLogradouro(""); setNumero(""); setBairro("");
+    toast.success("Unidade cadastrada");
     qc.invalidateQueries({ queryKey: ["unidades"] });
   };
   const toggle = async (u: any) => {
@@ -184,7 +271,13 @@ function UnidadesCard() {
           <div className="md:col-span-2 space-y-1.5"><Label className="text-xs">Nome *</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} /></div>
           <div className="space-y-1.5"><Label className="text-xs">CNES * (7 dígitos)</Label><Input required value={cnes} maxLength={7} placeholder="0000000" onChange={(e) => setCnes(e.target.value.replace(/\D/g, ""))} /></div>
           <div className="space-y-1.5"><Label className="text-xs">Telefone</Label><Input value={telefone} onChange={(e) => setTelefone(e.target.value)} /></div>
-          <div className="md:col-span-3 space-y-1.5"><Label className="text-xs">Endereço</Label><Input value={endereco} onChange={(e) => setEndereco(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">IBGE Município (7 díg)</Label><Input value={ibge} maxLength={7} placeholder="3304557" onChange={(e) => setIbge(e.target.value.replace(/\D/g, ""))} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">UF</Label><Input value={uf} maxLength={2} placeholder="RJ" onChange={(e) => setUf(e.target.value.toUpperCase())} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">CEP</Label><Input value={cep} onChange={(e) => setCep(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">Bairro</Label><Input value={bairro} onChange={(e) => setBairro(e.target.value)} /></div>
+          <div className="md:col-span-2 space-y-1.5"><Label className="text-xs">Logradouro</Label><Input value={logradouro} onChange={(e) => setLogradouro(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">Número</Label><Input value={numero} onChange={(e) => setNumero(e.target.value)} /></div>
+          <div className="md:col-span-3 space-y-1.5"><Label className="text-xs">Endereço (livre, opcional)</Label><Input value={endereco} onChange={(e) => setEndereco(e.target.value)} /></div>
           <div className="md:col-span-4 flex justify-end"><Button onClick={add}><Plus className="mr-1 h-4 w-4" />Adicionar</Button></div>
         </div>
         <Table>

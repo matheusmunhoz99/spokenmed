@@ -27,6 +27,7 @@ import { Route as AppPacientesRouteImport } from './routes/app.pacientes'
 import { Route as AppMeuPerfilRouteImport } from './routes/app.meu-perfil'
 import { Route as AppHistoricoAtendimentosRouteImport } from './routes/app.historico-atendimentos'
 import { Route as AppFilaRouteImport } from './routes/app.fila'
+import { Route as AppExportarEsusRouteImport } from './routes/app.exportar-esus'
 import { Route as AppDomiciliosRouteImport } from './routes/app.domicilios'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
 import { Route as AppAuditoriaRouteImport } from './routes/app.auditoria'
@@ -134,6 +135,11 @@ const AppFilaRoute = AppFilaRouteImport.update({
   path: '/fila',
   getParentRoute: () => AppRoute,
 } as any)
+const AppExportarEsusRoute = AppExportarEsusRouteImport.update({
+  id: '/exportar-esus',
+  path: '/exportar-esus',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDomiciliosRoute = AppDomiciliosRouteImport.update({
   id: '/domicilios',
   path: '/domicilios',
@@ -223,6 +229,7 @@ export interface FileRoutesByFullPath {
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/domicilios': typeof AppDomiciliosRouteWithChildren
+  '/app/exportar-esus': typeof AppExportarEsusRoute
   '/app/fila': typeof AppFilaRoute
   '/app/historico-atendimentos': typeof AppHistoricoAtendimentosRoute
   '/app/meu-perfil': typeof AppMeuPerfilRoute
@@ -256,6 +263,7 @@ export interface FileRoutesByTo {
   '/app/agendas': typeof AppAgendasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
+  '/app/exportar-esus': typeof AppExportarEsusRoute
   '/app/fila': typeof AppFilaRoute
   '/app/historico-atendimentos': typeof AppHistoricoAtendimentosRoute
   '/app/meu-perfil': typeof AppMeuPerfilRoute
@@ -291,6 +299,7 @@ export interface FileRoutesById {
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/domicilios': typeof AppDomiciliosRouteWithChildren
+  '/app/exportar-esus': typeof AppExportarEsusRoute
   '/app/fila': typeof AppFilaRoute
   '/app/historico-atendimentos': typeof AppHistoricoAtendimentosRoute
   '/app/meu-perfil': typeof AppMeuPerfilRoute
@@ -328,6 +337,7 @@ export interface FileRouteTypes {
     | '/app/auditoria'
     | '/app/configuracoes'
     | '/app/domicilios'
+    | '/app/exportar-esus'
     | '/app/fila'
     | '/app/historico-atendimentos'
     | '/app/meu-perfil'
@@ -361,6 +371,7 @@ export interface FileRouteTypes {
     | '/app/agendas'
     | '/app/auditoria'
     | '/app/configuracoes'
+    | '/app/exportar-esus'
     | '/app/fila'
     | '/app/historico-atendimentos'
     | '/app/meu-perfil'
@@ -395,6 +406,7 @@ export interface FileRouteTypes {
     | '/app/auditoria'
     | '/app/configuracoes'
     | '/app/domicilios'
+    | '/app/exportar-esus'
     | '/app/fila'
     | '/app/historico-atendimentos'
     | '/app/meu-perfil'
@@ -557,6 +569,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFilaRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/exportar-esus': {
+      id: '/app/exportar-esus'
+      path: '/exportar-esus'
+      fullPath: '/app/exportar-esus'
+      preLoaderRoute: typeof AppExportarEsusRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/domicilios': {
       id: '/app/domicilios'
       path: '/domicilios'
@@ -713,6 +732,7 @@ interface AppRouteChildren {
   AppAuditoriaRoute: typeof AppAuditoriaRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRouteWithChildren
   AppDomiciliosRoute: typeof AppDomiciliosRouteWithChildren
+  AppExportarEsusRoute: typeof AppExportarEsusRoute
   AppFilaRoute: typeof AppFilaRoute
   AppHistoricoAtendimentosRoute: typeof AppHistoricoAtendimentosRoute
   AppMeuPerfilRoute: typeof AppMeuPerfilRoute
@@ -734,6 +754,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAuditoriaRoute: AppAuditoriaRoute,
   AppConfiguracoesRoute: AppConfiguracoesRouteWithChildren,
   AppDomiciliosRoute: AppDomiciliosRouteWithChildren,
+  AppExportarEsusRoute: AppExportarEsusRoute,
   AppFilaRoute: AppFilaRoute,
   AppHistoricoAtendimentosRoute: AppHistoricoAtendimentosRoute,
   AppMeuPerfilRoute: AppMeuPerfilRoute,
@@ -775,13 +796,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
