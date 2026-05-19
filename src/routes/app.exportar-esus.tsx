@@ -66,7 +66,7 @@ function ExportarEsusPage() {
   });
   const { data: equipes = [] } = useQuery({
     queryKey: ["esus-equipes", unidadeId],
-    enabled: !!unidadeId,
+    enabled: !!unidadeId && !isTodas,
     queryFn: async () => {
       const { data } = await supabase.from("equipes").select("id, ine, nome, tipo_equipe").eq("unidade_id", unidadeId).eq("ativo", true).order("nome");
       return data ?? [];
@@ -74,7 +74,7 @@ function ExportarEsusPage() {
   });
   const { data: profissionais = [] } = useQuery({
     queryKey: ["esus-profs", unidadeId],
-    enabled: !!unidadeId,
+    enabled: !!unidadeId && !isTodas,
     queryFn: async () => {
       // 1) titulares (unidade_id direto)
       const direct = await supabase
@@ -127,34 +127,105 @@ function ExportarEsusPage() {
     if (escolhido) setProfissionalId(escolhido.id);
   }, [profissionais, profissionalId]);
 
-  const podePreview = unidadeId && profissionalId && inicio && fim && tipos.length > 0;
+  // Helper: escolhe enfermeira responsável para uma unidade arbitrária.
+  // Usado no modo "Todas as unidades" onde não há seleção manual por unidade.
+  async function pickResponsavelUnidade(uid: string): Promise<string | null> {
+    const isCnsOk = (c?: string | null) => !!c && /^\d{15}$/.test(String(c).replace(/\D/g, ""));
+    const direct = await supabase
+      .from("profissionais").select("id, nome, cns, cbo")
+      .eq("ativo", true).eq("unidade_id", uid);
+    const links = await supabase
+      .from("profissional_unidades").select("profissional_id").eq("unidade_id", uid);
+    const ids = (links.data ?? []).map((r: any) => r.profissional_id);
+    let sec: any[] = [];
+    if (ids.length) {
+      const s = await supabase.from("profissionais").select("id, nome, cns, cbo").eq("ativo", true).in("id", ids);
+      sec = s.data ?? [];
+    }
+    const map = new Map<string, any>();
+    for (const p of [...(direct.data ?? []), ...sec]) map.set(p.id, p);
+    const lista = Array.from(map.values());
+    const enf = lista.find((p) => p.cbo?.startsWith("2235") && isCnsOk(p.cns));
+    const fb = lista.find((p) => isCnsOk(p.cns) && p.cbo);
+    return (enf ?? fb)?.id ?? null;
+  }
+
+  const podePreview = !!unidadeId && (isTodas || !!profissionalId) && !!inicio && !!fim && tipos.length > 0;
 
   async function rodarPreview() {
     if (!podePreview) return;
     setLoadingPreview(true);
     setPreview(null);
+    setProgresso("");
     try {
-      const r = await previewFn({
-        data: {
-          unidadeId,
-          equipeId: equipeId || null,
-          profissionalId,
-          intervaloInicio: inicio,
-          intervaloFim: fim,
-          tiposFichas: tipos,
-          somenteNovos,
-        },
-      });
-      setPreview(r);
-      const totalErros = r.erros.length;
-      if (totalErros === 0) toast.success("Pré-validação OK — todos os registros estão prontos.");
-      else toast.warning(`Foram encontrados ${totalErros} erro(s) bloqueante(s).`);
+      if (!isTodas) {
+        const r = await previewFn({
+          data: {
+            unidadeId, equipeId: equipeId || null, profissionalId,
+            intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos, somenteNovos,
+          },
+        });
+        setPreview(r);
+        const totalErros = r.erros.length;
+        if (totalErros === 0) toast.success("Pré-validação OK — todos os registros estão prontos.");
+        else toast.warning(`Foram encontrados ${totalErros} erro(s) bloqueante(s).`);
+      } else {
+        // Modo "Todas as unidades": agrega preview de todas
+        const agreg: PreviewResultado = {
+          resumo: { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 },
+          prontos: { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 },
+          erros: [], avisos: [], unidade: null, equipe: null, profissional: null,
+        };
+        let semResp = 0;
+        for (let i = 0; i < unidades.length; i++) {
+          const u = unidades[i];
+          setProgresso(`Pré-validando ${i + 1}/${unidades.length} — ${u.nome}`);
+          const respId = await pickResponsavelUnidade(u.id);
+          if (!respId) {
+            semResp++;
+            agreg.erros.push({
+              tipo: "FCD", registroId: u.id,
+              descricao: `Sem profissional responsável (enfermeira com CNS) na unidade ${u.nome}`,
+              campo: "responsavel",
+              rota: { to: "/app/profissionais" },
+              unidadeNome: u.nome,
+            });
+            continue;
+          }
+          try {
+            const r = await previewFn({
+              data: {
+                unidadeId: u.id, equipeId: null, profissionalId: respId,
+                intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos, somenteNovos,
+              },
+            });
+            (["fcd", "fci", "fad", "fai", "fao"] as const).forEach((k) => {
+              agreg.resumo[k] += r.resumo[k];
+              agreg.prontos[k] += r.prontos[k];
+            });
+            agreg.erros.push(...r.erros.map((e) => ({ ...e, unidadeNome: u.nome })));
+            agreg.avisos.push(...r.avisos.map((a) => ({ ...a, unidadeNome: u.nome })));
+          } catch (e: any) {
+            agreg.erros.push({
+              tipo: "FCD", registroId: u.id,
+              descricao: `Falha pré-validando ${u.nome}: ${e?.message ?? e}`,
+              campo: "preview", unidadeNome: u.nome,
+            });
+          }
+        }
+        setPreview(agreg);
+        setProgresso("");
+        if (agreg.erros.length === 0) toast.success(`Pré-validação OK em ${unidades.length} unidade(s).`);
+        else toast.warning(`${agreg.erros.length} erro(s) em ${unidades.length} unidade(s)${semResp ? ` · ${semResp} sem responsável` : ""}.`);
+      }
     } catch (e: any) {
       toast.error(e?.message ?? "Falha na pré-validação");
     } finally {
       setLoadingPreview(false);
+      setProgresso("");
     }
   }
+
 
   function baixarRelatorioPendencias() {
     if (!preview) return;
