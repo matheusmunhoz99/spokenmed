@@ -684,7 +684,11 @@ function ExportarEsusPage() {
                         <Button size="sm" variant="outline" onClick={async () => {
                           try {
                             const { url } = await baixarFn({ data: { exportacaoId: e.id } });
-                            window.open(url, "_blank");
+                            const resp = await fetch(url);
+                            if (!resp.ok) throw new Error("Falha ao baixar");
+                            const blob = await resp.blob();
+                            const fname = (e.arquivo_path as string).split("/").pop() ?? `esus-${e.id}.zip`;
+                            downloadBlob(blob, fname);
                           } catch (err: any) { toast.error(err?.message ?? "Erro ao gerar link"); }
                         }}>
                           <Download className="h-3 w-3 mr-1" /> Baixar
