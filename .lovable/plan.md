@@ -1,54 +1,107 @@
-# Exportação e-SUS: bypass de erros + correção inline
+## Objetivo
 
-## 1. Flag "Gerar mesmo com erros"
+Trocar o conteúdo do ZIP exportado para o PEC e-SUS pelo formato **XML transport** (igual aos exemplos do Fiorilli SIS), com a marca SpokenMed nos campos fixos. Cada ficha vira **1 arquivo `.xml`** dentro do ZIP, no formato `dadoTransporteTransportXml` com namespaces `ns2` (`dadoinstalacao`), `ns3` (`dadotransporte`) e `ns4` (master da ficha).
 
-Na tela `/app/exportar-esus`, no passo 2 (resultado da pré-validação), quando houver `preview.erros.length > 0`:
+## Escopo desta entrega
 
-- Adicionar um `Checkbox` **"Estou ciente dos erros e quero gerar o lote mesmo assim (modo teste)"** logo acima do botão "Gerar".
-- Novo estado local: `cienteErros: boolean` (reseta sempre que `preview` muda — pra não ficar marcado de uma rodada pra outra).
-- Mudar `podeGerar` para: `preview && totalPronto > 0 && (preview.erros.length === 0 || cienteErros)`.
-- Quando gerar com `cienteErros = true`:
-  - Trocar cor/ícone do botão pra `variant="destructive"` com label `"Gerar mesmo com erros (teste)"`.
-  - Mostrar um `Alert` amarelo curto avisando que o PEC provavelmente vai rejeitar o `.esus`.
-  - Passar `ignorarErros: true` no payload do `registrarFn` / loop de unidades, e gravar no `metadados` do lote (campo `validacao.ignorado: true` e `validacao.erros: N`) pra ficar rastreável no histórico.
-- No back-end (`registrarLoteExportacao` em `src/lib/esus-export.functions.ts`), aceitar o flag e **não revalidar / bloquear** quando `ignorarErros = true`. A geração do `.zip`/`.esus` segue normal — só pula o "abort se erro".
-- No histórico (passo 3), badge extra `⚠ ignorado` quando `metadados.validacao.ignorado` for true.
+Tipos de ficha suportados nesta primeira leva (cobrem o que o app gera hoje):
 
-## 2. Modal inline pra corrigir pendências
+- **FAI** — Ficha de Atendimento Individual (`tipoDadoSerializado=4`, ns4 `fichaatendimentoindividualmaster`)
+- **FVD** — Ficha de Visita Domiciliar (`tipoDadoSerializado=8`, ns4 `fichavisitadomiciliarmaster`) — substitui o uso atual de "FAD"
+- **FCI** — Cadastro Individual (`tipoDadoSerializado=1`)
+- **FCD** — Cadastro Domiciliar (`tipoDadoSerializado=2`)
+- **FAO** — Atendimento Odontológico (`tipoDadoSerializado=5`)
 
-Hoje o botão "Abrir" navega pra fora da tela. Trocar por um modal (`Dialog` full-screen `sm:max-w-5xl h-[85vh]`) que renderiza o destino sem sair da exportação.
+Versão LEDI declarada no XML: `<versao major="6" minor="3" revision="5"/>` (igual ao exemplo Fiorilli, que é o que o PEC offline aceita via importador XML).
 
-Abordagem **pragmática (MVP)**: usar `<iframe>` apontando pra `e.rota.to` (com params/search já serializados).
+## Arquitetura
 
-- Novo componente `CorrigirPendenciaDialog` em `src/components/exportacao/CorrigirPendenciaDialog.tsx`:
-  - Props: `open`, `onOpenChange`, `rota` (`{ to, params?, search? }`), `descricao`, `onRevalidar`.
-  - Renderiza `<iframe src={resolveUrl(rota)} className="w-full h-full border-0" />`.
-  - Header com a descrição do erro e botões: **"Re-validar agora"** (fecha modal + chama `validarFn` novamente) e **"Abrir em nova aba"** (fallback).
-  - `resolveUrl` monta a URL final substituindo `$param` por `params[param]` e fazendo `?key=value` do `search`.
-- Na tabela de erros, trocar o botão atual por:
-  ```tsx
-  <button onClick={() => setCorrigindo({ rota: e.rota, descricao: e.descricao })}>
-    Corrigir <Pencil className="h-3 w-3" />
-  </button>
-  ```
-- Estado `corrigindo` no componente da página + `<CorrigirPendenciaDialog open={!!corrigindo} ... />`.
-- Ao fechar, oferecer **revalidação automática opcional**: toast com botão "Re-validar".
+### Novo módulo `src/lib/esus-xml/`
 
-### Por que iframe (e não embutir o form)?
-Os destinos cobrem 5 telas diferentes (`/app/configuracoes`, `/app/profissionais`, `/app/pacientes?abrir=`, `/app/domicilios/$id`, `/app/visitas`), cada uma com formulários grandes. Refatorar todas em "modo modal" é trabalho longo e fora do escopo do pedido ("só pros testes ficarem mais fáceis agora"). Iframe entrega o resultado UX que você quer (editar sem sair da exportação) em 1 componente.
+```
+src/lib/esus-xml/
+  index.ts            // export público dos builders
+  envelope.ts         // monta <ns3:dadoTransporteTransportXml> + remetente/originadora/versao
+  escape.ts           // escapeXml + helpers
+  uuid.ts             // gera uuidDadoSerializado no padrão "<cnes>-<random10>-<sigla>-0000-0000-<seq>"
+  fai.ts              // <ns4:fichaAtendimentoIndividualMasterTransport>
+  fvd.ts              // <ns4:fichaVisitaDomiciliarMasterTransport>
+  fci.ts              // <ns4:fichaCadastroIndividualMasterTransport>
+  fcd.ts              // <ns4:fichaCadastroDomiciliarMasterTransport>
+  fao.ts              // <ns4:fichaAtendimentoOdontologicoMasterTransport>
+```
 
-Limitações conhecidas: iframe abre a tela inteira do app com sidebar. Pra mitigar, aceitar `?embed=1` na URL e no `__root` esconder header/sidebar quando esse param estiver presente — opcional, mas deixa o modal muito mais limpo. **Vou incluir esse polish.**
+Cada builder recebe o objeto da ficha + header + dados da unidade/profissional e devolve uma **string XML** completa do envelope. Sem dependência de libs externas: usamos template strings + `escapeXml` (`& < > " '`) já que o conteúdo é controlado.
 
-## 3. Arquivos afetados
+### Identidade SpokenMed (campos fixos `<ns2:remetente>` / `<ns2:originadora>`)
 
-- `src/routes/app.exportar-esus.tsx` — checkbox, estado `cienteErros` e `corrigindo`, badge "ignorado" no histórico, troca do botão "Abrir" → "Corrigir".
-- `src/lib/esus-export.functions.ts` — aceitar `ignorarErros` em `registrarLoteExportacao` (e na função batch de "todas as unidades") e gravar `metadados.validacao.ignorado`.
-- `src/components/exportacao/CorrigirPendenciaDialog.tsx` — novo.
-- `src/routes/__root.tsx` (ou layout do `_app`) — esconder chrome quando `search.embed === "1"`.
+```
+contraChave       = "SpokenMED SIS - 1.0.0"
+uuidInstalacao    = exp.lote_uuid                      // UUID por lote
+cpfOuCnpj         = "00000000000000"                   // placeholder; tornar configurável depois
+nomeOuRazaoSocial = "SpokenMED SIS - 1.0.0 - <SIGLA>"  // FAI/FVD/FCI/FCD/FAO
+versaoSistema     = "1.0.0"
+```
 
-Sem mudança de banco.
+`<versao major="6" minor="3" revision="5"/>` fixo.
 
-## 4. Fora de escopo
+### `numLote`
 
-- Reescrever cada cadastro como componente embutível (fica pra depois, se você quiser substituir o iframe).
-- Validar se o PEC aceita lotes com erros — você assume o risco ao marcar o checkbox.
+Adicionar coluna `num_lote` (BIGSERIAL) na tabela `esus_exportacoes` para gerar um inteiro incremental por exportação (o XML precisa de `<numLote>`). Migration pequena.
+
+### `uuidDadoSerializado`
+
+Padrão visto no exemplo:
+`{CNES}-{10digits}-{SIGLA}-0000-0000-{10digits}`
+
+Implementação: `<cnes>-<rand10>-<sigla>-0000-0000-<numLote.padStart(10,'0')>`. Sigla por tipo: FDAI (FAI), FDVD (FVD), FDCI (FCI), FDCD (FCD), FDAO (FAO).
+
+### Mudanças em `src/lib/esus-export.functions.ts`
+
+- Trocar o default de `formato` para `"xml"` e adicionar `"xml"` ao enum (`thrift` e `json` continuam funcionando como fallback).
+- Quando `formato === "xml"`:
+  - Para cada ficha que hoje empacotamos via `packLDI`, chamar o builder XML correspondente e gravar `data/<uuidDadoSerializado>.xml` no `JSZip`.
+  - Continuar gravando `manifest.json` + `LEIA-ME.txt` curtos (informativos; o PEC ignora).
+  - `contentType: "application/zip"`, nome `${cnes}_${inicio}_${fim}_${lote}.xml.zip`.
+- Reaproveitar todo o pipeline atual de:
+  - Filtros (`finalizado_em not null` para FAI/FAO, validações de paciente).
+  - Marcação `marcar_fichas_exportadas` no final.
+  - Erro "Nenhuma ficha válida…" se zerar.
+
+### Mapeamentos de campo XML (resumo)
+
+**FAI (`<atendimentosIndividuais>`):**
+
+- `numeroProntuario`, `cpfCidadao` ou `cnsCidadao`, `dataNascimento` (epoch ms), `sexo` (0=F,1=M), `turno` (1/2/3), `tipoAtendimento`, `localDeAtendimento`.
+- `medicoes` (peso/altura quando houver) — viram nós opcionais.
+- `problemasCondicoes` — repetir para cada CID-10 / CIAP-2 em `atendimentos.cids`.
+- `condutas` — derivado de `atendimentos.conduta`.
+- `dataHoraInicialAtendimento` / `dataHoraFinalAtendimento` — `atendimentos.iniciado_em` / `finalizado_em`.
+- `exame` (repetido) — quando `atendimentos.exames` existir.
+
+**FVD (`<visitasDomiciliares>`):**
+
+- `turno`, `numProntuario`, `cpfCidadao`/`cnsCidadao`, `dtNascimento`, `sexo`, `motivosVisita` (repetido), `desfecho` (1/2/3), `microArea`, `stForaArea`, `tipoDeImovel`, `statusVisitaCompartilhadaOutroProfissional`.
+
+Campos não-mapeáveis no schema atual ficam **omitidos** (são opcionais no XSD do PEC).
+
+### `headerTransport`
+
+Reutiliza os dados que já levantamos:
+`profissionalCNS`, `cboCodigo_2002`, `cnes`, `ine`, `dataAtendimento` (epoch ms — meia-noite UTC do dia do atendimento), `codigoIbgeMunicipio`.
+
+## Fora de escopo (próxima etapa, se você pedir)
+
+- Builders XML para FAC, FP, FAE, FCZM, FV, FMCA (hoje são stubs).
+- Configurar CNPJ real / `contraChave` por tenant.
+- Validar contra o XSD oficial do PEC (faço se você anexar o XSD).
+
+## Plano de execução
+
+1. Migration: `ALTER TABLE esus_exportacoes ADD COLUMN num_lote BIGSERIAL;`.
+2. Criar `src/lib/esus-xml/*` (envelope + 5 builders + helpers).
+3. Em `esus-export.functions.ts`: adicionar branch `formato === "xml"`, default `xml`.
+4. Ajustar `src/routes/app.exportar-esus.tsx` para passar `formato: "xml"` no `gerarExportacaoEsus`.
+5. Smoke test: gerar um lote real, abrir um `.xml` do ZIP e comparar com os exemplos Fiorilli.
+
+Posso seguir?
