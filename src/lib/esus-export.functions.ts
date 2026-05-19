@@ -175,44 +175,44 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
       }
     }
 
-    // ----- FAI (Atendimento Individual) -----
+    // ----- FAI (Atendimento Individual) — somente atendimentos FINALIZADOS -----
     if (data.tiposFichas.includes("FAI")) {
-      const { data: ags } = await supabase
-        .from("agendamentos")
-        .select("id, paciente_id, profissional_id, status, data, hora_inicio, cid10, pacientes(cpf, cns, data_nascimento, sexo)")
+      const { data: ats } = await supabase
+        .from("atendimentos" as any)
+        .select("id, paciente_id, profissional_id, data_atendimento, cids, finalizado_em, pacientes:paciente_id(cpf, cns, data_nascimento, sexo)")
         .eq("unidade_id", data.unidadeId)
-        .eq("status", "atendido")
-        .gte("data", data.intervaloInicio)
-        .lte("data", data.intervaloFim);
-      resumo.fai = ags?.length ?? 0;
-      for (const a of (ags ?? []) as any[]) {
+        .not("finalizado_em", "is", null)
+        .gte("data_atendimento", data.intervaloInicio)
+        .lte("data_atendimento", data.intervaloFim);
+      resumo.fai = ats?.length ?? 0;
+      for (const a of (ats ?? []) as any[]) {
         const e: string[] = [];
         const pac = a.pacientes ?? {};
         if (!pac.cpf && !pac.cns) e.push("CPF ou CNS do cidadão");
         if (!pac.data_nascimento) e.push("data_nascimento");
         if (!pac.sexo) e.push("sexo");
-        if (!a.cid10) avisos.push({ tipo: "FAI", registroId: a.id, descricao: "Atendimento sem CID-10", campo: "cid10" });
+        if (!a.cids || a.cids.length === 0) avisos.push({ tipo: "FAI", registroId: a.id, descricao: "Atendimento sem CID-10", campo: "cids" });
         if (e.length) erros.push({ tipo: "FAI", registroId: a.paciente_id ?? a.id, descricao: `Cidadão sem dados obrigatórios: ${e.join(", ")}`, campo: e[0], rota: { to: "/app/pacientes", search: { abrir: a.paciente_id ?? "" } } });
         else prontos.fai++;
       }
     }
 
-    // ----- FAO (Atendimento Odontológico) — filtra por CBO odontológico -----
+    // ----- FAO (Atendimento Odontológico) — somente atendimentos FINALIZADOS de dentista -----
     if (data.tiposFichas.includes("FAO")) {
-      const cboOdonto = (profissional?.cbo ?? "").startsWith("2232"); // 2232xx = cirurgião-dentista
+      const cboOdonto = (profissional?.cbo ?? "").startsWith("2232");
       if (!cboOdonto) {
         avisos.push({ tipo: "FAO", registroId: data.profissionalId, descricao: "Profissional não é cirurgião-dentista (CBO 2232*) — FAO ficará vazia.", campo: "cbo" });
       }
-      const { data: ags } = await supabase
-        .from("agendamentos")
-        .select("id, paciente_id, profissional_id, status, data, hora_inicio, cid10, pacientes(cpf, cns, data_nascimento, sexo)")
+      const { data: ats } = await supabase
+        .from("atendimentos" as any)
+        .select("id, paciente_id, profissional_id, data_atendimento, finalizado_em, pacientes:paciente_id(cpf, cns, data_nascimento, sexo)")
         .eq("unidade_id", data.unidadeId)
         .eq("profissional_id", data.profissionalId)
-        .eq("status", "atendido")
-        .gte("data", data.intervaloInicio)
-        .lte("data", data.intervaloFim);
-      resumo.fao = ags?.length ?? 0;
-      for (const a of (ags ?? []) as any[]) {
+        .not("finalizado_em", "is", null)
+        .gte("data_atendimento", data.intervaloInicio)
+        .lte("data_atendimento", data.intervaloFim);
+      resumo.fao = ats?.length ?? 0;
+      for (const a of (ats ?? []) as any[]) {
         const e: string[] = [];
         const pac = a.pacientes ?? {};
         if (!pac.cpf && !pac.cns) e.push("CPF ou CNS do cidadão");
