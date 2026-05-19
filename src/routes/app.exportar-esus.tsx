@@ -240,6 +240,7 @@ function ExportarEsusPage() {
       linhas,
       [
         { header: "Severidade", get: (l) => l.severidade },
+        { header: "Unidade", get: (l: any) => l.unidadeNome ?? "" },
         { header: "Ficha", get: (l) => l.tipo },
         { header: "Registro", get: (l) => l.registroId },
         { header: "Campo", get: (l) => l.campo },
