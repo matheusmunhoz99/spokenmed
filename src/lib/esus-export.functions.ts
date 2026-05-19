@@ -21,11 +21,15 @@ import { TipoDadoSerializado } from "./esus-thrift/transporte";
 import type { UnicaLotacaoHeaderInput } from "./esus-thrift/header";
 import { validarHeaderTransporte } from "./esus-validators";
 import {
-  buildFaiXml, buildFaoXml, buildFvdXml, buildFciXml, buildFcdXml,
+  buildFaoXml, buildFciXml,
   type HeaderTransport as XmlHeader,
 } from "./esus-xml";
 import {
   serializeDadoTransporteFvd,
+  serializeDadoTransporteFcd,
+  serializeDadoTransporteFai,
+  cadastroDomiciliarFromDb,
+  atendimentoFromDb,
   makeLediUuid,
   visitaFromDb,
   TipoDadoSerializado as LediTipoDado,
