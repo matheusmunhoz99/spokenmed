@@ -64,6 +64,29 @@ function AgendaDiaPage() {
   const [consultorio, setConsultorio] = useState<any>(null);
   const canManage = can("agenda_dia", "manage");
 
+  // Auto-abre o consultório quando navegamos com ?abrir=<agendamento_id> (vindo do Reabrir do Histórico).
+  useEffect(() => {
+    const id = (search as any).abrir as string | undefined;
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
+      const { data: full } = await supabase
+        .from("agendamentos")
+        .select("id, hora_inicio, status, paciente_id, profissional_id, unidade_id, data, pacientes(nome, cpf, telefone), profissionais(id, nome, sala, especialidades(nome)), unidades(nome)")
+        .eq("id", id).maybeSingle();
+      if (cancelled) return;
+      if (full) {
+        setConsultorio(full);
+        if (full.data) setData(full.data as string);
+      } else {
+        toast.error("Atendimento não encontrado.");
+      }
+      navigate({ to: "/app/agenda-dia" as any, search: { data: full?.data ?? data } as any, replace: true });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(search as any).abrir]);
+
   // Profissional vinculado ao usuário logado (se for médico)
   const { data: meuProf } = useQuery({
     queryKey: ["meu-profissional", user?.id],
