@@ -392,7 +392,7 @@ function ExportarEsusPage() {
           </div>
 
           <div className="flex gap-2 items-center">
-            <Button onClick={rodarPreview} disabled={!podePreview || loadingPreview}>
+            <Button data-revalidar="1" onClick={rodarPreview} disabled={!podePreview || loadingPreview}>
               {loadingPreview ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
               Pré-validar
             </Button>
