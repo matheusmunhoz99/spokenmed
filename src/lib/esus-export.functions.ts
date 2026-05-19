@@ -135,7 +135,7 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
         if (!p.sexo) eFCI.push("sexo");
         if (!(p as any).raca_cor) avisos.push({ tipo: "FCI", registroId: p.id, descricao: "Sem raça/cor", campo: "raca_cor" });
         if (eFCI.length) {
-          erros.push({ tipo: "FCI", registroId: p.id, descricao: `Campos obrigatórios faltando: ${eFCI.join(", ")}`, campo: eFCI[0], rota: `/app/pacientes` });
+          erros.push({ tipo: "FCI", registroId: p.id, descricao: `Campos obrigatórios faltando: ${eFCI.join(", ")}`, campo: eFCI[0], rota: { to: "/app/pacientes", search: { abrir: p.id } } });
         } else {
           prontos.fci++;
         }
