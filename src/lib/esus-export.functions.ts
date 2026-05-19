@@ -159,7 +159,7 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
         if (!v.turno) eFAD.push("turno");
         if (!v.paciente_id) eFAD.push("paciente");
         if (eFAD.length) {
-          erros.push({ tipo: "FAD", registroId: v.id, descricao: `Campos obrigatórios faltando: ${eFAD.join(", ")}`, campo: eFAD[0], rota: `/app/visitas` });
+          erros.push({ tipo: "FAD", registroId: v.id, descricao: `Campos obrigatórios faltando: ${eFAD.join(", ")}`, campo: eFAD[0], rota: { to: "/app/visitas" } });
         } else {
           prontos.fad++;
         }
