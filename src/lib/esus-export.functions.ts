@@ -353,10 +353,16 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
         const fichas: FichaSerializada[] = [];
         const uuidPrefix = unidade.cnes + "-";
 
+        // IDs marcados como exportados ao final
+        const idsAtend: string[] = [];
+        const idsPac: string[] = [];
+        const idsDom: string[] = [];
+
         if (tipos.includes("FCD")) {
           const { data: domicilios } = await supabase
             .from("domicilios").select("*, familias(*, familia_membros(*))")
             .eq("unidade_id", exp.unidade_id)
+            .in("status_envio", ["pendente", "desatualizado"])
             .gte("updated_at", exp.intervalo_inicio)
             .lte("updated_at", exp.intervalo_fim + "T23:59:59");
           for (const d of domicilios ?? []) {
@@ -367,6 +373,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
               ibgeMunicipio: unidade.ibge_municipio, uf: unidade.uf,
             });
             fichas.push({ tipo: TipoDadoSerializado.CADASTRO_DOMICILIAR, uuid: uuidPrefix + u, bytes });
+            idsDom.push(d.id);
             totais.fcd++;
           }
         }
@@ -374,6 +381,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
         if (tipos.includes("FCI")) {
           const { data: pacientes } = await supabase
             .from("pacientes").select("*")
+            .in("status_envio", ["pendente", "desatualizado"])
             .gte("updated_at", exp.intervalo_inicio)
             .lte("updated_at", exp.intervalo_fim + "T23:59:59");
           for (const p of pacientes ?? []) {
@@ -381,6 +389,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
             const u = uuidv4();
             const bytes = buildFCIThrift({ uuidFicha: u, header, paciente: p });
             fichas.push({ tipo: TipoDadoSerializado.CADASTRO_INDIVIDUAL, uuid: uuidPrefix + u, bytes });
+            idsPac.push(p.id);
             totais.fci++;
           }
         }
@@ -395,7 +404,6 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
             (v: any) => v.motivos?.length && v.desfecho && v.turno && v.paciente_id,
           );
           if (visitasValidas.length) {
-            // FAD é master/child: 1 master por lote agrupando as visitas válidas
             const u = uuidv4();
             const bytes = buildFADThrift({ uuidFicha: u, header, visitas: visitasValidas });
             fichas.push({ tipo: TipoDadoSerializado.FICHA_ATENDIMENTO_DOMICILIAR, uuid: uuidPrefix + u, bytes });
