@@ -588,15 +588,14 @@ function ExportarEsusPage() {
                       if (ok === 0) {
                         throw new Error("Nenhuma unidade gerou fichas válidas; corrija as pendências ou ajuste o período antes de baixar.");
                       }
-                      master.file("LEIA-ME.txt", relatorio.join("\n"));
+                      // ZIP consolidado "limpo": apenas os .zip por unidade, sem LEIA-ME.
                       setProgresso("Compactando lote consolidado…");
                       const blob = await master.generateAsync({
                         type: "blob",
                         compression: "DEFLATE",
                         compressionOptions: { level: 6 },
                       });
-                      downloadBlob(blob, `esus-todas-unidades-${inicio}_${fim}.zip`);
-                      toast.success(`Lote consolidado: ${ok} unidade(s) ok${fail ? ` · ${fail} com falha (ver LEIA-ME.txt)` : ""}.`);
+                      setLoteGerado({ blob, filename: `esus-todas-unidades-${inicio}_${fim}.zip`, totais: null, multi: { ok, fail } });
                     }
                     refetchHistorico();
                   } catch (e: any) {
