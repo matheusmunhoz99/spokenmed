@@ -45,7 +45,7 @@ function ExportarEsusPage() {
   const trintaDias = new Date(hoje.getTime() - 30 * 24 * 3600 * 1000);
   const [inicio, setInicio] = useState(trintaDias.toISOString().slice(0, 10));
   const [fim, setFim] = useState(hoje.toISOString().slice(0, 10));
-  const [tipos, setTipos] = useState<FichaTipo[]>(["FCD", "FCI", "FAD"]);
+  const [tipos, setTipos] = useState<FichaTipo[]>(["FCD", "FCI", "FAD", "FAI", "FAO"]);
   const [formato, setFormato] = useState<"thrift" | "json">("thrift");
   const [somenteNovos, setSomenteNovos] = useState(false);
   const [preview, setPreview] = useState<PreviewResultado | null>(null);
