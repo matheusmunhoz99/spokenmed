@@ -389,6 +389,27 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
           totalArquivos++;
         };
 
+        // Remetente LEDI (uma única vez, usado por FCD/FVD/FAI oficiais).
+        const { data: cfg } = await supabase
+          .from("esus_remetente_config")
+          .select("*").eq("ativo", true)
+          .order("updated_at", { ascending: false }).limit(1).maybeSingle();
+        const remetente: LediDadoInstalacao = {
+          contraChave: cfg?.contra_chave ?? "SpokenMED-PEC",
+          uuidInstalacao: cfg?.uuid_instalacao ?? exp.lote_uuid,
+          cpfOuCnpj: cfg?.cpf_ou_cnpj ?? "00000000000000",
+          nomeOuRazaoSocial: cfg?.nome_ou_razao_social ?? "SpokenMED",
+          versaoSistema: cfg?.versao_sistema ?? "1.0.0",
+        };
+        const lediHeader: LediHeaderTransport = {
+          profissionalCNS: prof.cns,
+          cboCodigo_2002: prof.cbo,
+          cnes: unidade.cnes,
+          ine: equipe?.ine ?? undefined,
+          dataAtendimento,
+          codigoIbgeMunicipio: unidade.ibge_municipio,
+        };
+
         // ---- FCI ----
         if (tipos.includes("FCI")) {
           const { data: pacientes } = await supabase
@@ -407,23 +428,41 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
           }
         }
 
-        // ---- FCD ----
+        // ---- FCD (Cadastro Domiciliar) — XML oficial LEDI 6.3.5 ----
         if (tipos.includes("FCD")) {
           const { data: domicilios } = await supabase
             .from("domicilios").select("*")
             .eq("unidade_id", exp.unidade_id)
             .gte("updated_at", exp.intervalo_inicio)
             .lte("updated_at", exp.intervalo_fim + "T23:59:59");
-          for (const d of domicilios ?? []) {
-            if (!d.logradouro || !d.bairro || (!d.numero && !d.sem_numero) || !d.tipo_imovel) continue;
-            const { uuidDadoSerializado, xml } = buildFcdXml({
-              header: xmlHeader, cnes: unidade.cnes, ine: equipe?.ine ?? null,
-              codIbge: unidade.ibge_municipio, numLote, loteUuid: exp.lote_uuid,
-              domicilio: { ...d, uf: unidade.uf },
+          const validos = (domicilios ?? []).filter(
+            (d: any) => d.logradouro && d.bairro && (d.numero || d.sem_numero) && d.tipo_imovel,
+          );
+          if (validos.length) {
+            const cadastros = validos.map((d: any) =>
+              cadastroDomiciliarFromDb({ ...d, uf: unidade.uf }, unidade.cnes, unidade.ibge_municipio),
+            );
+            const uuidDadoSerializado = makeLediUuid(unidade.cnes);
+            const xml = serializeDadoTransporteFcd({
+              uuidDadoSerializado,
+              tipoDadoSerializado: LediTipoDado.CADASTRO_DOMICILIAR,
+              codIbge: unidade.ibge_municipio,
+              cnesDadoSerializado: unidade.cnes,
+              ineDadoSerializado: equipe?.ine ?? undefined,
+              numLote,
+              ficha: {
+                uuidFicha: makeLediUuid(unidade.cnes),
+                tpCdsOrigem: 3,
+                headerTransport: lediHeader,
+                cadastrosDomiciliares: cadastros,
+              },
+              remetente,
+              originadora: remetente,
+              versao: { major: 6, minor: 3, revision: 5 },
             });
             writeFicha(uuidDadoSerializado, xml);
-            idsDom.push(d.id);
-            xmlTotais.fcd++;
+            for (const d of validos) idsDom.push(d.id);
+            xmlTotais.fcd += validos.length;
           }
         }
 
@@ -438,25 +477,6 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
             (v) => v.motivos?.length && v.desfecho && v.turno && v.paciente_id,
           );
           if (visitasValidas.length) {
-            const { data: cfg } = await supabase
-              .from("esus_remetente_config")
-              .select("*").eq("ativo", true)
-              .order("updated_at", { ascending: false }).limit(1).maybeSingle();
-            const remetente: LediDadoInstalacao = {
-              contraChave: cfg?.contra_chave ?? "SpokenMED-PEC",
-              uuidInstalacao: cfg?.uuid_instalacao ?? exp.lote_uuid,
-              cpfOuCnpj: cfg?.cpf_ou_cnpj ?? "00000000000000",
-              nomeOuRazaoSocial: cfg?.nome_ou_razao_social ?? "SpokenMED",
-              versaoSistema: cfg?.versao_sistema ?? "1.0.0",
-            };
-            const lediHeader: LediHeaderTransport = {
-              profissionalCNS: prof.cns,
-              cboCodigo_2002: prof.cbo,
-              cnes: unidade.cnes,
-              ine: equipe?.ine ?? undefined,
-              dataAtendimento,
-              codigoIbgeMunicipio: unidade.ibge_municipio,
-            };
             const rows: LediVisitaRowDb[] = visitasValidas.map((v: any) => ({
               id: v.id,
               uuid_ficha: v.uuid_ficha,
@@ -468,7 +488,6 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
               paciente: v.pacientes ?? null,
               tipo_imovel: v.tipo_imovel ?? null,
             }));
-            // 1 Master XML por exportação, contendo N <visitasDomiciliares>.
             const ficha: LediFichaVisitaDomiciliarMaster = {
               uuidFicha: makeLediUuid(unidade.cnes),
               tpCdsOrigem: 3,
