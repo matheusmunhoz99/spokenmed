@@ -297,7 +297,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z.object({
       exportacaoId: z.string().uuid(),
-      formato: z.enum(["thrift", "json"]).default("thrift"),
+      formato: z.enum(["xml", "thrift", "json"]).default("xml"),
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
