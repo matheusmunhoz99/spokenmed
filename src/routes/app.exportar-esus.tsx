@@ -467,12 +467,13 @@ function ExportarEsusPage() {
                             {e.rota && (
                               <button
                                 type="button"
-                                onClick={() => navigate({ to: e.rota!.to as any, params: e.rota!.params as any, search: e.rota!.search as any })}
+                                onClick={() => setCorrigindo({ rota: e.rota as RotaErro, descricao: e.descricao })}
                                 className="text-xs underline inline-flex items-center gap-1 hover:text-primary"
                               >
-                                Abrir <ExternalLink className="h-3 w-3" />
+                                Corrigir <Pencil className="h-3 w-3" />
                               </button>
                             )}
+
                           </TableCell>
                         </TableRow>
                       ))}
