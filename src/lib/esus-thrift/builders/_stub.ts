@@ -87,7 +87,7 @@ export function buildFACThrift(i: FacInput): Uint8Array {
       w.reqI64(2, epoch(a.dataAtividade) ?? 0);
       w.writeFieldBegin(8, 3); w.writeI32(a.turno ?? 3); // 1m 2t 3n
       w.writeFieldBegin(8, 4); w.writeI32(a.tipoAtividade ?? 1);
-      w.reqString(5, a.cnesLocal ?? i.header.cnes ?? "");
+      w.reqString(5, a.cnesLocal ?? i.header.lotacaoFormPrincipal?.cnes ?? "");
       // OPCIONAIS comuns
       w.optBool(6, a.programaSaudeNaEscola);
       w.optListI64(7, a.publicoAlvo);
