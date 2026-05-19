@@ -85,18 +85,7 @@ export async function exportarFichaVisitaDomiciliar(
 
   const zip = new JSZip();
   const filename = `${uuidDadoSerializado}.xml`;
-  zip.folder("data")!.file(filename, xml);
-  zip.file(
-    "LEIA-ME.txt",
-    [
-      "Exportação e-SUS APS — XML oficial LEDI 6.3.5",
-      "Tipo: Ficha de Visita Domiciliar (tipoDadoSerializado=8)",
-      "Importar no PEC e-SUS APS off-line via: CDS > Transporte > Importar XML.",
-      "",
-      `Arquivos: 1`,
-      `Visitas: ${visitas.length}`,
-    ].join("\n"),
-  );
+  zip.file(filename, xml);
   const zipBytes = await zip.generateAsync({ type: "uint8array" });
 
   return {
