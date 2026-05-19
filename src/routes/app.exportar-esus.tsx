@@ -622,10 +622,18 @@ function ExportarEsusPage() {
                     <TableCell className="text-xs">{(e.tipos_fichas ?? []).join(", ")}</TableCell>
                     <TableCell className="text-xs">FCD {e.total_fcd} · FCI {e.total_fci} · FAD {e.total_fad}</TableCell>
                     <TableCell>
-                      <Badge variant={e.status === "concluido" ? "default" : e.status === "erro" ? "destructive" : "secondary"}>
-                        {e.status}
-                      </Badge>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Badge variant={e.status === "concluido" ? "default" : e.status === "erro" ? "destructive" : "secondary"}>
+                          {e.status}
+                        </Badge>
+                        {e.validacao_resultado?.ignorado && (
+                          <Badge variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-300 text-[10px]" title="Lote gerado com erros de validação (modo teste)">
+                            <AlertTriangle className="h-2.5 w-2.5 mr-0.5" /> ignorado
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
+
                     <TableCell className="font-mono text-[10px]">{e.lote_uuid?.slice(0, 8)}…</TableCell>
                     <TableCell className="text-right">
                       {e.arquivo_path && e.status === "concluido" ? (
