@@ -419,7 +419,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
         if (tipos.includes("FAI")) {
           const { data: ats } = await supabase
             .from("atendimentos" as any)
-            .select("*, agendamentos:agendamento_id(id, cid10, hora_inicio, data, modalidade, tele_sala_id), pacientes:paciente_id(cpf, cns, data_nascimento, sexo, numero_prontuario)")
+            .select("*, agendamentos:agendamento_id(id, cid10, hora_inicio, data, modalidade, tele_sala_id), pacientes:paciente_id(cpf, cns, data_nascimento, sexo)")
             .eq("unidade_id", exp.unidade_id)
             .gte("data_atendimento", exp.intervalo_inicio)
             .lte("data_atendimento", exp.intervalo_fim);
@@ -427,7 +427,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
             ? { data: [] }
             : await supabase
                 .from("agendamentos")
-                .select("*, pacientes(cpf, cns, data_nascimento, sexo, numero_prontuario), procedimentos(codigo_sigtap)")
+                .select("*, pacientes(cpf, cns, data_nascimento, sexo), procedimentos(codigo_sigtap)")
                 .eq("unidade_id", exp.unidade_id)
                 .eq("status", "atendido")
                 .gte("data", exp.intervalo_inicio)
