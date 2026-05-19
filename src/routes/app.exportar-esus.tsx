@@ -253,9 +253,8 @@ function ExportarEsusPage() {
           <div className="space-y-2">
             <Label>Fichas a exportar *</Label>
             <div className="flex flex-wrap gap-2">
-              {(["FCD", "FCI", "FAD"] as FichaTipo[]).map((t) => {
+              {FICHAS_ALL.map((t) => {
                 const ativa = tipos.includes(t);
-                const label = t === "FCD" ? "Cadastro Domiciliar" : t === "FCI" ? "Cadastro Individual" : "Visita Domiciliar";
                 return (
                   <button
                     key={t}
@@ -263,7 +262,7 @@ function ExportarEsusPage() {
                     onClick={() => setTipos((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]))}
                     className={`px-3 py-1.5 rounded-md border text-sm transition ${ativa ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"}`}
                   >
-                    <span className="font-mono text-xs mr-1.5">{t}</span>{label}
+                    <span className="font-mono text-xs mr-1.5">{t}</span>{FICHA_LABEL[t]}
                   </button>
                 );
               })}
