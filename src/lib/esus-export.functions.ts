@@ -905,10 +905,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
       if (totalJson === 0) {
         throw new Error("Nenhuma ficha válida encontrada para esse período/unidade. O ZIP não será gerado vazio.");
       }
-      zip.file("LEIA-ME.txt",
-        "Lote e-SUS APS (LEDI 7.4) gerado pelo SpokenMED.\n" +
-        "Formato: JSON-LEDI (Bridge UFSC).\n" +
-        `Lote: ${exp.lote_uuid}\nGerado em: ${manifest.gerado_em}\n`);
+      // ZIP "limpo": sem LEIA-ME (apenas fichas + manifest).
 
       const buf = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 6 } });
       const nomeArquivo = `${unidade.cnes}_${exp.intervalo_inicio}_${exp.intervalo_fim}_${exp.lote_uuid}.json.zip`;
