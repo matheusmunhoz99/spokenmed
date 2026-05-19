@@ -747,6 +747,87 @@ function ExportarEsusPage() {
           else toast.info('Clique em "Validar" pra re-rodar a checagem.');
         }}
       />
+
+      {/* Modal: lote gerado com sucesso */}
+      <AlertDialog open={!!loteGerado} onOpenChange={(o) => { if (!o) setLoteGerado(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-success" />
+              Gerado com sucesso!
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>O lote foi gerado e está pronto para envio ao e-SUS PEC.</p>
+                {loteGerado?.totais && (
+                  <p className="text-xs font-mono bg-muted p-2 rounded">
+                    FCD {loteGerado.totais.fcd} · FCI {loteGerado.totais.fci} · FAD {loteGerado.totais.fad} · FAI {loteGerado.totais.fai} · FAO {loteGerado.totais.fao}
+                  </p>
+                )}
+                {loteGerado?.multi && (
+                  <p className="text-xs font-mono bg-muted p-2 rounded">
+                    {loteGerado.multi.ok} unidade(s) ok{loteGerado.multi.fail ? ` · ${loteGerado.multi.fail} com falha` : ""}
+                  </p>
+                )}
+                <p className="font-medium">Quer fazer o download do lote agora?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Agora não</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (loteGerado) {
+                downloadBlob(loteGerado.blob, loteGerado.filename);
+                toast.success("Download iniciado.");
+              }
+              setLoteGerado(null);
+            }}>
+              <Download className="h-4 w-4 mr-1" /> Sim, baixar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Modal: confirmar limpeza */}
+      <AlertDialog open={confirmLimpar} onOpenChange={setConfirmLimpar}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Limpar todos os lotes?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Isto vai apagar TODOS os lotes gerados (arquivos e histórico) e resetar o status de envio
+              de todos os atendimentos, pacientes e domicílios para <strong>pendente</strong>.
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={limpando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={limpando}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                setLimpando(true);
+                try {
+                  const r = await limparFn();
+                  toast.success(`Lotes limpos. ${(r as any)?.removidos ?? 0} arquivo(s) removido(s).`);
+                  setConfirmLimpar(false);
+                  refetchHistorico();
+                } catch (err: any) {
+                  toast.error(err?.message ?? "Falha ao limpar lotes");
+                } finally {
+                  setLimpando(false);
+                }
+              }}
+            >
+              {limpando ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              Sim, limpar tudo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
