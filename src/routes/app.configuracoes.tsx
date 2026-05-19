@@ -83,15 +83,24 @@ function ConfigPage() {
 function UnidadesCard() {
   const qc = useQueryClient();
   const [nome, setNome] = useState(""); const [endereco, setEndereco] = useState(""); const [telefone, setTelefone] = useState(""); const [cnes, setCnes] = useState("");
+  const [ibge, setIbge] = useState(""); const [uf, setUf] = useState(""); const [cep, setCep] = useState("");
+  const [logradouro, setLogradouro] = useState(""); const [numero, setNumero] = useState(""); const [bairro, setBairro] = useState("");
   const { data } = useQuery({ queryKey: ["unidades"], queryFn: async () => (await supabase.from("unidades").select("*").order("nome")).data ?? [] });
 
   const add = async () => {
     if (!nome) return toast.error("Informe o nome da unidade.");
     const cnesClean = cnes.replace(/\D/g, "");
     if (cnesClean.length !== 7) return toast.error("CNES é obrigatório e deve ter 7 dígitos.");
-    const { error } = await supabase.from("unidades").insert({ nome, endereco: endereco || null, telefone: telefone || null, cnes: cnesClean });
+    const ibgeClean = ibge.replace(/\D/g, "");
+    if (ibgeClean && ibgeClean.length !== 7) return toast.error("IBGE deve ter 7 dígitos.");
+    const { error } = await supabase.from("unidades").insert({
+      nome, endereco: endereco || null, telefone: telefone || null, cnes: cnesClean,
+      ibge_municipio: ibgeClean || null, uf: uf.toUpperCase() || null, cep: cep || null,
+      logradouro: logradouro || null, numero: numero || null, bairro: bairro || null,
+    });
     if (error) return toast.error(error.message);
-    setNome(""); setEndereco(""); setTelefone(""); setCnes(""); toast.success("Unidade cadastrada");
+    setNome(""); setEndereco(""); setTelefone(""); setCnes(""); setIbge(""); setUf(""); setCep(""); setLogradouro(""); setNumero(""); setBairro("");
+    toast.success("Unidade cadastrada");
     qc.invalidateQueries({ queryKey: ["unidades"] });
   };
   const toggle = async (u: any) => {
