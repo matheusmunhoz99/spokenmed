@@ -120,19 +120,29 @@ function TeleAtendimento() {
   const status = (sala?.status as keyof typeof STATUS_VARIANT) || "agendada";
   const statusInfo = STATUS_VARIANT[status] || STATUS_VARIANT.agendada;
 
-  const handleCriarOuEntrar = async () => {
+  const handleCriarSala = async () => {
     setBusy(true);
     try {
-      let s = sala;
-      if (!s) {
-        const r = await criar({ data: { agendamento_id: agendamentoId, gravar: false } });
-        s = r.sala as any;
-        await refetchSala();
-      }
-      const t = await tokenMedico({ data: { sala_id: s!.id } });
+      // criarSalaTele é idempotente no backend: se já existir sala pra esse
+      // agendamento, retorna a mesma (mesmo token_paciente, mesmo link).
+      await criar({ data: { agendamento_id: agendamentoId, gravar: false } });
+      await refetchSala();
+      toast.success("Sala criada — copie o link e envie ao paciente");
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao criar sala");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleEntrarChamada = async () => {
+    if (!sala) return;
+    setBusy(true);
+    try {
+      const t = await tokenMedico({ data: { sala_id: sala.id } });
       setMeeting({ url: t.room_url, token: t.token });
     } catch (e: any) {
-      toast.error(e?.message || "Falha ao iniciar sala");
+      toast.error(e?.message || "Falha ao entrar na chamada");
     } finally {
       setBusy(false);
     }
@@ -294,13 +304,17 @@ function TeleAtendimento() {
               <Button
                 size="lg"
                 className="mt-2 h-14 gap-2 rounded-full bg-emerald-500 px-8 text-base font-semibold shadow-2xl hover:bg-emerald-600"
-                onClick={handleCriarOuEntrar}
+                onClick={sala ? handleEntrarChamada : handleCriarSala}
                 disabled={busy}
               >
                 {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Video className="h-5 w-5" />}
-                {sala ? "Entrar na chamada" : "Criar sala e entrar"}
+                {sala ? "Entrar na chamada agora" : "Criar sala e gerar link"}
               </Button>
-              <p className="text-xs opacity-70">A chamada é criptografada de ponta a ponta pelo provedor.</p>
+              <p className="text-xs opacity-70">
+                {sala
+                  ? "Copie e envie o link ao paciente antes de entrar. Ao encerrar, a sala será fechada."
+                  : "A sala é criada uma única vez — o link gerado é sempre o mesmo."}
+              </p>
             </div>
           </div>
 
