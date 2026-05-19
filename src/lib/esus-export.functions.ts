@@ -940,3 +940,39 @@ export const baixarExportacaoEsus = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { url: signed.signedUrl };
   });
+
+/**
+ * Limpa TODOS os lotes gerados e reseta o status_envio dos registros vinculados.
+ * Útil para começar do zero em ambiente de testes.
+ */
+export const limparTodosLotes = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context as any;
+
+    // 1) Lista arquivos no bucket pra apagar
+    const { data: exps } = await supabase
+      .from("esus_exportacoes")
+      .select("id, arquivo_path");
+    const paths = (exps ?? []).map((e: any) => e.arquivo_path).filter(Boolean);
+    if (paths.length) {
+      try {
+        await supabase.storage.from("esus-exportacoes").remove(paths);
+      } catch (e) {
+        console.warn("[limparTodosLotes] falha ao remover arquivos do storage", e);
+      }
+    }
+
+    // 2) Reseta status_envio dos registros vinculados
+    const resetAt = { status_envio: "pendente", exportacao_id: null, exportado_em: null } as any;
+    await supabase.from("atendimentos").update(resetAt).not("exportacao_id", "is", null);
+    await supabase.from("pacientes").update(resetAt).not("exportacao_id", "is", null);
+    await supabase.from("domicilios").update(resetAt).not("exportacao_id", "is", null);
+
+    // 3) Deleta lotes
+    const { error: delErr } = await supabase.from("esus_exportacoes").delete().not("id", "is", null);
+    if (delErr) throw new Error(delErr.message);
+
+    return { ok: true, removidos: paths.length };
+  });
+
