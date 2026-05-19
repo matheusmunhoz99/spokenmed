@@ -11,12 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircle, CheckCircle2, Download, ExternalLink, FileText, Info, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Download, ExternalLink, FileText, Info, Loader2, Pencil, RefreshCw, ShieldCheck } from "lucide-react";
 import { previewExportacaoEsus, listarExportacoesEsus, registrarExportacaoEsus, gerarExportacaoEsus, baixarExportacaoEsus, type PreviewResultado, type ErroExport } from "@/lib/esus-export.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { downloadCsv } from "@/lib/csv";
 import { SemAcesso } from "@/components/sem-acesso";
+import { CorrigirPendenciaDialog, type RotaErro } from "@/components/exportacao/CorrigirPendenciaDialog";
+
 
 export const Route = createFileRoute("/app/exportar-esus")({
   component: ExportarEsusPage,
