@@ -368,7 +368,6 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
           const { data: domicilios } = await supabase
             .from("domicilios").select("*, familias(*, familia_membros(*))")
             .eq("unidade_id", exp.unidade_id)
-            .in("status_envio", ["pendente", "desatualizado"])
             .gte("updated_at", exp.intervalo_inicio)
             .lte("updated_at", exp.intervalo_fim + "T23:59:59");
           for (const d of domicilios ?? []) {
@@ -387,7 +386,6 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
         if (tipos.includes("FCI")) {
           const { data: pacientes } = await supabase
             .from("pacientes").select("*")
-            .in("status_envio", ["pendente", "desatualizado"])
             .gte("updated_at", exp.intervalo_inicio)
             .lte("updated_at", exp.intervalo_fim + "T23:59:59");
           for (const p of pacientes ?? []) {
@@ -423,7 +421,6 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
             .from("atendimentos" as any)
             .select("*, agendamentos:agendamento_id(id, cid10, hora_inicio, data, modalidade, tele_sala_id), pacientes:paciente_id(cpf, cns, data_nascimento, sexo, numero_prontuario)")
             .eq("unidade_id", exp.unidade_id)
-            .in("status_envio", ["pendente", "desatualizado"])
             .gte("data_atendimento", exp.intervalo_inicio)
             .lte("data_atendimento", exp.intervalo_fim);
 
