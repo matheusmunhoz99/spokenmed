@@ -16,6 +16,17 @@ export { serializeDadoTransporteFvd } from "./serializers";
 export { makeLediUuid } from "./uuid";
 export { visitaFromDb } from "./mappers";
 export type { VisitaRowDb } from "./mappers";
+export {
+  serializeDadoTransporteFcd, cadastroDomiciliarFromDb,
+  type DadoTransporteFcd, type CadastroDomiciliar,
+  type FichaCadastroDomiciliarMaster, type DomicilioRowDb,
+} from "./fcd";
+export {
+  serializeDadoTransporteFai, atendimentoFromDb,
+  type DadoTransporteFai, type AtendimentoIndividual,
+  type FichaAtendimentoIndividualMaster, type AtendimentoRowDb,
+  type HeaderVariasLotacoes,
+} from "./fai";
 
 export interface ExportarFvdInput {
   visitas: VisitaRowDb[];
