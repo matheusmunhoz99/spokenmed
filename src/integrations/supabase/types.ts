@@ -1158,6 +1158,42 @@ export type Database = {
           },
         ]
       }
+      esus_remetente_config: {
+        Row: {
+          ativo: boolean
+          contra_chave: string
+          cpf_ou_cnpj: string
+          created_at: string
+          id: string
+          nome_ou_razao_social: string
+          updated_at: string
+          uuid_instalacao: string
+          versao_sistema: string
+        }
+        Insert: {
+          ativo?: boolean
+          contra_chave: string
+          cpf_ou_cnpj: string
+          created_at?: string
+          id?: string
+          nome_ou_razao_social: string
+          updated_at?: string
+          uuid_instalacao?: string
+          versao_sistema?: string
+        }
+        Update: {
+          ativo?: boolean
+          contra_chave?: string
+          cpf_ou_cnpj?: string
+          created_at?: string
+          id?: string
+          nome_ou_razao_social?: string
+          updated_at?: string
+          uuid_instalacao?: string
+          versao_sistema?: string
+        }
+        Relationships: []
+      }
       familia_membros: {
         Row: {
           created_at: string
