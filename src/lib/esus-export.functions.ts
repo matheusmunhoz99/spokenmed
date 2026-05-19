@@ -378,6 +378,60 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
           }
         }
 
+        // ----- FAI (Atendimento Individual) -----
+        if (tipos.includes("FAI")) {
+          const { data: ags } = await supabase
+            .from("agendamentos")
+            .select("*, pacientes(cpf, cns, data_nascimento, sexo, numero_prontuario), procedimentos(codigo_sigtap)")
+            .eq("unidade_id", exp.unidade_id)
+            .eq("status", "atendido")
+            .gte("data", exp.intervalo_inicio)
+            .lte("data", exp.intervalo_fim);
+          const validos = (ags ?? []).filter((a: any) => {
+            const p = a.pacientes ?? {};
+            return (p.cpf || p.cns) && p.data_nascimento && p.sexo;
+          });
+          if (validos.length) {
+            const u = uuidv4();
+            const headerVarias = {
+              lotacaoFormPrincipal: {
+                profissionalCNS: prof.cns, cboCodigo_2002: prof.cbo,
+                cnes: unidade.cnes, ine: equipe?.ine ?? null,
+              },
+              dataAtendimentoEpochMs: dataAtendimento,
+              codigoIbgeMunicipio: unidade.ibge_municipio,
+            };
+            const bytes = buildFAIThrift({ uuidFicha: u, header: headerVarias, atendimentos: validos });
+            fichas.push({ tipo: TipoDadoSerializado.FICHA_ATENDIMENTO_INDIVIDUAL, uuid: uuidPrefix + u, bytes });
+            totais.fai = validos.length;
+          }
+        }
+
+        // ----- FAO (Atendimento Odontológico) -----
+        if (tipos.includes("FAO")) {
+          const cboOdonto = (prof.cbo ?? "").startsWith("2232");
+          if (cboOdonto) {
+            const { data: ags } = await supabase
+              .from("agendamentos")
+              .select("*, pacientes(cpf, cns, data_nascimento, sexo, numero_prontuario), procedimentos(codigo_sigtap)")
+              .eq("unidade_id", exp.unidade_id)
+              .eq("profissional_id", exp.profissional_id)
+              .eq("status", "atendido")
+              .gte("data", exp.intervalo_inicio)
+              .lte("data", exp.intervalo_fim);
+            const validos = (ags ?? []).filter((a: any) => {
+              const p = a.pacientes ?? {};
+              return (p.cpf || p.cns) && p.data_nascimento;
+            });
+            if (validos.length) {
+              const u = uuidv4();
+              const bytes = buildFAOThrift({ uuidFicha: u, header, atendimentos: validos });
+              fichas.push({ tipo: TipoDadoSerializado.FICHA_ATENDIMENTO_ODONTOLOGICO, uuid: uuidPrefix + u, bytes });
+              totais.fao = validos.length;
+            }
+          }
+        }
+
         const { zipBytes } = await packLDI({
           cnes: unidade.cnes,
           ibge: unidade.ibge_municipio,
