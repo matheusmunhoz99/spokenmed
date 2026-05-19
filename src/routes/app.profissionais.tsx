@@ -47,6 +47,10 @@ function ProfissionaisPage() {
     queryKey: ["unidades-ativas"],
     queryFn: async () => (await supabase.from("unidades").select("*").eq("ativo", true).order("nome")).data ?? [],
   });
+  const { data: equipes } = useQuery({
+    queryKey: ["equipes-ativas"],
+    queryFn: async () => (await supabase.from("equipes").select("id, nome, ine, unidade_id").eq("ativo", true).order("nome")).data ?? [],
+  });
 
   return (
     <div className="space-y-4">
@@ -57,7 +61,7 @@ function ProfissionaisPage() {
               <Plus className="mr-1 h-4 w-4" /> Novo profissional
             </Button>
           </DialogTrigger>
-          <ProfissionalDialog editing={editing} especialidades={especialidades ?? []} unidades={unidades ?? []}
+          <ProfissionalDialog editing={editing} especialidades={especialidades ?? []} unidades={unidades ?? []} equipes={equipes ?? []}
             onSaved={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["profissionais"] }); }} />
         </Dialog>
       </div>
@@ -147,16 +151,16 @@ function ProfissionaisPage() {
   );
 }
 
-function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any) {
+function ProfissionalDialog({ editing, especialidades, unidades, equipes, onSaved }: any) {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<any>(editing ?? {
-    nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "", cbo: "",
+    nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "", cbo: "", cns: "", equipe_id: "",
     especialidade_id: "", email: "", telefone: "", sala: "", ativo: true,
   });
   const [unidadeIds, setUnidadeIds] = useState<string[]>(editing?._unidade_ids ?? []);
 
   useEffect(() => {
-    setForm(editing ?? { nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "", cbo: "", especialidade_id: "", email: "", telefone: "", sala: "", ativo: true });
+    setForm(editing ?? { nome: "", conselho: "CRM", conselho_numero: "", conselho_uf: "", cbo: "", cns: "", equipe_id: "", especialidade_id: "", email: "", telefone: "", sala: "", ativo: true });
     setUnidadeIds(editing?._unidade_ids ?? []);
   }, [editing]);
 
@@ -168,11 +172,15 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
     if (unidadeIds.length === 0) return toast.error("Vincule o profissional a pelo menos uma unidade.");
     const cboClean = (form.cbo ?? "").replace(/\D/g, "");
     if (cboClean.length !== 6) return toast.error("CBO é obrigatório e deve ter 6 dígitos.");
+    const cnsClean = (form.cns ?? "").replace(/\D/g, "");
+    if (cnsClean && cnsClean.length !== 15) return toast.error("CNS deve ter 15 dígitos.");
     setSubmitting(true);
 
     const payload: any = {
       nome: form.nome, conselho: form.conselho || null, conselho_numero: form.conselho_numero || null,
       conselho_uf: form.conselho_uf || null, cbo: cboClean,
+      cns: cnsClean || null,
+      equipe_id: form.equipe_id || null,
       especialidade_id: form.especialidade_id || null,
       unidade_id: unidadeIds[0],
       email: form.email || null, telefone: form.telefone || null, sala: form.sala || null, ativo: form.ativo,
@@ -237,6 +245,25 @@ function ProfissionalDialog({ editing, especialidades, unidades, onSaved }: any)
             <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
             <SelectContent>{especialidades.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}</SelectContent>
           </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">CNS (15 dígitos) — obrigatório para e-SUS</Label>
+          <Input maxLength={15} value={form.cns ?? ""} placeholder="Ex.: 700000000000000"
+            onChange={(e) => set("cns", e.target.value.replace(/\D/g, ""))} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Equipe (INE) — eSF/eAP</Label>
+          <Select value={form.equipe_id ?? ""} onValueChange={(v) => set("equipe_id", v)}>
+            <SelectTrigger><SelectValue placeholder="Sem equipe" /></SelectTrigger>
+            <SelectContent>
+              {equipes.map((eq: any) => (
+                <SelectItem key={eq.id} value={eq.id}>
+                  {eq.nome} {eq.ine ? `· INE ${eq.ine}` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-muted-foreground">Cadastre equipes em Configurações &gt; Unidades.</p>
         </div>
         <div className="space-y-1.5 md:col-span-2">
           <Label className="text-xs">Unidades onde atende *</Label>
