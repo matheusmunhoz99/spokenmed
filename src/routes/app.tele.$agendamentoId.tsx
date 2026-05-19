@@ -304,13 +304,17 @@ function TeleAtendimento() {
               <Button
                 size="lg"
                 className="mt-2 h-14 gap-2 rounded-full bg-emerald-500 px-8 text-base font-semibold shadow-2xl hover:bg-emerald-600"
-                onClick={handleCriarOuEntrar}
+                onClick={sala ? handleEntrarChamada : handleCriarSala}
                 disabled={busy}
               >
                 {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Video className="h-5 w-5" />}
-                {sala ? "Entrar na chamada" : "Criar sala e entrar"}
+                {sala ? "Entrar na chamada agora" : "Criar sala e gerar link"}
               </Button>
-              <p className="text-xs opacity-70">A chamada é criptografada de ponta a ponta pelo provedor.</p>
+              <p className="text-xs opacity-70">
+                {sala
+                  ? "Copie e envie o link ao paciente antes de entrar. Ao encerrar, a sala será fechada."
+                  : "A sala é criada uma única vez — o link gerado é sempre o mesmo."}
+              </p>
             </div>
           </div>
 
