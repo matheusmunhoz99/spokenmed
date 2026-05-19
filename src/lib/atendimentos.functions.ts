@@ -44,16 +44,7 @@ export const listAtendimentosFinalizados = createServerFn({ method: "POST" })
     let q = supabase
       .from("atendimentos")
       .select(
-        `
-        id, agendamento_id, protocolo, finalizado_em, data_atendimento, hora_inicio,
-        duracao_segundos, status_envio, exportado_em, criado_por,
-        soap_s, soap_o, soap_a, soap_p, cids, ciaps,
-        pa, fc, fr, temperatura, saturacao, peso, altura,
-        documentos,
-        paciente:pacientes!atendimentos_paciente_id_fkey(id, nome, cpf, cns, telefone),
-        profissional:profissionais!atendimentos_profissional_id_fkey(id, nome, cbo, conselho, conselho_numero, conselho_uf),
-        unidade:unidades!atendimentos_unidade_id_fkey(id, nome, cnes, endereco)
-      `,
+        "id, agendamento_id, protocolo, finalizado_em, data_atendimento, hora_inicio, duracao_segundos, status_envio, exportado_em, criado_por, paciente_id, profissional_id, unidade_id, soap_s, soap_o, soap_a, soap_p, cids, ciaps, pa, fc, fr, temperatura, saturacao, peso, altura, documentos",
       )
       .order("finalizado_em", { ascending: false })
       .limit(data.limit);
@@ -63,47 +54,30 @@ export const listAtendimentosFinalizados = createServerFn({ method: "POST" })
     if (data.fim) q = q.lte("finalizado_em", `${data.fim}T23:59:59Z`);
 
     const { data: rows, error } = await q;
-    if (error) {
-      // Caso o relacionamento implícito falhe (sem FK declarada), tenta fallback simples e enriquece em paralelo
-      const fallback = await supabase
-        .from("atendimentos")
-        .select(
-          "id, agendamento_id, protocolo, finalizado_em, data_atendimento, hora_inicio, duracao_segundos, status_envio, exportado_em, criado_por, paciente_id, profissional_id, unidade_id, soap_s, soap_o, soap_a, soap_p, cids, ciaps, pa, fc, fr, temperatura, saturacao, peso, altura, documentos",
-        )
-        .order("finalizado_em", { ascending: false })
-        .limit(data.limit);
-      if (fallback.error) throw new Error(fallback.error.message);
-      const list = fallback.data ?? [];
-      const ids = {
-        pac: Array.from(new Set(list.map((r: any) => r.paciente_id).filter(Boolean))),
-        prof: Array.from(new Set(list.map((r: any) => r.profissional_id).filter(Boolean))),
-        uni: Array.from(new Set(list.map((r: any) => r.unidade_id).filter(Boolean))),
-      };
-      const [pacs, profs, unis] = await Promise.all([
-        ids.pac.length
-          ? supabase.from("pacientes").select("id, nome, cpf, cns, telefone").in("id", ids.pac as string[])
-          : Promise.resolve({ data: [] as any[] }),
-        ids.prof.length
-          ? supabase.from("profissionais").select("id, nome, cbo, conselho, conselho_numero, conselho_uf").in("id", ids.prof as string[])
-          : Promise.resolve({ data: [] as any[] }),
-        ids.uni.length
-          ? supabase.from("unidades").select("id, nome, cnes, endereco").in("id", ids.uni as string[])
-          : Promise.resolve({ data: [] as any[] }),
-      ]);
-      const mP = new Map((pacs.data ?? []).map((x: any) => [x.id, x]));
-      const mPr = new Map((profs.data ?? []).map((x: any) => [x.id, x]));
-      const mU = new Map((unis.data ?? []).map((x: any) => [x.id, x]));
-      return {
-        itens: list.map((r: any) => mapRow(r, mP.get(r.paciente_id), mPr.get(r.profissional_id), mU.get(r.unidade_id))),
-      };
-    }
+    if (error) throw new Error(error.message);
+    const list = rows ?? [];
 
+    const ids = {
+      pac: Array.from(new Set(list.map((r: any) => r.paciente_id).filter(Boolean))) as string[],
+      prof: Array.from(new Set(list.map((r: any) => r.profissional_id).filter(Boolean))) as string[],
+      uni: Array.from(new Set(list.map((r: any) => r.unidade_id).filter(Boolean))) as string[],
+    };
+    const [pacs, profs, unis] = await Promise.all([
+      ids.pac.length
+        ? supabase.from("pacientes").select("id, nome, cpf, cns, telefone").in("id", ids.pac)
+        : Promise.resolve({ data: [] as any[] }),
+      ids.prof.length
+        ? supabase.from("profissionais").select("id, nome, cbo, conselho, conselho_numero, conselho_uf").in("id", ids.prof)
+        : Promise.resolve({ data: [] as any[] }),
+      ids.uni.length
+        ? supabase.from("unidades").select("id, nome, cnes, endereco").in("id", ids.uni)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+    const mP = new Map((pacs.data ?? []).map((x: any) => [x.id, x]));
+    const mPr = new Map((profs.data ?? []).map((x: any) => [x.id, x]));
+    const mU = new Map((unis.data ?? []).map((x: any) => [x.id, x]));
     return {
-      itens: (rows ?? []).map((r: any) =>
-        mapRow(r, Array.isArray(r.paciente) ? r.paciente[0] : r.paciente,
-                  Array.isArray(r.profissional) ? r.profissional[0] : r.profissional,
-                  Array.isArray(r.unidade) ? r.unidade[0] : r.unidade),
-      ),
+      itens: list.map((r: any) => mapRow(r, mP.get(r.paciente_id), mPr.get(r.profissional_id), mU.get(r.unidade_id))),
     };
   });
 
