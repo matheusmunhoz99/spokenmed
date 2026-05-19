@@ -36,11 +36,15 @@ function ExportarEsusPage() {
   const registrarFn = useServerFn(registrarExportacaoEsus);
   const gerarFn = useServerFn(gerarExportacaoEsus);
   const baixarFn = useServerFn(baixarExportacaoEsus);
+  const navigate = useNavigate();
   const [gerando, setGerando] = useState(false);
+  const [progresso, setProgresso] = useState<string>("");
 
+  const TODAS = "__all__";
   const [unidadeId, setUnidadeId] = useState<string>("");
   const [equipeId, setEquipeId] = useState<string>("");
   const [profissionalId, setProfissionalId] = useState<string>("");
+  const isTodas = unidadeId === TODAS;
   const hoje = new Date();
   const trintaDias = new Date(hoje.getTime() - 30 * 24 * 3600 * 1000);
   const [inicio, setInicio] = useState(trintaDias.toISOString().slice(0, 10));
@@ -50,6 +54,7 @@ function ExportarEsusPage() {
   const [somenteNovos, setSomenteNovos] = useState(false);
   const [preview, setPreview] = useState<PreviewResultado | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+
 
   // load combos
   const { data: unidades = [] } = useQuery({
