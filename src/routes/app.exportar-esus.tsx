@@ -585,6 +585,9 @@ function ExportarEsusPage() {
                         }
                       }
                       relatorio.push("", `Total: ${ok} ok · ${fail} falha(s)`);
+                      if (ok === 0) {
+                        throw new Error("Nenhuma unidade gerou fichas válidas; corrija as pendências ou ajuste o período antes de baixar.");
+                      }
                       master.file("LEIA-ME.txt", relatorio.join("\n"));
                       setProgresso("Compactando lote consolidado…");
                       const blob = await master.generateAsync({
