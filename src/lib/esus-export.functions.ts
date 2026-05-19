@@ -183,7 +183,7 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
         if (!pac.data_nascimento) e.push("data_nascimento");
         if (!pac.sexo) e.push("sexo");
         if (!a.cid10) avisos.push({ tipo: "FAI", registroId: a.id, descricao: "Atendimento sem CID-10", campo: "cid10" });
-        if (e.length) erros.push({ tipo: "FAI", registroId: a.id, descricao: `Cidadão sem dados obrigatórios: ${e.join(", ")}`, campo: e[0], rota: `/app/pacientes` });
+        if (e.length) erros.push({ tipo: "FAI", registroId: a.paciente_id ?? a.id, descricao: `Cidadão sem dados obrigatórios: ${e.join(", ")}`, campo: e[0], rota: { to: "/app/pacientes", search: { abrir: a.paciente_id ?? "" } } });
         else prontos.fai++;
       }
     }
