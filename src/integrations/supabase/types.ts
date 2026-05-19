@@ -610,34 +610,51 @@ export type Database = {
           assinatura_recusada: boolean
           assinatura_responsavel: string | null
           bairro: string | null
+          cbo_responsavel: string | null
           cep: string | null
           cidade: string | null
+          cnes_unidade: string | null
+          cns_responsavel: string | null
           complemento: string | null
+          condicao_moradia: string | null
           created_at: string
+          data_cadastro: string | null
           destino_lixo: string | null
+          email: string | null
           energia_eletrica: boolean | null
           esgoto: string | null
+          ficha_atualizacao: boolean
+          fora_area: boolean
           foto_fachada: string | null
           gps_accuracy: number | null
           gps_capturado_em: string | null
           id: string
+          ine_equipe: string | null
           latitude: number | null
+          localizacao: string | null
           logradouro: string
           longitude: number | null
           material_paredes: string | null
           microarea: string | null
+          mudou_se: boolean
           num_comodos: number | null
           num_dormitorios: number | null
           num_moradores: number | null
           numero: string | null
+          numero_familias: number | null
           observacoes: string | null
           ponto_referencia: string | null
+          sem_numero: boolean
           situacao_moradia: string | null
+          telefone_contato: string | null
+          telefone_residencia: string | null
+          termo_recusa: boolean
           tipo_domicilio: string | null
           tipo_imovel: string | null
           uf: string | null
           unidade_id: string | null
           updated_at: string
+          uuid_ficha: string
         }
         Insert: {
           abastecimento_agua?: string | null
@@ -648,34 +665,51 @@ export type Database = {
           assinatura_recusada?: boolean
           assinatura_responsavel?: string | null
           bairro?: string | null
+          cbo_responsavel?: string | null
           cep?: string | null
           cidade?: string | null
+          cnes_unidade?: string | null
+          cns_responsavel?: string | null
           complemento?: string | null
+          condicao_moradia?: string | null
           created_at?: string
+          data_cadastro?: string | null
           destino_lixo?: string | null
+          email?: string | null
           energia_eletrica?: boolean | null
           esgoto?: string | null
+          ficha_atualizacao?: boolean
+          fora_area?: boolean
           foto_fachada?: string | null
           gps_accuracy?: number | null
           gps_capturado_em?: string | null
           id?: string
+          ine_equipe?: string | null
           latitude?: number | null
+          localizacao?: string | null
           logradouro: string
           longitude?: number | null
           material_paredes?: string | null
           microarea?: string | null
+          mudou_se?: boolean
           num_comodos?: number | null
           num_dormitorios?: number | null
           num_moradores?: number | null
           numero?: string | null
+          numero_familias?: number | null
           observacoes?: string | null
           ponto_referencia?: string | null
+          sem_numero?: boolean
           situacao_moradia?: string | null
+          telefone_contato?: string | null
+          telefone_residencia?: string | null
+          termo_recusa?: boolean
           tipo_domicilio?: string | null
           tipo_imovel?: string | null
           uf?: string | null
           unidade_id?: string | null
           updated_at?: string
+          uuid_ficha?: string
         }
         Update: {
           abastecimento_agua?: string | null
@@ -686,38 +720,96 @@ export type Database = {
           assinatura_recusada?: boolean
           assinatura_responsavel?: string | null
           bairro?: string | null
+          cbo_responsavel?: string | null
           cep?: string | null
           cidade?: string | null
+          cnes_unidade?: string | null
+          cns_responsavel?: string | null
           complemento?: string | null
+          condicao_moradia?: string | null
           created_at?: string
+          data_cadastro?: string | null
           destino_lixo?: string | null
+          email?: string | null
           energia_eletrica?: boolean | null
           esgoto?: string | null
+          ficha_atualizacao?: boolean
+          fora_area?: boolean
           foto_fachada?: string | null
           gps_accuracy?: number | null
           gps_capturado_em?: string | null
           id?: string
+          ine_equipe?: string | null
           latitude?: number | null
+          localizacao?: string | null
           logradouro?: string
           longitude?: number | null
           material_paredes?: string | null
           microarea?: string | null
+          mudou_se?: boolean
           num_comodos?: number | null
           num_dormitorios?: number | null
           num_moradores?: number | null
           numero?: string | null
+          numero_familias?: number | null
           observacoes?: string | null
           ponto_referencia?: string | null
+          sem_numero?: boolean
           situacao_moradia?: string | null
+          telefone_contato?: string | null
+          telefone_residencia?: string | null
+          termo_recusa?: boolean
           tipo_domicilio?: string | null
           tipo_imovel?: string | null
           uf?: string | null
           unidade_id?: string | null
           updated_at?: string
+          uuid_ficha?: string
         }
         Relationships: [
           {
             foreignKeyName: "domicilios_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipes: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          ine: string
+          nome: string
+          tipo_equipe: string | null
+          unidade_id: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          ine: string
+          nome: string
+          tipo_equipe?: string | null
+          unidade_id: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          ine?: string
+          nome?: string
+          tipo_equipe?: string | null
+          unidade_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipes_unidade_id_fkey"
             columns: ["unidade_id"]
             isOneToOne: false
             referencedRelation: "unidades"
@@ -748,6 +840,106 @@ export type Database = {
           nome?: string
         }
         Relationships: []
+      }
+      esus_exportacoes: {
+        Row: {
+          arquivo_path: string | null
+          arquivo_tamanho_bytes: number | null
+          created_at: string
+          criado_por: string
+          criado_por_email: string | null
+          equipe_id: string | null
+          erro_msg: string | null
+          id: string
+          intervalo_fim: string | null
+          intervalo_inicio: string | null
+          ledi_versao: string
+          lote_uuid: string
+          profissional_cbo: string | null
+          profissional_cns: string | null
+          profissional_id: string | null
+          status: string
+          tipos_fichas: string[]
+          total_fad: number
+          total_fcd: number
+          total_fci: number
+          unidade_id: string | null
+          updated_at: string
+          validacao_resultado: Json | null
+        }
+        Insert: {
+          arquivo_path?: string | null
+          arquivo_tamanho_bytes?: number | null
+          created_at?: string
+          criado_por: string
+          criado_por_email?: string | null
+          equipe_id?: string | null
+          erro_msg?: string | null
+          id?: string
+          intervalo_fim?: string | null
+          intervalo_inicio?: string | null
+          ledi_versao?: string
+          lote_uuid?: string
+          profissional_cbo?: string | null
+          profissional_cns?: string | null
+          profissional_id?: string | null
+          status?: string
+          tipos_fichas?: string[]
+          total_fad?: number
+          total_fcd?: number
+          total_fci?: number
+          unidade_id?: string | null
+          updated_at?: string
+          validacao_resultado?: Json | null
+        }
+        Update: {
+          arquivo_path?: string | null
+          arquivo_tamanho_bytes?: number | null
+          created_at?: string
+          criado_por?: string
+          criado_por_email?: string | null
+          equipe_id?: string | null
+          erro_msg?: string | null
+          id?: string
+          intervalo_fim?: string | null
+          intervalo_inicio?: string | null
+          ledi_versao?: string
+          lote_uuid?: string
+          profissional_cbo?: string | null
+          profissional_cns?: string | null
+          profissional_id?: string | null
+          status?: string
+          tipos_fichas?: string[]
+          total_fad?: number
+          total_fcd?: number
+          total_fci?: number
+          unidade_id?: string | null
+          updated_at?: string
+          validacao_resultado?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esus_exportacoes_equipe_id_fkey"
+            columns: ["equipe_id"]
+            isOneToOne: false
+            referencedRelation: "equipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esus_exportacoes_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esus_exportacoes_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       familia_membros: {
         Row: {
@@ -795,11 +987,14 @@ export type Database = {
         Row: {
           bolsa_familia: boolean
           created_at: string
+          data_cadastro: string | null
           domicilio_id: string
           id: string
+          mudou_se: boolean
           observacoes: string | null
           prontuario_familiar: string | null
           renda_familiar: number | null
+          responsavel_cns: string | null
           responsavel_paciente_id: string | null
           situacao_rua: boolean
           updated_at: string
@@ -807,11 +1002,14 @@ export type Database = {
         Insert: {
           bolsa_familia?: boolean
           created_at?: string
+          data_cadastro?: string | null
           domicilio_id: string
           id?: string
+          mudou_se?: boolean
           observacoes?: string | null
           prontuario_familiar?: string | null
           renda_familiar?: number | null
+          responsavel_cns?: string | null
           responsavel_paciente_id?: string | null
           situacao_rua?: boolean
           updated_at?: string
@@ -819,11 +1017,14 @@ export type Database = {
         Update: {
           bolsa_familia?: boolean
           created_at?: string
+          data_cadastro?: string | null
           domicilio_id?: string
           id?: string
+          mudou_se?: boolean
           observacoes?: string | null
           prontuario_familiar?: string | null
           renda_familiar?: number | null
+          responsavel_cns?: string | null
           responsavel_paciente_id?: string | null
           situacao_rua?: boolean
           updated_at?: string
@@ -985,76 +1186,133 @@ export type Database = {
           ativo: boolean
           bairro: string | null
           cep: string | null
+          cidadao_outra_equipe: boolean
           cidade: string | null
           cns: string | null
           cns_secundario: string | null
           complemento: string | null
+          condicoes_saude: Json
           cpf: string | null
           created_at: string
           data_nascimento: string | null
+          em_situacao_rua: Json | null
           email: string | null
+          escolaridade: string | null
+          etnia: string | null
+          frequenta_escola: boolean | null
           id: string
+          identidade_genero: string | null
           logradouro: string | null
+          municipio_nascimento_ibge: string | null
+          nacionalidade: string | null
           nome: string
           nome_mae: string | null
           numero: string | null
           observacoes: string | null
+          ocupacao_cbo: string | null
+          orientacao_sexual: string | null
           outro_cns: string | null
+          pais_nascimento: string | null
+          peso_nascimento: number | null
+          povo_comunidade: string | null
+          raca_cor: string | null
+          religiao: string | null
           rg: string | null
           sexo: Database["public"]["Enums"]["sexo_tipo"] | null
+          situacao_mercado_trabalho: string | null
           telefone: string | null
           uf: string | null
+          uf_nascimento: string | null
           updated_at: string
+          uuid_ficha_fci: string
         }
         Insert: {
           ativo?: boolean
           bairro?: string | null
           cep?: string | null
+          cidadao_outra_equipe?: boolean
           cidade?: string | null
           cns?: string | null
           cns_secundario?: string | null
           complemento?: string | null
+          condicoes_saude?: Json
           cpf?: string | null
           created_at?: string
           data_nascimento?: string | null
+          em_situacao_rua?: Json | null
           email?: string | null
+          escolaridade?: string | null
+          etnia?: string | null
+          frequenta_escola?: boolean | null
           id?: string
+          identidade_genero?: string | null
           logradouro?: string | null
+          municipio_nascimento_ibge?: string | null
+          nacionalidade?: string | null
           nome: string
           nome_mae?: string | null
           numero?: string | null
           observacoes?: string | null
+          ocupacao_cbo?: string | null
+          orientacao_sexual?: string | null
           outro_cns?: string | null
+          pais_nascimento?: string | null
+          peso_nascimento?: number | null
+          povo_comunidade?: string | null
+          raca_cor?: string | null
+          religiao?: string | null
           rg?: string | null
           sexo?: Database["public"]["Enums"]["sexo_tipo"] | null
+          situacao_mercado_trabalho?: string | null
           telefone?: string | null
           uf?: string | null
+          uf_nascimento?: string | null
           updated_at?: string
+          uuid_ficha_fci?: string
         }
         Update: {
           ativo?: boolean
           bairro?: string | null
           cep?: string | null
+          cidadao_outra_equipe?: boolean
           cidade?: string | null
           cns?: string | null
           cns_secundario?: string | null
           complemento?: string | null
+          condicoes_saude?: Json
           cpf?: string | null
           created_at?: string
           data_nascimento?: string | null
+          em_situacao_rua?: Json | null
           email?: string | null
+          escolaridade?: string | null
+          etnia?: string | null
+          frequenta_escola?: boolean | null
           id?: string
+          identidade_genero?: string | null
           logradouro?: string | null
+          municipio_nascimento_ibge?: string | null
+          nacionalidade?: string | null
           nome?: string
           nome_mae?: string | null
           numero?: string | null
           observacoes?: string | null
+          ocupacao_cbo?: string | null
+          orientacao_sexual?: string | null
           outro_cns?: string | null
+          pais_nascimento?: string | null
+          peso_nascimento?: number | null
+          povo_comunidade?: string | null
+          raca_cor?: string | null
+          religiao?: string | null
           rg?: string | null
           sexo?: Database["public"]["Enums"]["sexo_tipo"] | null
+          situacao_mercado_trabalho?: string | null
           telefone?: string | null
           uf?: string | null
+          uf_nascimento?: string | null
           updated_at?: string
+          uuid_ficha_fci?: string
         }
         Relationships: []
       }
@@ -1140,11 +1398,13 @@ export type Database = {
         Row: {
           ativo: boolean
           cbo: string | null
+          cns: string | null
           conselho: string | null
           conselho_numero: string | null
           conselho_uf: string | null
           created_at: string
           email: string | null
+          equipe_id: string | null
           especialidade_id: string | null
           id: string
           nome: string
@@ -1157,11 +1417,13 @@ export type Database = {
         Insert: {
           ativo?: boolean
           cbo?: string | null
+          cns?: string | null
           conselho?: string | null
           conselho_numero?: string | null
           conselho_uf?: string | null
           created_at?: string
           email?: string | null
+          equipe_id?: string | null
           especialidade_id?: string | null
           id?: string
           nome: string
@@ -1174,11 +1436,13 @@ export type Database = {
         Update: {
           ativo?: boolean
           cbo?: string | null
+          cns?: string | null
           conselho?: string | null
           conselho_numero?: string | null
           conselho_uf?: string | null
           created_at?: string
           email?: string | null
+          equipe_id?: string | null
           especialidade_id?: string | null
           id?: string
           nome?: string
@@ -1189,6 +1453,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "profissionais_equipe_id_fkey"
+            columns: ["equipe_id"]
+            isOneToOne: false
+            referencedRelation: "equipes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profissionais_especialidade_id_fkey"
             columns: ["especialidade_id"]
@@ -1738,32 +2009,53 @@ export type Database = {
       unidades: {
         Row: {
           ativo: boolean
+          bairro: string | null
+          cep: string | null
           cnes: string | null
           created_at: string
           endereco: string | null
+          ibge_municipio: string | null
           id: string
+          logradouro: string | null
           nome: string
+          numero: string | null
           telefone: string | null
+          tipo_unidade: string | null
+          uf: string | null
           updated_at: string
         }
         Insert: {
           ativo?: boolean
+          bairro?: string | null
+          cep?: string | null
           cnes?: string | null
           created_at?: string
           endereco?: string | null
+          ibge_municipio?: string | null
           id?: string
+          logradouro?: string | null
           nome: string
+          numero?: string | null
           telefone?: string | null
+          tipo_unidade?: string | null
+          uf?: string | null
           updated_at?: string
         }
         Update: {
           ativo?: boolean
+          bairro?: string | null
+          cep?: string | null
           cnes?: string | null
           created_at?: string
           endereco?: string | null
+          ibge_municipio?: string | null
           id?: string
+          logradouro?: string | null
           nome?: string
+          numero?: string | null
           telefone?: string | null
+          tipo_unidade?: string | null
+          uf?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1852,6 +2144,9 @@ export type Database = {
           assinatura_paciente_em: string | null
           assinatura_recusa_motivo: string | null
           assinatura_recusada: boolean
+          cbo_acs: string | null
+          cnes_unidade: string | null
+          cns_acs: string | null
           controle_ambiental: Json
           created_at: string
           data_visita: string
@@ -1859,12 +2154,15 @@ export type Database = {
           domicilio_id: string | null
           endereco_visitado: string | null
           familia_id: string | null
+          fora_area: boolean
           fotos: Json
           gps_accuracy: number | null
           gps_capturado_em: string
           id: string
+          ine_equipe: string | null
           latitude: number
           longitude: number
+          microarea: string | null
           motivos: Json
           observacoes: string | null
           pa_diastolica: number | null
@@ -1874,6 +2172,7 @@ export type Database = {
           turno: string
           unidade_id: string | null
           updated_at: string
+          uuid_ficha: string
         }
         Insert: {
           acompanhamentos?: Json
@@ -1884,6 +2183,9 @@ export type Database = {
           assinatura_paciente_em?: string | null
           assinatura_recusa_motivo?: string | null
           assinatura_recusada?: boolean
+          cbo_acs?: string | null
+          cnes_unidade?: string | null
+          cns_acs?: string | null
           controle_ambiental?: Json
           created_at?: string
           data_visita?: string
@@ -1891,12 +2193,15 @@ export type Database = {
           domicilio_id?: string | null
           endereco_visitado?: string | null
           familia_id?: string | null
+          fora_area?: boolean
           fotos?: Json
           gps_accuracy?: number | null
           gps_capturado_em: string
           id?: string
+          ine_equipe?: string | null
           latitude: number
           longitude: number
+          microarea?: string | null
           motivos?: Json
           observacoes?: string | null
           pa_diastolica?: number | null
@@ -1906,6 +2211,7 @@ export type Database = {
           turno: string
           unidade_id?: string | null
           updated_at?: string
+          uuid_ficha?: string
         }
         Update: {
           acompanhamentos?: Json
@@ -1916,6 +2222,9 @@ export type Database = {
           assinatura_paciente_em?: string | null
           assinatura_recusa_motivo?: string | null
           assinatura_recusada?: boolean
+          cbo_acs?: string | null
+          cnes_unidade?: string | null
+          cns_acs?: string | null
           controle_ambiental?: Json
           created_at?: string
           data_visita?: string
@@ -1923,12 +2232,15 @@ export type Database = {
           domicilio_id?: string | null
           endereco_visitado?: string | null
           familia_id?: string | null
+          fora_area?: boolean
           fotos?: Json
           gps_accuracy?: number | null
           gps_capturado_em?: string
           id?: string
+          ine_equipe?: string | null
           latitude?: number
           longitude?: number
+          microarea?: string | null
           motivos?: Json
           observacoes?: string | null
           pa_diastolica?: number | null
@@ -1938,6 +2250,7 @@ export type Database = {
           turno?: string
           unidade_id?: string | null
           updated_at?: string
+          uuid_ficha?: string
         }
         Relationships: [
           {
