@@ -349,11 +349,36 @@ function ExportarEsusPage() {
             )}
 
             <div className="border-t pt-3 flex flex-wrap items-center gap-3">
-              <Button disabled={!podeGerar} title={!podeGerar ? "Corrija os erros bloqueantes primeiro" : ""}>
-                <FileText className="h-4 w-4 mr-2" /> Gerar arquivo CDS .zip ({totalPronto} ficha{totalPronto === 1 ? "" : "s"})
+              <Button
+                disabled={!podeGerar || gerando}
+                title={!podeGerar ? "Corrija os erros bloqueantes primeiro" : ""}
+                onClick={async () => {
+                  if (!preview || !podeGerar) return;
+                  setGerando(true);
+                  try {
+                    const reg = await registrarFn({ data: {
+                      unidadeId, equipeId: equipeId || null, profissionalId,
+                      intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos,
+                      somenteNovos, totais: preview.prontos, validacao: { erros: preview.erros.length, avisos: preview.avisos.length },
+                    } as any });
+                    toast.info("Gerando arquivo .zip…");
+                    const r = await gerarFn({ data: { exportacaoId: (reg as any).id } });
+                    toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad}`);
+                    const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
+                    window.open(url, "_blank");
+                    refetchHistorico();
+                  } catch (e: any) {
+                    toast.error(e?.message ?? "Falha ao gerar exportação");
+                  } finally {
+                    setGerando(false);
+                  }
+                }}
+              >
+                {gerando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+                Gerar arquivo CDS .zip ({totalPronto} ficha{totalPronto === 1 ? "" : "s"})
               </Button>
               <p className="text-xs text-muted-foreground">
-                A geração do arquivo Thrift está em finalização (Fase 2). Por enquanto, a pré-validação já indica todos os campos que faltam para o e-SUS aceitar.
+                Gera <strong>.zip LEDI 7.4 (JSON)</strong> compatível com Bridge UFSC e conversores Thrift. Versão Thrift binária nativa requer os IDLs da PEC e será adicionada como variante na próxima atualização.
               </p>
             </div>
           </CardContent>
