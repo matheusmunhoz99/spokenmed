@@ -486,22 +486,40 @@ function ExportarEsusPage() {
               </div>
             )}
 
+            {temErros && (
+              <div className="border-t pt-3 space-y-2">
+                <label className="flex items-start gap-2 text-xs cursor-pointer select-none rounded-md border border-amber-500/40 bg-amber-500/5 p-2.5">
+                  <Checkbox checked={cienteErros} onCheckedChange={(v) => setCienteErros(!!v)} className="mt-0.5" />
+                  <span>
+                    <strong className="text-amber-900 dark:text-amber-200">Estou ciente dos {preview.erros.length} erro(s) e quero gerar o lote mesmo assim (modo teste).</strong>
+                    <span className="block text-muted-foreground mt-0.5">
+                      <AlertTriangle className="inline h-3 w-3 mr-1 text-amber-600" />
+                      Útil só pra inspecionar o `.zip`/`.esus` gerado. O e-SUS PEC provavelmente vai <strong>rejeitar</strong> o lote na importação.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            )}
+
             <div className="border-t pt-3 flex flex-wrap items-center gap-3">
               <Button
+                variant={temErros && cienteErros ? "destructive" : "default"}
                 disabled={!podeGerar || gerando}
-                title={!podeGerar ? "Corrija os erros bloqueantes primeiro" : ""}
+                title={!podeGerar ? (temErros ? "Marque o checkbox de ciência ou corrija os erros" : "") : ""}
                 onClick={async () => {
                   if (!preview || !podeGerar) return;
                   setGerando(true);
                   setProgresso("");
+                  const ignorado = temErros && cienteErros;
                   try {
                     if (!isTodas) {
                       const reg = await registrarFn({ data: {
                         unidadeId, equipeId: equipeId || null, profissionalId,
                         intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos,
-                        somenteNovos, totais: preview.prontos, validacao: { erros: preview.erros.length, avisos: preview.avisos.length },
+                        somenteNovos, totais: preview.prontos,
+                        validacao: { erros: preview.erros.length, avisos: preview.avisos.length, ignorado },
                       } as any });
-                      toast.info(formato === "thrift" ? "Gerando .zip Thrift (PEC offline)…" : "Gerando .zip JSON-LEDI (Bridge)…");
+                      toast.info(ignorado ? "Gerando lote em modo teste (ignorando erros)…" : (formato === "thrift" ? "Gerando .zip Thrift (PEC offline)…" : "Gerando .zip JSON-LEDI (Bridge)…"));
                       const r = await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
                       toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad} · FAI ${(r.totais as any).fai ?? 0} · FAO ${(r.totais as any).fao ?? 0}`);
                       const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
@@ -519,7 +537,7 @@ function ExportarEsusPage() {
                             unidadeId: u.id, equipeId: null, profissionalId: respId,
                             intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos,
                             somenteNovos, totais: { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 },
-                            validacao: { erros: 0, avisos: 0 },
+                            validacao: { erros: 0, avisos: 0, ignorado },
                           } as any });
                           await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
                           const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
@@ -543,8 +561,11 @@ function ExportarEsusPage() {
                 }}
               >
                 {gerando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-                {isTodas ? `Gerar lotes (${unidades.length} unidade${unidades.length === 1 ? "" : "s"})` : `Gerar arquivo CDS .zip (${totalPronto} ficha${totalPronto === 1 ? "" : "s"})`}
+                {temErros && cienteErros
+                  ? `Gerar mesmo com erros (teste) — ${totalPronto} ficha${totalPronto === 1 ? "" : "s"}`
+                  : (isTodas ? `Gerar lotes (${unidades.length} unidade${unidades.length === 1 ? "" : "s"})` : `Gerar arquivo CDS .zip (${totalPronto} ficha${totalPronto === 1 ? "" : "s"})`)}
               </Button>
+
               {progresso && <span className="text-xs text-muted-foreground">{progresso}</span>}
               <div className="flex items-center gap-2">
                 <Label className="text-xs whitespace-nowrap">Formato:</Label>
