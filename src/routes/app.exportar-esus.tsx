@@ -40,7 +40,7 @@ function ExportarEsusPage() {
   const registrarFn = useServerFn(registrarExportacaoEsus);
   const gerarFn = useServerFn(gerarExportacaoEsus);
   const baixarFn = useServerFn(baixarExportacaoEsus);
-  const navigate = useNavigate();
+  
   const [gerando, setGerando] = useState(false);
   const [progresso, setProgresso] = useState<string>("");
 
