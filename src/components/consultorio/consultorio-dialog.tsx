@@ -39,6 +39,10 @@ import logoUrl from "@/assets/spokenmed-logo.png";
 interface Agendamento {
   id: string;
   hora_inicio?: string;
+  paciente_id?: string;
+  profissional_id?: string;
+  unidade_id?: string;
+  data?: string;
   pacientes?: { nome?: string; cpf?: string; telefone?: string };
   profissionais?: { nome?: string; especialidades?: { nome?: string } };
   unidades?: { nome?: string };
