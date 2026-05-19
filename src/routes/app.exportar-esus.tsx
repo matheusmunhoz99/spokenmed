@@ -22,7 +22,12 @@ export const Route = createFileRoute("/app/exportar-esus")({
   component: ExportarEsusPage,
 });
 
-type FichaTipo = "FCD" | "FCI" | "FAD";
+type FichaTipo = "FCD" | "FCI" | "FAD" | "FAI" | "FAO";
+const FICHA_LABEL: Record<FichaTipo, string> = {
+  FCD: "Cadastro Domiciliar", FCI: "Cadastro Individual", FAD: "Visita Domiciliar",
+  FAI: "Atendimento Individual", FAO: "Atendimento Odontológico",
+};
+const FICHAS_ALL: FichaTipo[] = ["FCD", "FCI", "FAD", "FAI", "FAO"];
 
 function ExportarEsusPage() {
   const { isAdmin } = useAuth();
