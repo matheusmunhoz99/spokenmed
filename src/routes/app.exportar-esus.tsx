@@ -13,7 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertCircle, AlertTriangle, CheckCircle2, Download, FileText, Info, Loader2, Pencil, RefreshCw, ShieldCheck } from "lucide-react";
-import { previewExportacaoEsus, listarExportacoesEsus, registrarExportacaoEsus, gerarExportacaoEsus, baixarExportacaoEsus, type PreviewResultado, type ErroExport } from "@/lib/esus-export.functions";
+import { previewExportacaoEsus, listarExportacoesEsus, registrarExportacaoEsus, gerarExportacaoEsus, baixarExportacaoEsus, limparTodosLotes, type PreviewResultado, type ErroExport } from "@/lib/esus-export.functions";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { downloadCsv } from "@/lib/csv";
