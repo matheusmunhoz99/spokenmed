@@ -150,6 +150,53 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
       }
     }
 
+    // ----- FAI (Atendimento Individual) -----
+    if (data.tiposFichas.includes("FAI")) {
+      const { data: ags } = await supabase
+        .from("agendamentos")
+        .select("id, paciente_id, profissional_id, status, data, hora_inicio, cid10, pacientes(cpf, cns, data_nascimento, sexo)")
+        .eq("unidade_id", data.unidadeId)
+        .eq("status", "atendido")
+        .gte("data", data.intervaloInicio)
+        .lte("data", data.intervaloFim);
+      resumo.fai = ags?.length ?? 0;
+      for (const a of (ags ?? []) as any[]) {
+        const e: string[] = [];
+        const pac = a.pacientes ?? {};
+        if (!pac.cpf && !pac.cns) e.push("CPF ou CNS do cidadão");
+        if (!pac.data_nascimento) e.push("data_nascimento");
+        if (!pac.sexo) e.push("sexo");
+        if (!a.cid10) avisos.push({ tipo: "FAI", registroId: a.id, descricao: "Atendimento sem CID-10", campo: "cid10" });
+        if (e.length) erros.push({ tipo: "FAI", registroId: a.id, descricao: `Cidadão sem dados obrigatórios: ${e.join(", ")}`, campo: e[0], rota: `/app/pacientes` });
+        else prontos.fai++;
+      }
+    }
+
+    // ----- FAO (Atendimento Odontológico) — filtra por CBO odontológico -----
+    if (data.tiposFichas.includes("FAO")) {
+      const cboOdonto = (profissional?.cbo ?? "").startsWith("2232"); // 2232xx = cirurgião-dentista
+      if (!cboOdonto) {
+        avisos.push({ tipo: "FAO", registroId: data.profissionalId, descricao: "Profissional não é cirurgião-dentista (CBO 2232*) — FAO ficará vazia.", campo: "cbo" });
+      }
+      const { data: ags } = await supabase
+        .from("agendamentos")
+        .select("id, paciente_id, profissional_id, status, data, hora_inicio, cid10, pacientes(cpf, cns, data_nascimento, sexo)")
+        .eq("unidade_id", data.unidadeId)
+        .eq("profissional_id", data.profissionalId)
+        .eq("status", "atendido")
+        .gte("data", data.intervaloInicio)
+        .lte("data", data.intervaloFim);
+      resumo.fao = ags?.length ?? 0;
+      for (const a of (ags ?? []) as any[]) {
+        const e: string[] = [];
+        const pac = a.pacientes ?? {};
+        if (!pac.cpf && !pac.cns) e.push("CPF ou CNS do cidadão");
+        if (!pac.data_nascimento) e.push("data_nascimento");
+        if (e.length) erros.push({ tipo: "FAO", registroId: a.id, descricao: `Cidadão sem dados obrigatórios: ${e.join(", ")}`, campo: e[0] });
+        else if (cboOdonto) prontos.fao++;
+      }
+    }
+
     return { resumo, erros, avisos, prontos, unidade, equipe, profissional };
   });
 
