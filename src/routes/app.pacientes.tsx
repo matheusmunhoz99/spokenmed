@@ -89,6 +89,27 @@ function PacientesPage() {
     setOpen(true);
   };
 
+  // Deep-link: ?abrir=<id> abre o cadastro do paciente automaticamente
+  const { abrir } = useSearch({ from: "/app/pacientes" });
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!abrir) return;
+    let cancel = false;
+    (async () => {
+      const { data: p, error } = await supabase.from("pacientes").select("*").eq("id", abrir).maybeSingle();
+      if (cancel) return;
+      if (error || !p) {
+        toast.error("Paciente não encontrado");
+      } else {
+        openEdit(p);
+      }
+      navigate({ to: "/app/pacientes", search: {}, replace: true });
+    })();
+    return () => { cancel = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrir]);
+
+
   return (
     <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: ["pacientes"] })}>
     <div className="space-y-4">
