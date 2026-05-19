@@ -108,17 +108,78 @@ function uuidv4() {
   });
 }
 
-export function buildFAIThrift(input: FaiInput): Uint8Array {
-  const turnoMap: Record<string, number> = { manha: 1, tarde: 2, noite: 3 };
+// Mapeamentos LEDI 7.4 → códigos numéricos
+const TURNO_MAP: Record<string, number> = { manha: 1, tarde: 2, noite: 3 };
+const MODALIDADE_MAP: Record<string, number> = { presencial: 1, tele_sincrono: 2, tele_assincrono: 2, telessaude: 2 };
+const TIPO_ATEND_MAP: Record<string, number> = {
+  consulta_agendada: 1, cuidado_continuado: 2, consulta_no_dia: 3,
+  urgencia: 4, escuta_inicial: 5, demanda_espontanea: 6,
+};
+const LOCAL_MAP: Record<string, number> = {
+  ubs: 1, domicilio: 2, escola: 3, academia: 4, instituicao: 5, rua: 6, outros: 7, unidade_movel: 8,
+};
+const RACIONALIDADE_MAP: Record<string, number> = {
+  alopatia: 1, mtc: 2, antroposofia: 3, homeopatia: 4, fitoterapia: 5, ayurveda: 6,
+};
+// Conduta/desfecho (códigos LEDI)
+const CONDUTA_MAP: Record<string, number> = {
+  "Retorno p/ consulta agendada": 1,
+  "Retorno p/ cuidado continuado": 2,
+  "Agendamento p/ grupos": 3,
+  "Alta do episódio": 4,
+  "Encaminhamento interno no dia": 5,
+  "Encaminhamento intersetorial": 7,
+  "Encaminhamento p/ serviço especializado": 8,
+  "Encaminhamento p/ CAPS": 9,
+  "Encaminhamento p/ internação hospitalar": 10,
+  "Encaminhamento p/ urgência/emergência": 11,
+  "Encaminhamento p/ serviço atenção domiciliar": 12,
+};
 
+export function buildFAIThrift(input: FaiInput): Uint8Array {
   const children: ChildInput[] = input.atendimentos.map((a) => {
     const pac = a.pacientes ?? {};
-    const cid = a.cid10 ? [String(a.cid10).toUpperCase()] : [];
-    const proc = a.procedimentos?.codigo_sigtap ? [a.procedimentos.codigo_sigtap] : [];
-    const horaInicio = a.hora_inicio ?? "12:00:00";
+    const at = a.atendimento ?? null; // registro de public.atendimentos (quando houver)
+
+    // CIDs: prioriza lista do atendimento; cai para a.cid10 do agendamento
+    const cidsList: string[] = Array.isArray(at?.cids) && at.cids.length
+      ? at.cids.map((c: string) => String(c).toUpperCase())
+      : a.cid10 ? [String(a.cid10).toUpperCase()] : [];
+
+    // Procedimentos SIGTAP (do atendimento) + procedimento do agendamento como fallback
+    const procs: string[] = Array.isArray(at?.procedimentos_sigtap) && at.procedimentos_sigtap.length
+      ? at.procedimentos_sigtap
+      : (a.procedimentos?.codigo_sigtap ? [a.procedimentos.codigo_sigtap] : []);
+
+    const horaInicio = at?.hora_inicio ?? a.hora_inicio ?? "12:00:00";
     const h = parseInt(String(horaInicio).slice(0, 2), 10);
-    const turno = h < 12 ? 1 : h < 18 ? 2 : 3;
-    const modalidade = a.modalidade === "telessaude" || a.tele_sala_id ? 2 : 1;
+    const turnoFallback = h < 12 ? 1 : h < 18 ? 2 : 3;
+    const turno = at?.turno ? (TURNO_MAP[at.turno] ?? turnoFallback) : turnoFallback;
+
+    const modalidade = at?.modalidade
+      ? (MODALIDADE_MAP[at.modalidade] ?? 1)
+      : (a.modalidade === "telessaude" || a.tele_sala_id ? 2 : 1);
+
+    const tipoAtendimento = at?.tipo_atendimento
+      ? (TIPO_ATEND_MAP[at.tipo_atendimento] ?? 1)
+      : 1;
+
+    const localAtendimento = at?.local_atendimento
+      ? (LOCAL_MAP[at.local_atendimento] ?? 1)
+      : 1;
+
+    const racionalidade = at?.racionalidade ? RACIONALIDADE_MAP[at.racionalidade] : undefined;
+
+    const condutas: number[] = Array.isArray(at?.desfechos) && at.desfechos.length
+      ? at.desfechos.map((d: string) => CONDUTA_MAP[d]).filter((x: number | undefined): x is number => !!x)
+      : [1];
+
+    const peso = at?.peso != null ? Number(at.peso) : undefined;
+    const altura = at?.altura != null ? Number(at.altura) : undefined;
+    const imc = peso && altura ? +(peso / Math.pow(altura / 100, 2)).toFixed(2) : undefined;
+    const antropometria = (peso || altura)
+      ? { peso, altura, imc, perimetroCefalico: at?.perimetro_cefalico ? Number(at.perimetro_cefalico) : undefined }
+      : undefined;
 
     return {
       uuidFichaOrigem: uuidv4(),
@@ -127,13 +188,20 @@ export function buildFAIThrift(input: FaiInput): Uint8Array {
       dtNascimento: epoch(pac.data_nascimento) || null,
       sexoCidadao: pac.sexo === "F" ? 0 : pac.sexo === "M" ? 1 : null,
       numProntuario: pac.numero_prontuario || null,
-      localAtendimento: 1, // 1 = UBS
-      turno: a.turno_codigo ?? turno,
-      tipoAtendimento: a.tipo_atendimento_codigo ?? 1, // 1 = consulta agendada
+      localAtendimento,
+      turno,
+      tipoAtendimento,
       modalidadeAtencao: modalidade,
-      cids10: cid,
-      condutaList: [1], // 1 = retorno consulta agendada (default)
-      procedimentos: proc,
+      cids10: cidsList,
+      ciaps: Array.isArray(at?.ciaps) && at.ciaps.length ? at.ciaps : undefined,
+      exameSolicitado: Array.isArray(at?.exames_solicitados) && at.exames_solicitados.length ? at.exames_solicitados : undefined,
+      exameAvaliado: Array.isArray(at?.exames_avaliados) && at.exames_avaliados.length ? at.exames_avaliados : undefined,
+      condutaList: condutas.length ? condutas : [1],
+      racionalidadeSaude: racionalidade,
+      vacinacaoEmDia: at?.vacinacao_em_dia === "sim" ? true : at?.vacinacao_em_dia === "nao" ? false : undefined,
+      antropometria,
+      procedimentos: procs,
+      nasf: at?.matriciamento_nasf ?? undefined,
     };
   });
 
