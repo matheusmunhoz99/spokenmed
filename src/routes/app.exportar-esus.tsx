@@ -262,7 +262,9 @@ function ExportarEsusPage() {
   const unidadeSelecionada = unidades.find((u) => u.id === unidadeId);
   const profSelecionado = profissionais.find((p) => p.id === profissionalId);
   const totalPronto = preview ? Object.values(preview.prontos).reduce((a, b) => a + (Number(b) || 0), 0) : 0;
-  const podeGerar = preview && preview.erros.length === 0 && totalPronto > 0;
+  const temErros = !!preview && preview.erros.length > 0;
+  const podeGerar = !!preview && totalPronto > 0 && (!temErros || cienteErros);
+
 
   return (
     <div className="space-y-5 max-w-6xl">
