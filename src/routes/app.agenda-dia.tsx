@@ -39,10 +39,10 @@ function AgendaDiaGuard() {
 }
 export const Route = createFileRoute("/app/agenda-dia")({
   component: AgendaDiaGuard,
-});
-const _UnusedAgendaDiaRoute = ({
-  component: AgendaDiaPage,
-  validateSearch: (s: Record<string, unknown>) => ({ data: (s.data as string) ?? "" }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    data: typeof s.data === "string" ? s.data : "",
+    abrir: typeof s.abrir === "string" ? s.abrir : undefined,
+  }),
 });
 
 function AgendaDiaPage() {
