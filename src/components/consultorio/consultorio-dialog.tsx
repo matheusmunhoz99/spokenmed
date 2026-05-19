@@ -359,13 +359,72 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
     setEnviando(false);
     const protocolo = `PEC-${Date.now().toString().slice(-10)}`;
     if (agendamento) {
+      const { supabase } = await import("@/integrations/supabase/client");
+
       // Marca o agendamento como atendido no banco (o trigger preenche atendido_em)
       try {
-        const { supabase } = await import("@/integrations/supabase/client");
         await supabase.from("agendamentos").update({ status: "atendido" as any }).eq("id", agendamento.id);
       } catch (e) {
         console.error("[consultorio] falha ao atualizar status para atendido", e);
       }
+
+      // Persiste o atendimento clínico no banco (SOAP, CIDs, modalidade, turno, etc.)
+      try {
+        const hInicio = agendamento.hora_inicio ?? new Date().toTimeString().slice(0, 8);
+        const horaNum = parseInt(String(hInicio).slice(0, 2), 10);
+        const turno = horaNum < 12 ? "manha" : horaNum < 18 ? "tarde" : "noite";
+        const procedimentos = sadt.length > 0 ? sadt : [];
+
+        const payload: Record<string, any> = {
+          agendamento_id: agendamento.id,
+          paciente_id: agendamento.paciente_id ?? null,
+          profissional_id: agendamento.profissional_id ?? null,
+          unidade_id: agendamento.unidade_id ?? null,
+          criado_por: user?.id ?? null,
+          protocolo,
+          finalizado_em: new Date().toISOString(),
+          duracao_segundos: elapsed,
+          data_atendimento: agendamento.data ?? new Date().toISOString().slice(0, 10),
+          hora_inicio: hInicio,
+          turno,
+          modalidade: atend.modalidade,
+          tipo_atendimento: atend.tipoAtendimento,
+          tipo_consulta: atend.tipoConsulta,
+          local_atendimento: atend.local,
+          soap_s: s || null, soap_o: o || null, soap_a: a || null, soap_p: p || null,
+          cids,
+          ciaps: [],
+          procedimentos_sigtap: procedimentos,
+          exames_solicitados: sadt,
+          exames_avaliados: [],
+          pa: pa || null, fc: fc || null, fr: fr || null,
+          temperatura: temp || null, saturacao: sat || null,
+          peso: peso ? Number(peso.replace(",", ".")) || null : null,
+          altura: altura ? Number(altura.replace(",", ".")) || null : null,
+          aleitamento: atend.aleitamento,
+          vacinacao_em_dia: atend.vacinacao,
+          pics: atend.pics,
+          racionalidade: atend.racionalidade,
+          notificacoes: atend.notificacoes,
+          desfechos: conduta.desfechos,
+          matriciamento_nasf: conduta.matriciamento,
+          observacoes: conduta.obs || null,
+          alergias: alergias.map(({ substancia, reacao, gravidade }) => ({ substancia, reacao, gravidade })),
+          documentos: {
+            ...(meds.length > 0 && { receita: { tipo: recTipo, meds: meds.map(({ nome, apresentacao, posologia, qtd, duracao }) => ({ nome, apresentacao, posologia, qtd, duracao })), orientacoes: recOri } }),
+            ...(sadt.length > 0 && { sadt: { exames: sadt, carater: sadtCarater, indicacao: sadtIndic } }),
+            ...((lmeMed.trim() && lmeCid.trim()) && { lme: { med: lmeMed, apres: lmeApres, cid: lmeCid, pos: lmePos, qtd: lmeQtd, tempo: lmeTempo, anamnese: lmeAnam, exames: lmeExames } }),
+            ...((Number(atDias) > 0) && { atestado: { dias: Number(atDias), cid: atCid, mencionarCid: atMencCid, repouso: atRepouso } }),
+          },
+        };
+
+        const { error: insErr } = await supabase.from("atendimentos" as any).insert(payload);
+        if (insErr) console.error("[consultorio] falha ao salvar atendimento", insErr);
+      } catch (e) {
+        console.error("[consultorio] erro ao gravar atendimento", e);
+      }
+
+      // Mantém histórico local para reimpressão imediata de documentos
       try {
         saveHistorico({
           id: crypto.randomUUID(),
@@ -390,6 +449,10 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
           },
         });
       } catch { /* ignore storage errors */ }
+
+      // Limpa rascunho
+      try { if (draftKey) localStorage.removeItem(draftKey); } catch { /* ignore */ }
+
       onFinalizado(agendamento.id, protocolo);
     }
     reset();
