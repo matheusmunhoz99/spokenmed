@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
+import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,17 @@ import { toast } from "sonner";
 import { downloadCsv } from "@/lib/csv";
 import { SemAcesso } from "@/components/sem-acesso";
 import { CorrigirPendenciaDialog, type RotaErro } from "@/components/exportacao/CorrigirPendenciaDialog";
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
 
 
 export const Route = createFileRoute("/app/exportar-esus")({
@@ -521,18 +533,35 @@ function ExportarEsusPage() {
                       } as any });
                       toast.info(ignorado ? "Gerando lote em modo teste (ignorando erros)…" : (formato === "thrift" ? "Gerando .zip Thrift (PEC offline)…" : "Gerando .zip JSON-LEDI (Bridge)…"));
                       const r = await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
-                      toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad} · FAI ${(r.totais as any).fai ?? 0} · FAO ${(r.totais as any).fao ?? 0}`);
                       const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
-                      window.open(url, "_blank");
+                      const resp = await fetch(url);
+                      if (!resp.ok) throw new Error("Falha ao baixar o arquivo gerado");
+                      const blob = await resp.blob();
+                      const ext = formato === "json" ? "json.zip" : "zip";
+                      downloadBlob(blob, `esus-${unidadeSelecionada?.cnes ?? "lote"}-${inicio}_${fim}.${ext}`);
+                      toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad} · FAI ${(r.totais as any).fai ?? 0} · FAO ${(r.totais as any).fao ?? 0}`);
                     } else {
-                      // Modo "Todas as unidades": gera um .zip por unidade, sequencialmente.
+                      // Modo "Todas as unidades": gera cada lote e consolida num único .zip
+                      const master = new JSZip();
+                      const relatorio: string[] = [
+                        `Lote consolidado e-SUS — gerado em ${new Date().toLocaleString("pt-BR")}`,
+                        `Período: ${inicio} → ${fim}`,
+                        `Formato: ${formato}`,
+                        ignorado ? "Modo: TESTE (erros de validação ignorados)" : "Modo: produção",
+                        "",
+                        "Resultado por unidade:",
+                      ];
                       let ok = 0, fail = 0;
                       for (let i = 0; i < unidades.length; i++) {
                         const u = unidades[i];
                         setProgresso(`Gerando ${i + 1}/${unidades.length} — ${u.nome}`);
-                        const respId = await pickResponsavelUnidade(u.id);
-                        if (!respId) { fail++; continue; }
                         try {
+                          const respId = await pickResponsavelUnidade(u.id);
+                          if (!respId) {
+                            fail++;
+                            relatorio.push(`✗ ${u.nome} (CNES ${u.cnes ?? "—"}): sem profissional responsável`);
+                            continue;
+                          }
                           const reg = await registrarFn({ data: {
                             unidadeId: u.id, equipeId: null, profissionalId: respId,
                             intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos,
@@ -541,15 +570,30 @@ function ExportarEsusPage() {
                           } as any });
                           await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
                           const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
-                          // abre cada arquivo em nova aba (browser pode pedir permissão pop-ups)
-                          window.open(url, "_blank");
+                          const resp = await fetch(url);
+                          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                          const buf = new Uint8Array(await resp.arrayBuffer());
+                          const safe = (u.nome || "unidade").replace(/[^\w\-]+/g, "_").slice(0, 60);
+                          const ext = formato === "json" ? "json.zip" : "zip";
+                          master.file(`${u.cnes ?? "sem-cnes"}_${safe}.${ext}`, buf);
                           ok++;
+                          relatorio.push(`✓ ${u.nome} (CNES ${u.cnes ?? "—"}): ${buf.byteLength.toLocaleString("pt-BR")} bytes`);
                         } catch (e: any) {
-                          console.error("Falha exportando", u.nome, e);
                           fail++;
+                          relatorio.push(`✗ ${u.nome} (CNES ${u.cnes ?? "—"}): ${e?.message ?? e}`);
+                          console.error("Falha exportando", u.nome, e);
                         }
                       }
-                      toast.success(`Exportação concluída: ${ok} unidade(s) ok${fail ? ` · ${fail} com falha` : ""}.`);
+                      relatorio.push("", `Total: ${ok} ok · ${fail} falha(s)`);
+                      master.file("LEIA-ME.txt", relatorio.join("\n"));
+                      setProgresso("Compactando lote consolidado…");
+                      const blob = await master.generateAsync({
+                        type: "blob",
+                        compression: "DEFLATE",
+                        compressionOptions: { level: 6 },
+                      });
+                      downloadBlob(blob, `esus-todas-unidades-${inicio}_${fim}.zip`);
+                      toast.success(`Lote consolidado: ${ok} unidade(s) ok${fail ? ` · ${fail} com falha (ver LEIA-ME.txt)` : ""}.`);
                     }
                     refetchHistorico();
                   } catch (e: any) {
@@ -640,7 +684,11 @@ function ExportarEsusPage() {
                         <Button size="sm" variant="outline" onClick={async () => {
                           try {
                             const { url } = await baixarFn({ data: { exportacaoId: e.id } });
-                            window.open(url, "_blank");
+                            const resp = await fetch(url);
+                            if (!resp.ok) throw new Error("Falha ao baixar");
+                            const blob = await resp.blob();
+                            const fname = (e.arquivo_path as string).split("/").pop() ?? `esus-${e.id}.zip`;
+                            downloadBlob(blob, fname);
                           } catch (err: any) { toast.error(err?.message ?? "Erro ao gerar link"); }
                         }}>
                           <Download className="h-3 w-3 mr-1" /> Baixar
