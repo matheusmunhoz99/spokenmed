@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertCircle, CheckCircle2, Download, ExternalLink, FileText, Info, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
-import { previewExportacaoEsus, listarExportacoesEsus, type PreviewResultado } from "@/lib/esus-export.functions";
+import { previewExportacaoEsus, listarExportacoesEsus, registrarExportacaoEsus, gerarExportacaoEsus, baixarExportacaoEsus, type PreviewResultado } from "@/lib/esus-export.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { downloadCsv } from "@/lib/csv";
@@ -28,6 +28,10 @@ function ExportarEsusPage() {
   const { isAdmin } = useAuth();
   const previewFn = useServerFn(previewExportacaoEsus);
   const listarFn = useServerFn(listarExportacoesEsus);
+  const registrarFn = useServerFn(registrarExportacaoEsus);
+  const gerarFn = useServerFn(gerarExportacaoEsus);
+  const baixarFn = useServerFn(baixarExportacaoEsus);
+  const [gerando, setGerando] = useState(false);
 
   const [unidadeId, setUnidadeId] = useState<string>("");
   const [equipeId, setEquipeId] = useState<string>("");
