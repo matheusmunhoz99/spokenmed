@@ -10,6 +10,8 @@ import { buildFCD, buildFCI, buildFAD, type Cabecalho } from "./esus-ledi-builde
 import { buildFCIThrift } from "./esus-thrift/builders/fci";
 import { buildFCDThrift } from "./esus-thrift/builders/fcd";
 import { buildFADThrift } from "./esus-thrift/builders/fad";
+import { buildFAIThrift } from "./esus-thrift/builders/fai";
+import { buildFAOThrift } from "./esus-thrift/builders/fao";
 import { packLDI, type FichaSerializada } from "./esus-thrift/pack";
 import { TipoDadoSerializado } from "./esus-thrift/transporte";
 import type { UnicaLotacaoHeaderInput } from "./esus-thrift/header";
@@ -21,7 +23,7 @@ const escopoSchema = z.object({
   profissionalId: z.string().uuid(),
   intervaloInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   intervaloFim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  tiposFichas: z.array(z.enum(["FCD", "FCI", "FAD"])).min(1),
+  tiposFichas: z.array(z.enum(["FCD", "FCI", "FAD", "FAI", "FAO"])).min(1),
   somenteNovos: z.boolean().default(false),
 });
 
