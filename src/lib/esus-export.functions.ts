@@ -28,15 +28,26 @@ const escopoSchema = z.object({
 });
 
 export type FichaTipo = "FCD" | "FCI" | "FAD" | "FAI" | "FAO";
+export type ErroExport = {
+  tipo: FichaTipo;
+  registroId: string;
+  descricao: string;
+  campo: string;
+  /** Destino navegável: rota TanStack + search params. */
+  rota?: { to: string; search?: Record<string, string | number | boolean> };
+  /** Nome da unidade (preenchido quando preview agrega várias unidades). */
+  unidadeNome?: string;
+};
 export type PreviewResultado = {
   resumo: { fcd: number; fci: number; fad: number; fai: number; fao: number };
-  erros: Array<{ tipo: FichaTipo; registroId: string; descricao: string; campo: string; rota?: string }>;
-  avisos: Array<{ tipo: FichaTipo; registroId: string; descricao: string; campo: string }>;
+  erros: ErroExport[];
+  avisos: Array<{ tipo: FichaTipo; registroId: string; descricao: string; campo: string; unidadeNome?: string }>;
   prontos: { fcd: number; fci: number; fad: number; fai: number; fao: number };
   unidade: { id: string; nome: string; cnes: string | null; ibge: string | null; uf: string | null } | null;
   equipe: { id: string; ine: string | null; nome: string } | null;
   profissional: { id: string; nome: string; cns: string | null; cbo: string | null } | null;
 };
+
 
 export const previewExportacaoEsus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
