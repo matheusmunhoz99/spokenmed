@@ -1,0 +1,1 @@
+ALTER TABLE public.esus_exportacoes ADD COLUMN IF NOT EXISTS num_lote BIGSERIAL;

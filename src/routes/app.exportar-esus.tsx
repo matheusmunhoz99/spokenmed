@@ -66,7 +66,7 @@ function ExportarEsusPage() {
   const [inicio, setInicio] = useState(trintaDias.toISOString().slice(0, 10));
   const [fim, setFim] = useState(hoje.toISOString().slice(0, 10));
   const [tipos, setTipos] = useState<FichaTipo[]>(["FCD", "FCI", "FAD", "FAI", "FAO"]);
-  const [formato, setFormato] = useState<"thrift" | "json">("thrift");
+  const [formato, setFormato] = useState<"xml" | "thrift" | "json">("xml");
   const [somenteNovos, setSomenteNovos] = useState(false);
   const [preview, setPreview] = useState<PreviewResultado | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -616,17 +616,20 @@ function ExportarEsusPage() {
               {progresso && <span className="text-xs text-muted-foreground">{progresso}</span>}
               <div className="flex items-center gap-2">
                 <Label className="text-xs whitespace-nowrap">Formato:</Label>
-                <Select value={formato} onValueChange={(v) => setFormato(v as "thrift" | "json")}>
-                  <SelectTrigger className="h-9 w-[260px]"><SelectValue /></SelectTrigger>
+                <Select value={formato} onValueChange={(v) => setFormato(v as "xml" | "thrift" | "json")}>
+                  <SelectTrigger className="h-9 w-[300px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="xml">XML transport (PEC offline) — recomendado</SelectItem>
                     <SelectItem value="thrift">Thrift binário (PEC offline)</SelectItem>
                     <SelectItem value="json">JSON-LEDI (Bridge UFSC)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <p className="text-xs text-muted-foreground basis-full">
-                {formato === "thrift"
-                  ? "Gera .zip LEDI 7.4 com DadoTransporte Thrift binário, pronto pro Transporte CDS do e-SUS PEC."
+                {formato === "xml"
+                  ? "Gera .zip com 1 arquivo .xml por ficha (dadoTransporteTransportXml), pronto pro importador CDS do e-SUS PEC."
+                  : formato === "thrift"
+                  ? "Gera .zip LEDI 7.4 com DadoTransporte Thrift binário."
                   : "Gera .zip JSON-LEDI compatível com Bridge UFSC e conversores externos."}
               </p>
             </div>

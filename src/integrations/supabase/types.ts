@@ -1069,6 +1069,7 @@ export type Database = {
           intervalo_inicio: string | null
           ledi_versao: string
           lote_uuid: string
+          num_lote: number
           profissional_cbo: string | null
           profissional_cns: string | null
           profissional_id: string | null
@@ -1094,6 +1095,7 @@ export type Database = {
           intervalo_inicio?: string | null
           ledi_versao?: string
           lote_uuid?: string
+          num_lote?: number
           profissional_cbo?: string | null
           profissional_cns?: string | null
           profissional_id?: string | null
@@ -1119,6 +1121,7 @@ export type Database = {
           intervalo_inicio?: string | null
           ledi_versao?: string
           lote_uuid?: string
+          num_lote?: number
           profissional_cbo?: string | null
           profissional_cns?: string | null
           profissional_id?: string | null

@@ -20,6 +20,10 @@ import { packLDI, type FichaSerializada } from "./esus-thrift/pack";
 import { TipoDadoSerializado } from "./esus-thrift/transporte";
 import type { UnicaLotacaoHeaderInput } from "./esus-thrift/header";
 import { validarHeaderTransporte } from "./esus-validators";
+import {
+  buildFaiXml, buildFaoXml, buildFvdXml, buildFciXml, buildFcdXml,
+  type HeaderTransport as XmlHeader,
+} from "./esus-xml";
 
 const TIPOS_FICHA = [
   "FCD", "FCI", "FAD", "FAI", "FAO",
@@ -293,7 +297,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z.object({
       exportacaoId: z.string().uuid(),
-      formato: z.enum(["thrift", "json"]).default("thrift"),
+      formato: z.enum(["xml", "thrift", "json"]).default("xml"),
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -326,7 +330,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
       const dataAtendimento = Date.now();
       const tipos: string[] = exp.tipos_fichas ?? [];
       const totais = { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 };
-      const formato: "thrift" | "json" = data.formato;
+      const formato: "xml" | "thrift" | "json" = data.formato;
       const ignorarValidacao = !!(exp.validacao_resultado as any)?.ignorado;
 
       // Validações oficiais LEDI (CNS/CNES/INE/CBO/IBGE)
@@ -345,7 +349,176 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
       }
 
       // ============================================================
-      // FORMATO THRIFT (PEC offline) — default
+      // FORMATO XML (PEC offline — padrão dadoTransporteTransportXml) — DEFAULT
+      // ============================================================
+      if (formato === "xml") {
+        const xmlHeader: XmlHeader = {
+          profissionalCNS: prof.cns,
+          cboCodigo_2002: prof.cbo,
+          cnes: unidade.cnes,
+          ine: equipe?.ine ?? null,
+          dataAtendimentoEpochMs: dataAtendimento,
+          codigoIbgeMunicipio: unidade.ibge_municipio,
+        };
+        const numLote: number = Number((exp as any).num_lote ?? Date.now() % 100000);
+
+        const zipXml = new JSZip();
+        const dataFolder = zipXml.folder("data")!;
+        let totalArquivos = 0;
+        const idsAtend: string[] = [];
+        const idsPac: string[] = [];
+        const idsDom: string[] = [];
+        const xmlTotais = { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 };
+
+        const writeFicha = (uuid: string, xml: string) => {
+          dataFolder.file(`${uuid}.xml`, xml);
+          totalArquivos++;
+        };
+
+        // ---- FCI ----
+        if (tipos.includes("FCI")) {
+          const { data: pacientes } = await supabase
+            .from("pacientes").select("*")
+            .gte("updated_at", exp.intervalo_inicio)
+            .lte("updated_at", exp.intervalo_fim + "T23:59:59");
+          for (const p of pacientes ?? []) {
+            if (!p.nome || (!p.cpf && !p.cns) || !p.data_nascimento || !p.sexo) continue;
+            const { uuidDadoSerializado, xml } = buildFciXml({
+              header: xmlHeader, cnes: unidade.cnes, ine: equipe?.ine ?? null,
+              codIbge: unidade.ibge_municipio, numLote, loteUuid: exp.lote_uuid, paciente: p,
+            });
+            writeFicha(uuidDadoSerializado, xml);
+            idsPac.push(p.id);
+            xmlTotais.fci++;
+          }
+        }
+
+        // ---- FCD ----
+        if (tipos.includes("FCD")) {
+          const { data: domicilios } = await supabase
+            .from("domicilios").select("*")
+            .eq("unidade_id", exp.unidade_id)
+            .gte("updated_at", exp.intervalo_inicio)
+            .lte("updated_at", exp.intervalo_fim + "T23:59:59");
+          for (const d of domicilios ?? []) {
+            if (!d.logradouro || !d.bairro || (!d.numero && !d.sem_numero) || !d.tipo_imovel) continue;
+            const { uuidDadoSerializado, xml } = buildFcdXml({
+              header: xmlHeader, cnes: unidade.cnes, ine: equipe?.ine ?? null,
+              codIbge: unidade.ibge_municipio, numLote, loteUuid: exp.lote_uuid,
+              domicilio: { ...d, uf: unidade.uf },
+            });
+            writeFicha(uuidDadoSerializado, xml);
+            idsDom.push(d.id);
+            xmlTotais.fcd++;
+          }
+        }
+
+        // ---- FVD (Visita Domiciliar) ----
+        if (tipos.includes("FAD") || tipos.includes("FVD")) {
+          const { data: visitas } = await supabase
+            .from("visitas_domiciliares").select("*, pacientes(cpf, cns, data_nascimento, sexo)")
+            .eq("unidade_id", exp.unidade_id)
+            .gte("created_at", exp.intervalo_inicio)
+            .lte("created_at", exp.intervalo_fim + "T23:59:59");
+          for (const v of (visitas ?? []) as any[]) {
+            if (!v.motivos?.length || !v.desfecho || !v.turno || !v.paciente_id) continue;
+            const { uuidDadoSerializado, xml } = buildFvdXml({
+              header: xmlHeader, cnes: unidade.cnes, ine: equipe?.ine ?? null,
+              codIbge: unidade.ibge_municipio, numLote, loteUuid: exp.lote_uuid,
+              visita: v, paciente: v.pacientes ?? {},
+            });
+            writeFicha(uuidDadoSerializado, xml);
+            xmlTotais.fad++;
+          }
+        }
+
+        // ---- FAI ----
+        if (tipos.includes("FAI")) {
+          const { data: ats } = await supabase
+            .from("atendimentos" as any)
+            .select("*, pacientes:paciente_id(cpf, cns, data_nascimento, sexo)")
+            .eq("unidade_id", exp.unidade_id)
+            .not("finalizado_em", "is", null)
+            .gte("data_atendimento", exp.intervalo_inicio)
+            .lte("data_atendimento", exp.intervalo_fim);
+          for (const a of (ats ?? []) as any[]) {
+            const p = a.pacientes ?? {};
+            if ((!p.cpf && !p.cns) || !p.data_nascimento || !p.sexo) continue;
+            const { uuidDadoSerializado, xml } = buildFaiXml({
+              header: xmlHeader, cnes: unidade.cnes, ine: equipe?.ine ?? null,
+              codIbge: unidade.ibge_municipio, numLote, loteUuid: exp.lote_uuid,
+              atendimento: a, paciente: p,
+            });
+            writeFicha(uuidDadoSerializado, xml);
+            idsAtend.push(a.id);
+            xmlTotais.fai++;
+          }
+        }
+
+        // ---- FAO (somente dentista) ----
+        if (tipos.includes("FAO") && (prof.cbo ?? "").startsWith("2232")) {
+          const { data: ats } = await supabase
+            .from("atendimentos" as any)
+            .select("*, pacientes:paciente_id(cpf, cns, data_nascimento, sexo)")
+            .eq("unidade_id", exp.unidade_id)
+            .eq("profissional_id", exp.profissional_id)
+            .not("finalizado_em", "is", null)
+            .gte("data_atendimento", exp.intervalo_inicio)
+            .lte("data_atendimento", exp.intervalo_fim);
+          for (const a of (ats ?? []) as any[]) {
+            const p = a.pacientes ?? {};
+            if ((!p.cpf && !p.cns) || !p.data_nascimento) continue;
+            const { uuidDadoSerializado, xml } = buildFaoXml({
+              header: xmlHeader, cnes: unidade.cnes, ine: equipe?.ine ?? null,
+              codIbge: unidade.ibge_municipio, numLote, loteUuid: exp.lote_uuid,
+              atendimento: a, paciente: p,
+            });
+            writeFicha(uuidDadoSerializado, xml);
+            xmlTotais.fao++;
+          }
+        }
+
+        if (totalArquivos === 0) {
+          throw new Error("Nenhuma ficha válida encontrada para esse período/unidade. O ZIP não será gerado vazio.");
+        }
+
+        zipXml.file("LEIA-ME.txt",
+          "Lote e-SUS APS gerado pelo SpokenMED.\n" +
+          "Formato: XML transport (dadoTransporteTransportXml).\n" +
+          `Lote: ${exp.lote_uuid} | numLote: ${numLote}\n` +
+          "Importar pelo modulo CDS/Transporte do PEC e-SUS.\n");
+
+        const xmlBytes = await zipXml.generateAsync({
+          type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 6 },
+        });
+        const nomeArquivo = `${unidade.cnes}_${exp.intervalo_inicio}_${exp.intervalo_fim}_${exp.lote_uuid}.zip`;
+        const path = `${exp.unidade_id}/${nomeArquivo}`;
+        const { error: upErr } = await supabase.storage.from("esus-exportacoes").upload(path, xmlBytes, {
+          contentType: "application/zip", upsert: true,
+        });
+        if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
+
+        const { error: updErr } = await supabase.from("esus_exportacoes").update({
+          status: "concluido", arquivo_path: path, arquivo_tamanho_bytes: xmlBytes.byteLength,
+          total_fcd: xmlTotais.fcd, total_fci: xmlTotais.fci, total_fad: xmlTotais.fad,
+        }).eq("id", exp.id);
+        if (updErr) throw new Error(`Falha ao salvar exportação: ${updErr.message}`);
+
+        try {
+          await supabase.rpc("marcar_fichas_exportadas", {
+            p_exportacao_id: exp.id,
+            p_atendimentos: idsAtend,
+            p_pacientes: idsPac,
+            p_domicilios: idsDom,
+          });
+        } catch (e) {
+          console.error("[esus-export] falha ao marcar fichas exportadas", e);
+        }
+        return { ok: true, path, totais: xmlTotais, tamanho: xmlBytes.byteLength, formato };
+      }
+
+      // ============================================================
+      // FORMATO THRIFT (PEC offline) — alternativo
       // ============================================================
       if (formato === "thrift") {
         const header: UnicaLotacaoHeaderInput = {
