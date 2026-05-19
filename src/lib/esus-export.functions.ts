@@ -1,10 +1,19 @@
-// Server functions para exportação e-SUS PEC (CDS)
-// Fase 2: gera .zip LEDI-JSON pronto pra envio via API/Bridge ou conversão Thrift.
+// Server functions para exportação e-SUS PEC (CDS).
+// Suporta dois formatos:
+//  - "thrift": .zip LEDI 7.4 com DadoTransporte Thrift binário (PEC offline).
+//  - "json"  : .zip LEDI-JSON (Bridge UFSC / conversores externos).
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import JSZip from "jszip";
 import { buildFCD, buildFCI, buildFAD, type Cabecalho } from "./esus-ledi-builder";
+import { buildFCIThrift } from "./esus-thrift/builders/fci";
+import { buildFCDThrift } from "./esus-thrift/builders/fcd";
+import { buildFADThrift } from "./esus-thrift/builders/fad";
+import { packLDI, type FichaSerializada } from "./esus-thrift/pack";
+import { TipoDadoSerializado } from "./esus-thrift/transporte";
+import type { UnicaLotacaoHeaderInput } from "./esus-thrift/header";
+import { validarHeaderTransporte } from "./esus-validators";
 
 const escopoSchema = z.object({
   unidadeId: z.string().uuid(),
