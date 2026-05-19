@@ -288,15 +288,15 @@ function ExportarEsusPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
-              {(["FCD", "FCI", "FAD"] as FichaTipo[]).map((t) => {
-                const key = t.toLowerCase() as "fcd" | "fci" | "fad";
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {FICHAS_ALL.map((t) => {
+                const key = t.toLowerCase() as keyof typeof preview.prontos;
                 const ativo = tipos.includes(t);
                 return (
                   <div key={t} className={`rounded-lg border p-3 ${ativo ? "" : "opacity-50"}`}>
                     <div className="text-xs text-muted-foreground font-mono">{t}</div>
                     <div className="text-2xl font-semibold">{preview.prontos[key]}<span className="text-base text-muted-foreground"> / {preview.resumo[key]}</span></div>
-                    <div className="text-xs text-muted-foreground">prontos para exportar</div>
+                    <div className="text-xs text-muted-foreground">prontos</div>
                   </div>
                 );
               })}
