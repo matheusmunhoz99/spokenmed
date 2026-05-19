@@ -27,11 +27,12 @@ const escopoSchema = z.object({
   somenteNovos: z.boolean().default(false),
 });
 
+export type FichaTipo = "FCD" | "FCI" | "FAD" | "FAI" | "FAO";
 export type PreviewResultado = {
-  resumo: { fcd: number; fci: number; fad: number };
-  erros: Array<{ tipo: "FCD" | "FCI" | "FAD"; registroId: string; descricao: string; campo: string; rota?: string }>;
-  avisos: Array<{ tipo: "FCD" | "FCI" | "FAD"; registroId: string; descricao: string; campo: string }>;
-  prontos: { fcd: number; fci: number; fad: number };
+  resumo: { fcd: number; fci: number; fad: number; fai: number; fao: number };
+  erros: Array<{ tipo: FichaTipo; registroId: string; descricao: string; campo: string; rota?: string }>;
+  avisos: Array<{ tipo: FichaTipo; registroId: string; descricao: string; campo: string }>;
+  prontos: { fcd: number; fci: number; fad: number; fai: number; fao: number };
   unidade: { id: string; nome: string; cnes: string | null; ibge: string | null; uf: string | null } | null;
   equipe: { id: string; ine: string | null; nome: string } | null;
   profissional: { id: string; nome: string; cns: string | null; cbo: string | null } | null;
