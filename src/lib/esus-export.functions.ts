@@ -377,7 +377,6 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
         const numLote: number = Number((exp as any).num_lote ?? Date.now() % 100000);
 
         const zipXml = new JSZip();
-        const dataFolder = zipXml.folder("data")!;
         let totalArquivos = 0;
         const idsAtend: string[] = [];
         const idsPac: string[] = [];
@@ -385,7 +384,8 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
         const xmlTotais = { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 };
 
         const writeFicha = (uuid: string, xml: string) => {
-          dataFolder.file(`${uuid}.xml`, xml);
+          // ZIP "limpo": apenas .xml na raiz (sem pasta data/, sem LEIA-ME).
+          zipXml.file(`${uuid}.xml`, xml);
           totalArquivos++;
         };
 
