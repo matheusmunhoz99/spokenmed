@@ -42,6 +42,7 @@ function AppLayout() {
   const { user, loading } = useAuth();
   useIdleLogout();
   const path = useRouterState({ select: (r) => r.location.pathname });
+  const isEmbed = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("embed") === "1";
 
   if (loading) {
     return (
@@ -52,7 +53,18 @@ function AppLayout() {
   }
   if (!user) return <Navigate to="/login" />;
 
+  if (isEmbed) {
+    return (
+      <ShortcutsProvider>
+        <main className="min-h-screen w-full bg-background p-4">
+          <Outlet />
+        </main>
+      </ShortcutsProvider>
+    );
+  }
+
   const title = titles[path] ?? Object.entries(titles).find(([k]) => path.startsWith(k))?.[1] ?? "SpokenMed";
+
 
   return (
     <SidebarProvider>

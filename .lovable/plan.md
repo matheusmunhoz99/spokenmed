@@ -1,84 +1,54 @@
-# Plano
+# Exportação e-SUS: bypass de erros + correção inline
 
-## 1. Builders Thrift faltantes (LEDI 7.4)
+## 1. Flag "Gerar mesmo com erros"
 
-Criar em `src/lib/esus-thrift/builders/`:
+Na tela `/app/exportar-esus`, no passo 2 (resultado da pré-validação), quando houver `preview.erros.length > 0`:
 
-- `fac.ts` — Ficha de Atividade Coletiva
-- `fp.ts` — Ficha de Procedimentos
-- `fvd.ts` — Ficha de Visita Domiciliar e Territorial
-- `fmca.ts` — Ficha de Marcadores de Consumo Alimentar
-- `fae.ts` — Ficha de Atendimento Especializado (NASF/CEO)
-- `fczm.ts` — Ficha de Avaliação de Zika/Microcefalia
-- `fv.ts` — Ficha de Vacinação
+- Adicionar um `Checkbox` **"Estou ciente dos erros e quero gerar o lote mesmo assim (modo teste)"** logo acima do botão "Gerar".
+- Novo estado local: `cienteErros: boolean` (reseta sempre que `preview` muda — pra não ficar marcado de uma rodada pra outra).
+- Mudar `podeGerar` para: `preview && totalPronto > 0 && (preview.erros.length === 0 || cienteErros)`.
+- Quando gerar com `cienteErros = true`:
+  - Trocar cor/ícone do botão pra `variant="destructive"` com label `"Gerar mesmo com erros (teste)"`.
+  - Mostrar um `Alert` amarelo curto avisando que o PEC provavelmente vai rejeitar o `.esus`.
+  - Passar `ignorarErros: true` no payload do `registrarFn` / loop de unidades, e gravar no `metadados` do lote (campo `validacao.ignorado: true` e `validacao.erros: N`) pra ficar rastreável no histórico.
+- No back-end (`registrarLoteExportacao` em `src/lib/esus-export.functions.ts`), aceitar o flag e **não revalidar / bloquear** quando `ignorarErros = true`. A geração do `.zip`/`.esus` segue normal — só pula o "abort se erro".
+- No histórico (passo 3), badge extra `⚠ ignorado` quando `metadados.validacao.ignorado` for true.
 
-Cada builder segue o padrão dos existentes (`fai.ts`, `fad.ts`): função `buildXxxThrift(row)` que serializa em `TBinaryProtocol` os campos do registro conforme XSD/Thrift LEDI 7.4, devolvendo `Uint8Array`.
+## 2. Modal inline pra corrigir pendências
 
-Registrar cada um em:
-- `src/lib/esus-thrift/transporte.ts` no mapeamento de `TipoDadoSerializado`
-- `src/lib/esus-export.functions.ts` na seleção por `tipos_fichas`
+Hoje o botão "Abrir" navega pra fora da tela. Trocar por um modal (`Dialog` full-screen `sm:max-w-5xl h-[85vh]`) que renderiza o destino sem sair da exportação.
 
-## 2. Persistência das fichas no banco
+Abordagem **pragmática (MVP)**: usar `<iframe>` apontando pra `e.rota.to` (com params/search já serializados).
 
-Cada ficha precisa de uma tabela própria (ou reaproveitar `atendimentos`/`domicilios`/`pacientes` quando já existe) com os campos:
+- Novo componente `CorrigirPendenciaDialog` em `src/components/exportacao/CorrigirPendenciaDialog.tsx`:
+  - Props: `open`, `onOpenChange`, `rota` (`{ to, params?, search? }`), `descricao`, `onRevalidar`.
+  - Renderiza `<iframe src={resolveUrl(rota)} className="w-full h-full border-0" />`.
+  - Header com a descrição do erro e botões: **"Re-validar agora"** (fecha modal + chama `validarFn` novamente) e **"Abrir em nova aba"** (fallback).
+  - `resolveUrl` monta a URL final substituindo `$param` por `params[param]` e fazendo `?key=value` do `search`.
+- Na tabela de erros, trocar o botão atual por:
+  ```tsx
+  <button onClick={() => setCorrigindo({ rota: e.rota, descricao: e.descricao })}>
+    Corrigir <Pencil className="h-3 w-3" />
+  </button>
+  ```
+- Estado `corrigindo` no componente da página + `<CorrigirPendenciaDialog open={!!corrigindo} ... />`.
+- Ao fechar, oferecer **revalidação automática opcional**: toast com botão "Re-validar".
 
-- `status_envio` enum: `pendente` | `exportado` | `desatualizado`
-- `exportado_em` timestamptz
-- `exportacao_id` uuid (fk para `esus_exportacoes`)
-- `updated_at` (trigger) — usado para marcar `desatualizado` se editado depois de exportado
+### Por que iframe (e não embutir o form)?
+Os destinos cobrem 5 telas diferentes (`/app/configuracoes`, `/app/profissionais`, `/app/pacientes?abrir=`, `/app/domicilios/$id`, `/app/visitas`), cada uma com formulários grandes. Refatorar todas em "modo modal" é trabalho longo e fora do escopo do pedido ("só pros testes ficarem mais fáceis agora"). Iframe entrega o resultado UX que você quer (editar sem sair da exportação) em 1 componente.
 
-Tabelas novas a criar (somente as que ainda não existem):
-- `fichas_atividade_coletiva` (FAC)
-- `fichas_procedimentos` (FP) — pode derivar de `atendimentos.procedimentos_sigtap`
-- `fichas_visita_domiciliar` (FVD)
-- `fichas_marcadores_alimentares` (FMCA)
-- `fichas_atendimento_especializado` (FAE) — derivada de `atendimentos` com flag
-- `fichas_zika_microcefalia` (FCZM)
-- `fichas_vacinacao` (FV)
+Limitações conhecidas: iframe abre a tela inteira do app com sidebar. Pra mitigar, aceitar `?embed=1` na URL e no `__root` esconder header/sidebar quando esse param estiver presente — opcional, mas deixa o modal muito mais limpo. **Vou incluir esse polish.**
 
-E adicionar `status_envio`/`exportado_em`/`exportacao_id` em:
-- `atendimentos` (FAI/FAD)
-- `pacientes` (FCI)
-- `domicilios` (FCD)
+## 3. Arquivos afetados
 
-Trigger: ao `UPDATE` de qualquer ficha exportada, voltar `status_envio` para `desatualizado`.
+- `src/routes/app.exportar-esus.tsx` — checkbox, estado `cienteErros` e `corrigindo`, badge "ignorado" no histórico, troca do botão "Abrir" → "Corrigir".
+- `src/lib/esus-export.functions.ts` — aceitar `ignorarErros` em `registrarLoteExportacao` (e na função batch de "todas as unidades") e gravar `metadados.validacao.ignorado`.
+- `src/components/exportacao/CorrigirPendenciaDialog.tsx` — novo.
+- `src/routes/__root.tsx` (ou layout do `_app`) — esconder chrome quando `search.embed === "1"`.
 
-## 3. Fluxo "Encerrar consulta" (substitui o botão Exportar eSUS)
+Sem mudança de banco.
 
-Em `src/components/consultorio/consultorio-dialog.tsx`:
+## 4. Fora de escopo
 
-- Remover botão "Exportar eSUS" do rodapé.
-- Único botão final: **Encerrar consulta**.
-- Ao clicar:
-  1. Validar campos obrigatórios eSUS (CID/CIAP, procedimentos SIGTAP, turno, modalidade, tipo de atendimento, local, condutas). Se faltar, abrir toast/modal com a lista de pendências e bloquear o encerramento.
-  2. Salvar atendimento no banco com `status_envio = 'pendente'` e `finalizado_em = now()`.
-  3. Fechar o dialog. Não enviar arquivo nenhum — exportação fica para `/app/exportar-esus`.
-
-## 4. Regra de reabertura (2 horas)
-
-- Mostrar botão "Reabrir" apenas se `now() - finalizado_em < interval '2 hours'` **e** `status_envio != 'exportado'`.
-- Após 2h, atendimento fica somente-leitura (ver/imprimir, mas não editar).
-- Backend: RLS/policy de UPDATE em `atendimentos` checando a janela de 2h (ou trigger `BEFORE UPDATE` que rejeita).
-
-## 5. Exportador só pega pendentes/desatualizadas
-
-Em `src/lib/esus-export.functions.ts`:
-
-- Filtrar consultas por `status_envio IN ('pendente','desatualizado')` no intervalo selecionado.
-- Após gerar e baixar o `.zip`/`.esus` com sucesso (status `concluido` em `esus_exportacoes`), fazer UPDATE em todas as fichas incluídas:
-  - `status_envio = 'exportado'`
-  - `exportado_em = now()`
-  - `exportacao_id = <lote.id>`
-- Mesma regra para FCI (pacientes) e FCD (domicílios): só exporta se `pendente` ou `desatualizado`.
-
-## 6. Detalhes técnicos
-
-- Migração única com: novas tabelas, novas colunas, enum `ficha_status_envio`, triggers de invalidação e função `marcar_fichas_exportadas(lote_uuid uuid)`.
-- Server function nova: `encerrarAtendimento({ atendimentoId })` valida + salva + retorna pendências.
-- Server function `reabrirAtendimento({ atendimentoId })` checa janela 2h.
-- Ajustar `esus-export.functions.ts` para chamar `marcar_fichas_exportadas` ao final.
-- UI de `/app/exportar-esus` ganha contador "X fichas pendentes" por tipo antes de gerar.
-
-## Itens fora do escopo (confirmar se quer também)
-- Geração automática de FP a partir dos procedimentos_sigtap de `atendimentos` (vs. tabela própria).
-- FAE: separar por CBO NASF/CEO automaticamente ou exigir flag manual.
+- Reescrever cada cadastro como componente embutível (fica pra depois, se você quiser substituir o iframe).
+- Validar se o PEC aceita lotes com erros — você assume o risco ao marcar o checkbox.

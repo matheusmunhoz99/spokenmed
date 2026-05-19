@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
@@ -11,12 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircle, CheckCircle2, Download, ExternalLink, FileText, Info, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Download, FileText, Info, Loader2, Pencil, RefreshCw, ShieldCheck } from "lucide-react";
 import { previewExportacaoEsus, listarExportacoesEsus, registrarExportacaoEsus, gerarExportacaoEsus, baixarExportacaoEsus, type PreviewResultado, type ErroExport } from "@/lib/esus-export.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { downloadCsv } from "@/lib/csv";
 import { SemAcesso } from "@/components/sem-acesso";
+import { CorrigirPendenciaDialog, type RotaErro } from "@/components/exportacao/CorrigirPendenciaDialog";
+
 
 export const Route = createFileRoute("/app/exportar-esus")({
   component: ExportarEsusPage,
@@ -38,7 +40,7 @@ function ExportarEsusPage() {
   const registrarFn = useServerFn(registrarExportacaoEsus);
   const gerarFn = useServerFn(gerarExportacaoEsus);
   const baixarFn = useServerFn(baixarExportacaoEsus);
-  const navigate = useNavigate();
+  
   const [gerando, setGerando] = useState(false);
   const [progresso, setProgresso] = useState<string>("");
 
@@ -56,6 +58,12 @@ function ExportarEsusPage() {
   const [somenteNovos, setSomenteNovos] = useState(false);
   const [preview, setPreview] = useState<PreviewResultado | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [cienteErros, setCienteErros] = useState(false);
+  const [corrigindo, setCorrigindo] = useState<{ rota: RotaErro; descricao: string } | null>(null);
+
+  // Reseta o flag de "ciente" sempre que rodar nova validação
+  useEffect(() => { setCienteErros(false); }, [preview]);
+
 
 
   // load combos
@@ -254,7 +262,9 @@ function ExportarEsusPage() {
   const unidadeSelecionada = unidades.find((u) => u.id === unidadeId);
   const profSelecionado = profissionais.find((p) => p.id === profissionalId);
   const totalPronto = preview ? Object.values(preview.prontos).reduce((a, b) => a + (Number(b) || 0), 0) : 0;
-  const podeGerar = preview && preview.erros.length === 0 && totalPronto > 0;
+  const temErros = !!preview && preview.erros.length > 0;
+  const podeGerar = !!preview && totalPronto > 0 && (!temErros || cienteErros);
+
 
   return (
     <div className="space-y-5 max-w-6xl">
@@ -382,7 +392,7 @@ function ExportarEsusPage() {
           </div>
 
           <div className="flex gap-2 items-center">
-            <Button onClick={rodarPreview} disabled={!podePreview || loadingPreview}>
+            <Button data-revalidar="1" onClick={rodarPreview} disabled={!podePreview || loadingPreview}>
               {loadingPreview ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
               Pré-validar
             </Button>
@@ -457,12 +467,13 @@ function ExportarEsusPage() {
                             {e.rota && (
                               <button
                                 type="button"
-                                onClick={() => navigate({ to: e.rota!.to as any, params: e.rota!.params as any, search: e.rota!.search as any })}
+                                onClick={() => setCorrigindo({ rota: e.rota as RotaErro, descricao: e.descricao })}
                                 className="text-xs underline inline-flex items-center gap-1 hover:text-primary"
                               >
-                                Abrir <ExternalLink className="h-3 w-3" />
+                                Corrigir <Pencil className="h-3 w-3" />
                               </button>
                             )}
+
                           </TableCell>
                         </TableRow>
                       ))}
@@ -475,22 +486,40 @@ function ExportarEsusPage() {
               </div>
             )}
 
+            {temErros && (
+              <div className="border-t pt-3 space-y-2">
+                <label className="flex items-start gap-2 text-xs cursor-pointer select-none rounded-md border border-amber-500/40 bg-amber-500/5 p-2.5">
+                  <Checkbox checked={cienteErros} onCheckedChange={(v) => setCienteErros(!!v)} className="mt-0.5" />
+                  <span>
+                    <strong className="text-amber-900 dark:text-amber-200">Estou ciente dos {preview.erros.length} erro(s) e quero gerar o lote mesmo assim (modo teste).</strong>
+                    <span className="block text-muted-foreground mt-0.5">
+                      <AlertTriangle className="inline h-3 w-3 mr-1 text-amber-600" />
+                      Útil só pra inspecionar o `.zip`/`.esus` gerado. O e-SUS PEC provavelmente vai <strong>rejeitar</strong> o lote na importação.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            )}
+
             <div className="border-t pt-3 flex flex-wrap items-center gap-3">
               <Button
+                variant={temErros && cienteErros ? "destructive" : "default"}
                 disabled={!podeGerar || gerando}
-                title={!podeGerar ? "Corrija os erros bloqueantes primeiro" : ""}
+                title={!podeGerar ? (temErros ? "Marque o checkbox de ciência ou corrija os erros" : "") : ""}
                 onClick={async () => {
                   if (!preview || !podeGerar) return;
                   setGerando(true);
                   setProgresso("");
+                  const ignorado = temErros && cienteErros;
                   try {
                     if (!isTodas) {
                       const reg = await registrarFn({ data: {
                         unidadeId, equipeId: equipeId || null, profissionalId,
                         intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos,
-                        somenteNovos, totais: preview.prontos, validacao: { erros: preview.erros.length, avisos: preview.avisos.length },
+                        somenteNovos, totais: preview.prontos,
+                        validacao: { erros: preview.erros.length, avisos: preview.avisos.length, ignorado },
                       } as any });
-                      toast.info(formato === "thrift" ? "Gerando .zip Thrift (PEC offline)…" : "Gerando .zip JSON-LEDI (Bridge)…");
+                      toast.info(ignorado ? "Gerando lote em modo teste (ignorando erros)…" : (formato === "thrift" ? "Gerando .zip Thrift (PEC offline)…" : "Gerando .zip JSON-LEDI (Bridge)…"));
                       const r = await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
                       toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad} · FAI ${(r.totais as any).fai ?? 0} · FAO ${(r.totais as any).fao ?? 0}`);
                       const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
@@ -508,7 +537,7 @@ function ExportarEsusPage() {
                             unidadeId: u.id, equipeId: null, profissionalId: respId,
                             intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos,
                             somenteNovos, totais: { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 },
-                            validacao: { erros: 0, avisos: 0 },
+                            validacao: { erros: 0, avisos: 0, ignorado },
                           } as any });
                           await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
                           const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
@@ -532,8 +561,11 @@ function ExportarEsusPage() {
                 }}
               >
                 {gerando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-                {isTodas ? `Gerar lotes (${unidades.length} unidade${unidades.length === 1 ? "" : "s"})` : `Gerar arquivo CDS .zip (${totalPronto} ficha${totalPronto === 1 ? "" : "s"})`}
+                {temErros && cienteErros
+                  ? `Gerar mesmo com erros (teste) — ${totalPronto} ficha${totalPronto === 1 ? "" : "s"}`
+                  : (isTodas ? `Gerar lotes (${unidades.length} unidade${unidades.length === 1 ? "" : "s"})` : `Gerar arquivo CDS .zip (${totalPronto} ficha${totalPronto === 1 ? "" : "s"})`)}
               </Button>
+
               {progresso && <span className="text-xs text-muted-foreground">{progresso}</span>}
               <div className="flex items-center gap-2">
                 <Label className="text-xs whitespace-nowrap">Formato:</Label>
@@ -590,10 +622,18 @@ function ExportarEsusPage() {
                     <TableCell className="text-xs">{(e.tipos_fichas ?? []).join(", ")}</TableCell>
                     <TableCell className="text-xs">FCD {e.total_fcd} · FCI {e.total_fci} · FAD {e.total_fad}</TableCell>
                     <TableCell>
-                      <Badge variant={e.status === "concluido" ? "default" : e.status === "erro" ? "destructive" : "secondary"}>
-                        {e.status}
-                      </Badge>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Badge variant={e.status === "concluido" ? "default" : e.status === "erro" ? "destructive" : "secondary"}>
+                          {e.status}
+                        </Badge>
+                        {e.validacao_resultado?.ignorado && (
+                          <Badge variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-300 text-[10px]" title="Lote gerado com erros de validação (modo teste)">
+                            <AlertTriangle className="h-2.5 w-2.5 mr-0.5" /> ignorado
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
+
                     <TableCell className="font-mono text-[10px]">{e.lote_uuid?.slice(0, 8)}…</TableCell>
                     <TableCell className="text-right">
                       {e.arquivo_path && e.status === "concluido" ? (
@@ -616,6 +656,19 @@ function ExportarEsusPage() {
           )}
         </CardContent>
       </Card>
+
+      <CorrigirPendenciaDialog
+        open={!!corrigindo}
+        onOpenChange={(o) => { if (!o) setCorrigindo(null); }}
+        rota={corrigindo?.rota ?? null}
+        descricao={corrigindo?.descricao ?? ""}
+        onRevalidar={() => {
+          setCorrigindo(null);
+          const btn = document.querySelector<HTMLButtonElement>('[data-revalidar="1"]');
+          if (btn) btn.click();
+          else toast.info('Clique em "Validar" pra re-rodar a checagem.');
+        }}
+      />
     </div>
   );
 }
