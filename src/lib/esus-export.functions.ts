@@ -387,7 +387,26 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
             .eq("status", "atendido")
             .gte("data", exp.intervalo_inicio)
             .lte("data", exp.intervalo_fim);
-          const validos = (ags ?? []).filter((a: any) => {
+
+          // Carrega os atendimentos clínicos (SOAP/CIDs/modalidade/turno) gravados pelo consultório.
+          const agIds = (ags ?? []).map((a: any) => a.id);
+          const atMap = new Map<string, any>();
+          if (agIds.length) {
+            const { data: ats } = await supabase
+              .from("atendimentos" as any)
+              .select("*")
+              .in("agendamento_id", agIds);
+            for (const at of (ats ?? []) as any[]) {
+              // Mantém o mais recente por agendamento
+              const prev = atMap.get(at.agendamento_id);
+              if (!prev || new Date(at.finalizado_em) > new Date(prev.finalizado_em)) {
+                atMap.set(at.agendamento_id, at);
+              }
+            }
+          }
+          const enriched = (ags ?? []).map((a: any) => ({ ...a, atendimento: atMap.get(a.id) ?? null }));
+
+          const validos = enriched.filter((a: any) => {
             const p = a.pacientes ?? {};
             return (p.cpf || p.cns) && p.data_nascimento && p.sexo;
           });
