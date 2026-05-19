@@ -120,19 +120,29 @@ function TeleAtendimento() {
   const status = (sala?.status as keyof typeof STATUS_VARIANT) || "agendada";
   const statusInfo = STATUS_VARIANT[status] || STATUS_VARIANT.agendada;
 
-  const handleCriarOuEntrar = async () => {
+  const handleCriarSala = async () => {
     setBusy(true);
     try {
-      let s = sala;
-      if (!s) {
-        const r = await criar({ data: { agendamento_id: agendamentoId, gravar: false } });
-        s = r.sala as any;
-        await refetchSala();
-      }
-      const t = await tokenMedico({ data: { sala_id: s!.id } });
+      // criarSalaTele é idempotente no backend: se já existir sala pra esse
+      // agendamento, retorna a mesma (mesmo token_paciente, mesmo link).
+      await criar({ data: { agendamento_id: agendamentoId, gravar: false } });
+      await refetchSala();
+      toast.success("Sala criada — copie o link e envie ao paciente");
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao criar sala");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleEntrarChamada = async () => {
+    if (!sala) return;
+    setBusy(true);
+    try {
+      const t = await tokenMedico({ data: { sala_id: sala.id } });
       setMeeting({ url: t.room_url, token: t.token });
     } catch (e: any) {
-      toast.error(e?.message || "Falha ao iniciar sala");
+      toast.error(e?.message || "Falha ao entrar na chamada");
     } finally {
       setBusy(false);
     }
