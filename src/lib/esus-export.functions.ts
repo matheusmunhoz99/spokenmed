@@ -81,10 +81,11 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
     const avisos: PreviewResultado["avisos"] = [];
 
     // Pré-condições do PEC (bloqueiam tudo)
-    if (!unidade?.cnes) erros.push({ tipo: "FCD", registroId: data.unidadeId, descricao: "Unidade sem CNES cadastrado", campo: "cnes", rota: "/app/configuracoes" });
-    if (!unidade?.ibge) erros.push({ tipo: "FCD", registroId: data.unidadeId, descricao: "Unidade sem código IBGE do município", campo: "ibge_municipio", rota: "/app/configuracoes" });
-    if (!profissional?.cns) erros.push({ tipo: "FCD", registroId: data.profissionalId, descricao: "Profissional responsável sem CNS", campo: "cns", rota: "/app/profissionais" });
-    if (!profissional?.cbo) erros.push({ tipo: "FCD", registroId: data.profissionalId, descricao: "Profissional responsável sem CBO", campo: "cbo", rota: "/app/profissionais" });
+    if (!unidade?.cnes) erros.push({ tipo: "FCD", registroId: data.unidadeId, descricao: "Unidade sem CNES cadastrado", campo: "cnes", rota: { to: "/app/configuracoes" } });
+    if (!unidade?.ibge) erros.push({ tipo: "FCD", registroId: data.unidadeId, descricao: "Unidade sem código IBGE do município", campo: "ibge_municipio", rota: { to: "/app/configuracoes" } });
+    if (!profissional?.cns) erros.push({ tipo: "FCD", registroId: data.profissionalId, descricao: "Profissional responsável sem CNS", campo: "cns", rota: { to: "/app/profissionais" } });
+    if (!profissional?.cbo) erros.push({ tipo: "FCD", registroId: data.profissionalId, descricao: "Profissional responsável sem CBO", campo: "cbo", rota: { to: "/app/profissionais" } });
+
 
     const resumo = { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 };
     const prontos = { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 };
