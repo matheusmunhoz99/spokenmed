@@ -360,7 +360,7 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
     void handleEnvioFechar();
   };
   const handleEnvioFechar = async () => {
-    setEnviando(false);
+    setEnviando(true);
     const protocolo = `PEC-${Date.now().toString().slice(-10)}`;
     if (agendamento) {
       const { supabase } = await import("@/integrations/supabase/client");
@@ -459,6 +459,8 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 
       onFinalizado(agendamento.id, protocolo);
     }
+    toast.success("Consulta encerrada. Ficha pendente de exportação eSUS.");
+    setEnviando(false);
     reset();
     onOpenChange(false);
   };
@@ -615,10 +617,9 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
                 <Save className="h-4 w-4" />
                 <span>Salvar</span>
               </Button>
-              <Button onClick={finalizar} className="hidden gap-2 bg-gradient-to-r from-primary to-primary/85 font-semibold shadow-md shadow-primary/25 sm:inline-flex" title="Finalizar (Ctrl+Enter)">
+              <Button onClick={finalizar} disabled={enviando} className="hidden gap-2 bg-gradient-to-r from-primary to-primary/85 font-semibold shadow-md shadow-primary/25 sm:inline-flex" title="Encerrar consulta (Ctrl+Enter)">
                 <Send className="h-4 w-4" />
-                <span className="hidden sm:inline">Finalizar e enviar ao e-SUS APS</span>
-                <span className="sm:hidden">Finalizar</span>
+                <span>{enviando ? "Encerrando…" : "Encerrar consulta"}</span>
               </Button>
               <Button
                 variant="ghost" size="icon"
@@ -1000,11 +1001,12 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
                 </Button>
                 <Button
                   onClick={finalizar}
+                  disabled={enviando}
                   className="h-12 flex-1 gap-2 bg-gradient-to-r from-primary to-primary/85 text-base font-semibold shadow-lg shadow-primary/25"
                   size="lg"
                 >
                   <Send className="h-5 w-5" />
-                  Finalizar e enviar ao e-SUS APS
+                  {enviando ? "Encerrando…" : "Encerrar consulta"}
                 </Button>
               </div>
             </div>
@@ -1014,7 +1016,6 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
 
 
 
-      <EnvioEsusOverlay open={enviando} onClose={handleEnvioFechar} pacienteNome={paciente} />
     </>
   );
 }
