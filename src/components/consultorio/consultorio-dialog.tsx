@@ -353,7 +353,11 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
     if (!s && !o && !a && !p) { toast.error("Preencha ao menos um campo do SOAP."); return; }
     if (cids.length === 0) { toast.error("Adicione ao menos um CID-10 (Avaliação)."); return; }
     if (conduta.desfechos.length === 0) { toast.error("Defina ao menos uma conduta/desfecho."); return; }
-    setEnviando(true);
+    if (!atend.tipoAtendimento) { toast.error("Selecione o tipo de atendimento (obrigatório eSUS)."); return; }
+    if (!atend.modalidade) { toast.error("Selecione a modalidade (obrigatório eSUS)."); return; }
+    if (!atend.local) { toast.error("Selecione o local de atendimento (obrigatório eSUS)."); return; }
+    // Encerra direto — salva como pendente no banco. Exportação acontece em /app/exportar-esus
+    void handleEnvioFechar();
   };
   const handleEnvioFechar = async () => {
     setEnviando(false);
