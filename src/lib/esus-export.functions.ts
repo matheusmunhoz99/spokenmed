@@ -217,7 +217,10 @@ export const registrarExportacaoEsus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     escopoSchema.extend({
-      totais: z.object({ fcd: z.number().int().min(0), fci: z.number().int().min(0), fad: z.number().int().min(0) }),
+      totais: z.object({
+        fcd: z.number().int().min(0), fci: z.number().int().min(0), fad: z.number().int().min(0),
+        fai: z.number().int().min(0).default(0), fao: z.number().int().min(0).default(0),
+      }),
       validacao: z.any().optional(),
     }).parse(input),
   )
