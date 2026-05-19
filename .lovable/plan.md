@@ -1,42 +1,84 @@
-## Diagnóstico
+# Plano
 
-Na tela **Exportar e-SUS** (`src/routes/app.exportar-esus.tsx`, linhas 70–82) a consulta de profissionais usa um `.or()` com uma **subquery SQL** dentro do `id.in.(...)`:
+## 1. Builders Thrift faltantes (LEDI 7.4)
 
-```ts
-.or(`unidade_id.eq.${unidadeId},id.in.(select profissional_id from profissional_unidades where unidade_id=${unidadeId})`)
-```
+Criar em `src/lib/esus-thrift/builders/`:
 
-O PostgREST **não aceita subquery** dentro de `in.(...)` — espera uma lista literal `in.(uuid1,uuid2,...)`. Resultado: o filtro falha silenciosamente e o `<Select>` fica vazio (ou só mostra quem está no `unidade_id` direto — e mesmo assim o `.or` quebra a query inteira). Por isso a enfermeira **Ana Paula Souza**, que foi vinculada via `profissional_unidades` + `unidade_id` direto, não aparece para seleção.
+- `fac.ts` — Ficha de Atividade Coletiva
+- `fp.ts` — Ficha de Procedimentos
+- `fvd.ts` — Ficha de Visita Domiciliar e Territorial
+- `fmca.ts` — Ficha de Marcadores de Consumo Alimentar
+- `fae.ts` — Ficha de Atendimento Especializado (NASF/CEO)
+- `fczm.ts` — Ficha de Avaliação de Zika/Microcefalia
+- `fv.ts` — Ficha de Vacinação
 
-Além disso, hoje o campo começa vazio e o usuário precisa escolher manualmente toda vez — você pediu que a enfermeira responsável da unidade venha pré-selecionada.
+Cada builder segue o padrão dos existentes (`fai.ts`, `fad.ts`): função `buildXxxThrift(row)` que serializa em `TBinaryProtocol` os campos do registro conforme XSD/Thrift LEDI 7.4, devolvendo `Uint8Array`.
 
-## O que vou ajustar
+Registrar cada um em:
+- `src/lib/esus-thrift/transporte.ts` no mapeamento de `TipoDadoSerializado`
+- `src/lib/esus-export.functions.ts` na seleção por `tipos_fichas`
 
-**1. Corrigir a consulta de profissionais da unidade** (`app.exportar-esus.tsx`)
+## 2. Persistência das fichas no banco
 
-Trocar o `.or()` quebrado por duas consultas simples no Supabase e fazer o merge no cliente:
+Cada ficha precisa de uma tabela própria (ou reaproveitar `atendimentos`/`domicilios`/`pacientes` quando já existe) com os campos:
 
-- `profissionais` com `unidade_id = unidadeId` (titulares da unidade)
-- `profissional_unidades` (`profissional_id`) onde `unidade_id = unidadeId`, depois `profissionais` com `id in (lista)` (vínculos secundários)
+- `status_envio` enum: `pendente` | `exportado` | `desatualizado`
+- `exportado_em` timestamptz
+- `exportacao_id` uuid (fk para `esus_exportacoes`)
+- `updated_at` (trigger) — usado para marcar `desatualizado` se editado depois de exportado
 
-Unir os dois resultados (sem duplicar por `id`), filtrar `ativo = true`, ordenar por nome. Trazer também o campo `cbo` (já vem) para identificar enfermeiros.
+Tabelas novas a criar (somente as que ainda não existem):
+- `fichas_atividade_coletiva` (FAC)
+- `fichas_procedimentos` (FP) — pode derivar de `atendimentos.procedimentos_sigtap`
+- `fichas_visita_domiciliar` (FVD)
+- `fichas_marcadores_alimentares` (FMCA)
+- `fichas_atendimento_especializado` (FAE) — derivada de `atendimentos` com flag
+- `fichas_zika_microcefalia` (FCZM)
+- `fichas_vacinacao` (FV)
 
-**2. Auto-seleção da enfermeira responsável**
+E adicionar `status_envio`/`exportado_em`/`exportacao_id` em:
+- `atendimentos` (FAI/FAD)
+- `pacientes` (FCI)
+- `domicilios` (FCD)
 
-Em um `useEffect` que dispara quando `profissionais` muda e `profissionalId` está vazio:
+Trigger: ao `UPDATE` de qualquer ficha exportada, voltar `status_envio` para `desatualizado`.
 
-- Procurar o primeiro profissional cujo `cbo` comece com `2235` (família **Enfermeiro** no CBO 2002 — cobre 223505 generalista, 223565 saúde da família, etc.) **e** tenha `cns` válido (15 dígitos).
-- Se houver, `setProfissionalId(esse.id)`.
-- Se não houver enfermeiro com CNS, deixar vazio (mantém o aviso atual de "Falta CNS ou CBO").
+## 3. Fluxo "Encerrar consulta" (substitui o botão Exportar eSUS)
 
-Isso garante que ao escolher uma unidade o sistema já preenche a enfermeira da equipe, sem o usuário precisar clicar.
+Em `src/components/consultorio/consultorio-dialog.tsx`:
 
-**3. Re-disparar a auto-seleção ao trocar de unidade**
+- Remover botão "Exportar eSUS" do rodapé.
+- Único botão final: **Encerrar consulta**.
+- Ao clicar:
+  1. Validar campos obrigatórios eSUS (CID/CIAP, procedimentos SIGTAP, turno, modalidade, tipo de atendimento, local, condutas). Se faltar, abrir toast/modal com a lista de pendências e bloquear o encerramento.
+  2. Salvar atendimento no banco com `status_envio = 'pendente'` e `finalizado_em = now()`.
+  3. Fechar o dialog. Não enviar arquivo nenhum — exportação fica para `/app/exportar-esus`.
 
-O `useEffect` que já existe (linha 90) zera `profissionalId` ao trocar de `unidadeId`. Depois que a nova lista de `profissionais` carrega, o efeito de auto-seleção do passo 2 entra e escolhe a enfermeira da nova unidade.
+## 4. Regra de reabertura (2 horas)
 
-## Arquivos afetados
+- Mostrar botão "Reabrir" apenas se `now() - finalizado_em < interval '2 hours'` **e** `status_envio != 'exportado'`.
+- Após 2h, atendimento fica somente-leitura (ver/imprimir, mas não editar).
+- Backend: RLS/policy de UPDATE em `atendimentos` checando a janela de 2h (ou trigger `BEFORE UPDATE` que rejeita).
 
-- `src/routes/app.exportar-esus.tsx` — única alteração; correção da query + efeito de auto-seleção.
+## 5. Exportador só pega pendentes/desatualizadas
 
-Nenhuma mudança em banco, RLS ou server functions. A enfermeira Ana Paula já está vinculada corretamente; o problema é puramente no filtro do front.
+Em `src/lib/esus-export.functions.ts`:
+
+- Filtrar consultas por `status_envio IN ('pendente','desatualizado')` no intervalo selecionado.
+- Após gerar e baixar o `.zip`/`.esus` com sucesso (status `concluido` em `esus_exportacoes`), fazer UPDATE em todas as fichas incluídas:
+  - `status_envio = 'exportado'`
+  - `exportado_em = now()`
+  - `exportacao_id = <lote.id>`
+- Mesma regra para FCI (pacientes) e FCD (domicílios): só exporta se `pendente` ou `desatualizado`.
+
+## 6. Detalhes técnicos
+
+- Migração única com: novas tabelas, novas colunas, enum `ficha_status_envio`, triggers de invalidação e função `marcar_fichas_exportadas(lote_uuid uuid)`.
+- Server function nova: `encerrarAtendimento({ atendimentoId })` valida + salva + retorna pendências.
+- Server function `reabrirAtendimento({ atendimentoId })` checa janela 2h.
+- Ajustar `esus-export.functions.ts` para chamar `marcar_fichas_exportadas` ao final.
+- UI de `/app/exportar-esus` ganha contador "X fichas pendentes" por tipo antes de gerar.
+
+## Itens fora do escopo (confirmar se quer também)
+- Geração automática de FP a partir dos procedimentos_sigtap de `atendimentos` (vs. tabela própria).
+- FAE: separar por CBO NASF/CEO automaticamente ou exigir flag manual.

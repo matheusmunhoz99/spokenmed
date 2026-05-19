@@ -366,6 +366,8 @@ export type Database = {
           encaminhamentos_internos: string[] | null
           exames_avaliados: string[] | null
           exames_solicitados: string[] | null
+          exportacao_id: string | null
+          exportado_em: string | null
           fc: string | null
           finalizado_em: string
           fr: string | null
@@ -391,6 +393,7 @@ export type Database = {
           soap_o: string | null
           soap_p: string | null
           soap_s: string | null
+          status_envio: Database["public"]["Enums"]["ficha_status_envio"]
           temperatura: string | null
           tipo_atendimento: string | null
           tipo_consulta: string | null
@@ -416,6 +419,8 @@ export type Database = {
           encaminhamentos_internos?: string[] | null
           exames_avaliados?: string[] | null
           exames_solicitados?: string[] | null
+          exportacao_id?: string | null
+          exportado_em?: string | null
           fc?: string | null
           finalizado_em?: string
           fr?: string | null
@@ -441,6 +446,7 @@ export type Database = {
           soap_o?: string | null
           soap_p?: string | null
           soap_s?: string | null
+          status_envio?: Database["public"]["Enums"]["ficha_status_envio"]
           temperatura?: string | null
           tipo_atendimento?: string | null
           tipo_consulta?: string | null
@@ -466,6 +472,8 @@ export type Database = {
           encaminhamentos_internos?: string[] | null
           exames_avaliados?: string[] | null
           exames_solicitados?: string[] | null
+          exportacao_id?: string | null
+          exportado_em?: string | null
           fc?: string | null
           finalizado_em?: string
           fr?: string | null
@@ -491,6 +499,7 @@ export type Database = {
           soap_o?: string | null
           soap_p?: string | null
           soap_s?: string | null
+          status_envio?: Database["public"]["Enums"]["ficha_status_envio"]
           temperatura?: string | null
           tipo_atendimento?: string | null
           tipo_consulta?: string | null
@@ -505,6 +514,13 @@ export type Database = {
             columns: ["agendamento_id"]
             isOneToOne: false
             referencedRelation: "agendamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_exportacao_id_fkey"
+            columns: ["exportacao_id"]
+            isOneToOne: false
+            referencedRelation: "esus_exportacoes"
             referencedColumns: ["id"]
           },
           {
@@ -805,6 +821,8 @@ export type Database = {
           email: string | null
           energia_eletrica: boolean | null
           esgoto: string | null
+          exportacao_id: string | null
+          exportado_em: string | null
           ficha_atualizacao: boolean
           fora_area: boolean
           foto_fachada: string | null
@@ -828,6 +846,7 @@ export type Database = {
           ponto_referencia: string | null
           sem_numero: boolean
           situacao_moradia: string | null
+          status_envio: Database["public"]["Enums"]["ficha_status_envio"]
           telefone_contato: string | null
           telefone_residencia: string | null
           termo_recusa: boolean
@@ -860,6 +879,8 @@ export type Database = {
           email?: string | null
           energia_eletrica?: boolean | null
           esgoto?: string | null
+          exportacao_id?: string | null
+          exportado_em?: string | null
           ficha_atualizacao?: boolean
           fora_area?: boolean
           foto_fachada?: string | null
@@ -883,6 +904,7 @@ export type Database = {
           ponto_referencia?: string | null
           sem_numero?: boolean
           situacao_moradia?: string | null
+          status_envio?: Database["public"]["Enums"]["ficha_status_envio"]
           telefone_contato?: string | null
           telefone_residencia?: string | null
           termo_recusa?: boolean
@@ -915,6 +937,8 @@ export type Database = {
           email?: string | null
           energia_eletrica?: boolean | null
           esgoto?: string | null
+          exportacao_id?: string | null
+          exportado_em?: string | null
           ficha_atualizacao?: boolean
           fora_area?: boolean
           foto_fachada?: string | null
@@ -938,6 +962,7 @@ export type Database = {
           ponto_referencia?: string | null
           sem_numero?: boolean
           situacao_moradia?: string | null
+          status_envio?: Database["public"]["Enums"]["ficha_status_envio"]
           telefone_contato?: string | null
           telefone_residencia?: string | null
           termo_recusa?: boolean
@@ -949,6 +974,13 @@ export type Database = {
           uuid_ficha?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "domicilios_exportacao_id_fkey"
+            columns: ["exportacao_id"]
+            isOneToOne: false
+            referencedRelation: "esus_exportacoes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "domicilios_unidade_id_fkey"
             columns: ["unidade_id"]
@@ -1381,6 +1413,8 @@ export type Database = {
           email: string | null
           escolaridade: string | null
           etnia: string | null
+          exportacao_id: string | null
+          exportado_em: string | null
           frequenta_escola: boolean | null
           id: string
           identidade_genero: string | null
@@ -1402,6 +1436,7 @@ export type Database = {
           rg: string | null
           sexo: Database["public"]["Enums"]["sexo_tipo"] | null
           situacao_mercado_trabalho: string | null
+          status_envio: Database["public"]["Enums"]["ficha_status_envio"]
           telefone: string | null
           uf: string | null
           uf_nascimento: string | null
@@ -1425,6 +1460,8 @@ export type Database = {
           email?: string | null
           escolaridade?: string | null
           etnia?: string | null
+          exportacao_id?: string | null
+          exportado_em?: string | null
           frequenta_escola?: boolean | null
           id?: string
           identidade_genero?: string | null
@@ -1446,6 +1483,7 @@ export type Database = {
           rg?: string | null
           sexo?: Database["public"]["Enums"]["sexo_tipo"] | null
           situacao_mercado_trabalho?: string | null
+          status_envio?: Database["public"]["Enums"]["ficha_status_envio"]
           telefone?: string | null
           uf?: string | null
           uf_nascimento?: string | null
@@ -1469,6 +1507,8 @@ export type Database = {
           email?: string | null
           escolaridade?: string | null
           etnia?: string | null
+          exportacao_id?: string | null
+          exportado_em?: string | null
           frequenta_escola?: boolean | null
           id?: string
           identidade_genero?: string | null
@@ -1490,13 +1530,22 @@ export type Database = {
           rg?: string | null
           sexo?: Database["public"]["Enums"]["sexo_tipo"] | null
           situacao_mercado_trabalho?: string | null
+          status_envio?: Database["public"]["Enums"]["ficha_status_envio"]
           telefone?: string | null
           uf?: string | null
           uf_nascimento?: string | null
           updated_at?: string
           uuid_ficha_fci?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pacientes_exportacao_id_fkey"
+            columns: ["exportacao_id"]
+            isOneToOne: false
+            referencedRelation: "esus_exportacoes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       procedimentos: {
         Row: {
@@ -2556,6 +2605,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      marcar_fichas_exportadas: {
+        Args: {
+          p_atendimentos?: string[]
+          p_domicilios?: string[]
+          p_exportacao_id: string
+          p_pacientes?: string[]
+        }
+        Returns: undefined
+      }
       set_audit_context: {
         Args: { p_ip?: string; p_modulo?: string; p_ua?: string }
         Returns: undefined
@@ -2660,6 +2718,7 @@ export type Database = {
         | "outro"
       app_role: "admin" | "recepcionista" | "medico" | "triagem" | "acs"
       classificacao_risco: "vermelho" | "laranja" | "amarelo" | "verde" | "azul"
+      ficha_status_envio: "pendente" | "exportado" | "desatualizado"
       fila_status: "aguardando" | "agendado" | "concluido" | "cancelado"
       fila_urgencia: "normal" | "prioritaria" | "urgente"
       sexo_tipo: "M" | "F" | "O"
@@ -2804,6 +2863,7 @@ export const Constants = {
       anexo_categoria: ["pedido_medico", "exame", "documento", "foto", "outro"],
       app_role: ["admin", "recepcionista", "medico", "triagem", "acs"],
       classificacao_risco: ["vermelho", "laranja", "amarelo", "verde", "azul"],
+      ficha_status_envio: ["pendente", "exportado", "desatualizado"],
       fila_status: ["aguardando", "agendado", "concluido", "cancelado"],
       fila_urgencia: ["normal", "prioritaria", "urgente"],
       sexo_tipo: ["M", "F", "O"],
