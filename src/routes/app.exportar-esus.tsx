@@ -41,6 +41,7 @@ function ExportarEsusPage() {
   const [inicio, setInicio] = useState(trintaDias.toISOString().slice(0, 10));
   const [fim, setFim] = useState(hoje.toISOString().slice(0, 10));
   const [tipos, setTipos] = useState<FichaTipo[]>(["FCD", "FCI", "FAD"]);
+  const [formato, setFormato] = useState<"thrift" | "json">("thrift");
   const [somenteNovos, setSomenteNovos] = useState(false);
   const [preview, setPreview] = useState<PreviewResultado | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -361,8 +362,8 @@ function ExportarEsusPage() {
                       intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos,
                       somenteNovos, totais: preview.prontos, validacao: { erros: preview.erros.length, avisos: preview.avisos.length },
                     } as any });
-                    toast.info("Gerando arquivo .zip…");
-                    const r = await gerarFn({ data: { exportacaoId: (reg as any).id } });
+                    toast.info(formato === "thrift" ? "Gerando .zip Thrift (PEC offline)…" : "Gerando .zip JSON-LEDI (Bridge)…");
+                    const r = await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
                     toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad}`);
                     const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
                     window.open(url, "_blank");
@@ -377,8 +378,20 @@ function ExportarEsusPage() {
                 {gerando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
                 Gerar arquivo CDS .zip ({totalPronto} ficha{totalPronto === 1 ? "" : "s"})
               </Button>
-              <p className="text-xs text-muted-foreground">
-                Gera <strong>.zip LEDI 7.4 (JSON)</strong> compatível com Bridge UFSC e conversores Thrift. Versão Thrift binária nativa requer os IDLs da PEC e será adicionada como variante na próxima atualização.
+              <div className="flex items-center gap-2">
+                <Label className="text-xs whitespace-nowrap">Formato:</Label>
+                <Select value={formato} onValueChange={(v) => setFormato(v as "thrift" | "json")}>
+                  <SelectTrigger className="h-9 w-[260px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="thrift">Thrift binário (PEC offline)</SelectItem>
+                    <SelectItem value="json">JSON-LEDI (Bridge UFSC)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground basis-full">
+                {formato === "thrift"
+                  ? "Gera .zip LEDI 7.4 com DadoTransporte Thrift binário, pronto pro Transporte CDS do e-SUS PEC."
+                  : "Gera .zip JSON-LEDI compatível com Bridge UFSC e conversores externos."}
               </p>
             </div>
           </CardContent>
