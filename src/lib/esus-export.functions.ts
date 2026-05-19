@@ -245,6 +245,11 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
       if (!prof?.cns) throw new Error("Profissional sem CNS");
       if (!prof?.cbo) throw new Error("Profissional sem CBO");
 
+      const dataAtendimento = Date.now();
+      const tipos: string[] = exp.tipos_fichas ?? [];
+      const totais = { fcd: 0, fci: 0, fad: 0 };
+      const formato: "thrift" | "json" = data.formato;
+
       // Validações oficiais LEDI (CNS/CNES/INE/CBO/IBGE)
       const issues = validarHeaderTransporte({
         cns: prof.cns, cbo: prof.cbo, cnes: unidade.cnes,
@@ -254,11 +259,6 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
       if (issues.length > 0) {
         throw new Error(`Validação LEDI falhou: ${issues.map((i) => `${i.campo}: ${i.motivo}`).join("; ")}`);
       }
-
-      const dataAtendimento = Date.now();
-      const tipos: string[] = exp.tipos_fichas ?? [];
-      const totais = { fcd: 0, fci: 0, fad: 0 };
-      const formato: "thrift" | "json" = data.formato;
 
       // ============================================================
       // FORMATO THRIFT (PEC offline) — default
