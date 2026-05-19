@@ -20,6 +20,10 @@ import { packLDI, type FichaSerializada } from "./esus-thrift/pack";
 import { TipoDadoSerializado } from "./esus-thrift/transporte";
 import type { UnicaLotacaoHeaderInput } from "./esus-thrift/header";
 import { validarHeaderTransporte } from "./esus-validators";
+import {
+  buildFaiXml, buildFaoXml, buildFvdXml, buildFciXml, buildFcdXml,
+  type HeaderTransport as XmlHeader,
+} from "./esus-xml";
 
 const TIPOS_FICHA = [
   "FCD", "FCI", "FAD", "FAI", "FAO",
