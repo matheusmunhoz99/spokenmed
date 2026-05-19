@@ -348,6 +348,188 @@ export type Database = {
           },
         ]
       }
+      atendimentos: {
+        Row: {
+          agendamento_id: string | null
+          aleitamento: string | null
+          alergias: Json | null
+          altura: number | null
+          ciaps: string[] | null
+          cids: string[] | null
+          created_at: string
+          criado_por: string | null
+          data_atendimento: string
+          desfechos: string[] | null
+          documentos: Json | null
+          duracao_segundos: number | null
+          encaminhamentos_externos: string[] | null
+          encaminhamentos_internos: string[] | null
+          exames_avaliados: string[] | null
+          exames_solicitados: string[] | null
+          fc: string | null
+          finalizado_em: string
+          fr: string | null
+          hora_inicio: string | null
+          id: string
+          imc: number | null
+          local_atendimento: string | null
+          matriciamento_nasf: boolean | null
+          modalidade: string | null
+          notificacoes: string[] | null
+          observacoes: string | null
+          pa: string | null
+          paciente_id: string | null
+          perimetro_cefalico: number | null
+          peso: number | null
+          pics: boolean | null
+          procedimentos_sigtap: string[] | null
+          profissional_id: string | null
+          protocolo: string | null
+          racionalidade: string | null
+          saturacao: string | null
+          soap_a: string | null
+          soap_o: string | null
+          soap_p: string | null
+          soap_s: string | null
+          temperatura: string | null
+          tipo_atendimento: string | null
+          tipo_consulta: string | null
+          turno: string | null
+          unidade_id: string | null
+          updated_at: string
+          vacinacao_em_dia: string | null
+        }
+        Insert: {
+          agendamento_id?: string | null
+          aleitamento?: string | null
+          alergias?: Json | null
+          altura?: number | null
+          ciaps?: string[] | null
+          cids?: string[] | null
+          created_at?: string
+          criado_por?: string | null
+          data_atendimento?: string
+          desfechos?: string[] | null
+          documentos?: Json | null
+          duracao_segundos?: number | null
+          encaminhamentos_externos?: string[] | null
+          encaminhamentos_internos?: string[] | null
+          exames_avaliados?: string[] | null
+          exames_solicitados?: string[] | null
+          fc?: string | null
+          finalizado_em?: string
+          fr?: string | null
+          hora_inicio?: string | null
+          id?: string
+          imc?: number | null
+          local_atendimento?: string | null
+          matriciamento_nasf?: boolean | null
+          modalidade?: string | null
+          notificacoes?: string[] | null
+          observacoes?: string | null
+          pa?: string | null
+          paciente_id?: string | null
+          perimetro_cefalico?: number | null
+          peso?: number | null
+          pics?: boolean | null
+          procedimentos_sigtap?: string[] | null
+          profissional_id?: string | null
+          protocolo?: string | null
+          racionalidade?: string | null
+          saturacao?: string | null
+          soap_a?: string | null
+          soap_o?: string | null
+          soap_p?: string | null
+          soap_s?: string | null
+          temperatura?: string | null
+          tipo_atendimento?: string | null
+          tipo_consulta?: string | null
+          turno?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+          vacinacao_em_dia?: string | null
+        }
+        Update: {
+          agendamento_id?: string | null
+          aleitamento?: string | null
+          alergias?: Json | null
+          altura?: number | null
+          ciaps?: string[] | null
+          cids?: string[] | null
+          created_at?: string
+          criado_por?: string | null
+          data_atendimento?: string
+          desfechos?: string[] | null
+          documentos?: Json | null
+          duracao_segundos?: number | null
+          encaminhamentos_externos?: string[] | null
+          encaminhamentos_internos?: string[] | null
+          exames_avaliados?: string[] | null
+          exames_solicitados?: string[] | null
+          fc?: string | null
+          finalizado_em?: string
+          fr?: string | null
+          hora_inicio?: string | null
+          id?: string
+          imc?: number | null
+          local_atendimento?: string | null
+          matriciamento_nasf?: boolean | null
+          modalidade?: string | null
+          notificacoes?: string[] | null
+          observacoes?: string | null
+          pa?: string | null
+          paciente_id?: string | null
+          perimetro_cefalico?: number | null
+          peso?: number | null
+          pics?: boolean | null
+          procedimentos_sigtap?: string[] | null
+          profissional_id?: string | null
+          protocolo?: string | null
+          racionalidade?: string | null
+          saturacao?: string | null
+          soap_a?: string | null
+          soap_o?: string | null
+          soap_p?: string | null
+          soap_s?: string | null
+          temperatura?: string | null
+          tipo_atendimento?: string | null
+          tipo_consulta?: string | null
+          turno?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+          vacinacao_em_dia?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atendimentos_agendamento_id_fkey"
+            columns: ["agendamento_id"]
+            isOneToOne: false
+            referencedRelation: "agendamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_paciente_id_fkey"
+            columns: ["paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           acao: string
