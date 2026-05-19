@@ -656,6 +656,19 @@ function ExportarEsusPage() {
           )}
         </CardContent>
       </Card>
+
+      <CorrigirPendenciaDialog
+        open={!!corrigindo}
+        onOpenChange={(o) => { if (!o) setCorrigindo(null); }}
+        rota={corrigindo?.rota ?? null}
+        descricao={corrigindo?.descricao ?? ""}
+        onRevalidar={() => {
+          setCorrigindo(null);
+          const btn = document.querySelector<HTMLButtonElement>('[data-revalidar="1"]');
+          if (btn) btn.click();
+          else toast.info('Clique em "Validar" pra re-rodar a checagem.');
+        }}
+      />
     </div>
   );
 }
