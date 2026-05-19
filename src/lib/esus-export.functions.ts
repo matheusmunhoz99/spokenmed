@@ -246,12 +246,12 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
       if (!prof?.cbo) throw new Error("Profissional sem CBO");
 
       // Validações oficiais LEDI (CNS/CNES/INE/CBO/IBGE)
-      const valid = validarHeaderTransporte({
+      const issues = validarHeaderTransporte({
         cns: prof.cns, cbo: prof.cbo, cnes: unidade.cnes,
         ine: equipe?.ine ?? null, ibge: unidade.ibge_municipio,
       });
-      if (!valid.ok) {
-        throw new Error(`Validação LEDI falhou: ${valid.erros.join("; ")}`);
+      if (issues.length > 0) {
+        throw new Error(`Validação LEDI falhou: ${issues.map((i) => `${i.campo}: ${i.mensagem}`).join("; ")}`);
       }
 
       const dataAtendimento = Date.now();
