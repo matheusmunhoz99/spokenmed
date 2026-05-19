@@ -409,6 +409,7 @@ function ExportarEsusPage() {
                   <TableHead>Totais</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Lote</TableHead>
+                  <TableHead className="text-right">Arquivo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -419,11 +420,25 @@ function ExportarEsusPage() {
                     <TableCell className="text-xs">{(e.tipos_fichas ?? []).join(", ")}</TableCell>
                     <TableCell className="text-xs">FCD {e.total_fcd} · FCI {e.total_fci} · FAD {e.total_fad}</TableCell>
                     <TableCell>
-                      <Badge variant={e.status === "pronto" ? "default" : e.status === "erro" ? "destructive" : "secondary"}>
+                      <Badge variant={e.status === "concluido" ? "default" : e.status === "erro" ? "destructive" : "secondary"}>
                         {e.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-mono text-[10px]">{e.lote_uuid?.slice(0, 8)}…</TableCell>
+                    <TableCell className="text-right">
+                      {e.arquivo_path && e.status === "concluido" ? (
+                        <Button size="sm" variant="outline" onClick={async () => {
+                          try {
+                            const { url } = await baixarFn({ data: { exportacaoId: e.id } });
+                            window.open(url, "_blank");
+                          } catch (err: any) { toast.error(err?.message ?? "Erro ao gerar link"); }
+                        }}>
+                          <Download className="h-3 w-3 mr-1" /> Baixar
+                        </Button>
+                      ) : e.erro_msg ? (
+                        <span className="text-xs text-destructive" title={e.erro_msg}>ver erro</span>
+                      ) : null}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
