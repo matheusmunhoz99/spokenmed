@@ -193,7 +193,13 @@ function UnidadesCard() {
           <div className="md:col-span-2 space-y-1.5"><Label className="text-xs">Nome *</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} /></div>
           <div className="space-y-1.5"><Label className="text-xs">CNES * (7 dígitos)</Label><Input required value={cnes} maxLength={7} placeholder="0000000" onChange={(e) => setCnes(e.target.value.replace(/\D/g, ""))} /></div>
           <div className="space-y-1.5"><Label className="text-xs">Telefone</Label><Input value={telefone} onChange={(e) => setTelefone(e.target.value)} /></div>
-          <div className="md:col-span-3 space-y-1.5"><Label className="text-xs">Endereço</Label><Input value={endereco} onChange={(e) => setEndereco(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">IBGE Município (7 díg)</Label><Input value={ibge} maxLength={7} placeholder="3304557" onChange={(e) => setIbge(e.target.value.replace(/\D/g, ""))} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">UF</Label><Input value={uf} maxLength={2} placeholder="RJ" onChange={(e) => setUf(e.target.value.toUpperCase())} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">CEP</Label><Input value={cep} onChange={(e) => setCep(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">Bairro</Label><Input value={bairro} onChange={(e) => setBairro(e.target.value)} /></div>
+          <div className="md:col-span-2 space-y-1.5"><Label className="text-xs">Logradouro</Label><Input value={logradouro} onChange={(e) => setLogradouro(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">Número</Label><Input value={numero} onChange={(e) => setNumero(e.target.value)} /></div>
+          <div className="md:col-span-3 space-y-1.5"><Label className="text-xs">Endereço (livre, opcional)</Label><Input value={endereco} onChange={(e) => setEndereco(e.target.value)} /></div>
           <div className="md:col-span-4 flex justify-end"><Button onClick={add}><Plus className="mr-1 h-4 w-4" />Adicionar</Button></div>
         </div>
         <Table>
