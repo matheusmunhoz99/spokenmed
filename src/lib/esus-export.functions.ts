@@ -249,9 +249,10 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
       const issues = validarHeaderTransporte({
         cns: prof.cns, cbo: prof.cbo, cnes: unidade.cnes,
         ine: equipe?.ine ?? null, ibge: unidade.ibge_municipio,
+        dataAtendimentoEpochMs: dataAtendimento,
       });
       if (issues.length > 0) {
-        throw new Error(`Validação LEDI falhou: ${issues.map((i) => `${i.campo}: ${i.mensagem}`).join("; ")}`);
+        throw new Error(`Validação LEDI falhou: ${issues.map((i) => `${i.campo}: ${i.motivo}`).join("; ")}`);
       }
 
       const dataAtendimento = Date.now();
