@@ -368,7 +368,7 @@ function ExportarEsusPage() {
                     } as any });
                     toast.info(formato === "thrift" ? "Gerando .zip Thrift (PEC offline)…" : "Gerando .zip JSON-LEDI (Bridge)…");
                     const r = await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
-                    toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad}`);
+                    toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad} · FAI ${(r.totais as any).fai ?? 0} · FAO ${(r.totais as any).fao ?? 0}`);
                     const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
                     window.open(url, "_blank");
                     refetchHistorico();
