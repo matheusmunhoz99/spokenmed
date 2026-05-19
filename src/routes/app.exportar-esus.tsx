@@ -290,6 +290,7 @@ function ExportarEsusPage() {
               <Select value={unidadeId} onValueChange={setUnidadeId}>
                 <SelectTrigger><SelectValue placeholder="Selecione a UBS…" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={TODAS}>🏥 Todas as unidades (lote por unidade)</SelectItem>
                   {unidades.map((u) => (
                     <SelectItem key={u.id} value={u.id}>
                       {u.nome} {u.cnes ? `· CNES ${u.cnes}` : <span className="text-destructive">· sem CNES</span>}
