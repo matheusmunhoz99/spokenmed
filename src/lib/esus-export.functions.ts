@@ -368,7 +368,6 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
           const { data: domicilios } = await supabase
             .from("domicilios").select("*, familias(*, familia_membros(*))")
             .eq("unidade_id", exp.unidade_id)
-            .in("status_envio", ["pendente", "desatualizado"])
             .gte("updated_at", exp.intervalo_inicio)
             .lte("updated_at", exp.intervalo_fim + "T23:59:59");
           for (const d of domicilios ?? []) {
@@ -387,7 +386,6 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
         if (tipos.includes("FCI")) {
           const { data: pacientes } = await supabase
             .from("pacientes").select("*")
-            .in("status_envio", ["pendente", "desatualizado"])
             .gte("updated_at", exp.intervalo_inicio)
             .lte("updated_at", exp.intervalo_fim + "T23:59:59");
           for (const p of pacientes ?? []) {
@@ -417,27 +415,37 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
           }
         }
 
-        // ----- FAI (Atendimento Individual) — só atendimentos pendentes/desatualizados -----
+        // ----- FAI (Atendimento Individual) -----
         if (tipos.includes("FAI")) {
           const { data: ats } = await supabase
             .from("atendimentos" as any)
-            .select("*, agendamentos:agendamento_id(id, cid10, hora_inicio, data, modalidade, tele_sala_id), pacientes:paciente_id(cpf, cns, data_nascimento, sexo, numero_prontuario)")
+            .select("*, agendamentos:agendamento_id(id, cid10, hora_inicio, data, modalidade, tele_sala_id), pacientes:paciente_id(cpf, cns, data_nascimento, sexo)")
             .eq("unidade_id", exp.unidade_id)
-            .in("status_envio", ["pendente", "desatualizado"])
             .gte("data_atendimento", exp.intervalo_inicio)
             .lte("data_atendimento", exp.intervalo_fim);
+          const { data: agendamentosAtendidos } = (ats ?? []).length
+            ? { data: [] }
+            : await supabase
+                .from("agendamentos")
+                .select("*, pacientes(cpf, cns, data_nascimento, sexo), procedimentos(codigo_sigtap)")
+                .eq("unidade_id", exp.unidade_id)
+                .eq("status", "atendido")
+                .gte("data", exp.intervalo_inicio)
+                .lte("data", exp.intervalo_fim);
 
-          const validos = (ats ?? []).filter((a: any) => {
+          const atendimentosFonte = (ats ?? []).length ? (ats ?? []) : (agendamentosAtendidos ?? []);
+          const validos = atendimentosFonte.filter((a: any) => {
             const p = a.pacientes ?? {};
             return (p.cpf || p.cns) && p.data_nascimento && p.sexo;
           });
           if (validos.length) {
             // adapta o shape esperado pelo builder atual (espera "a.pacientes" e "a.atendimento")
             const adapted = validos.map((a: any) => ({
-              ...a.agendamentos,
+              ...(a.agendamentos ?? a),
               pacientes: a.pacientes,
-              cid10: a.agendamentos?.cid10,
-              atendimento: a,
+              procedimentos: a.procedimentos,
+              cid10: a.agendamentos?.cid10 ?? a.cid10,
+              atendimento: a.agendamentos ? a : null,
             }));
             const u = uuidv4();
             const headerVarias = {
@@ -450,7 +458,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
             };
             const bytes = buildFAIThrift({ uuidFicha: u, header: headerVarias, atendimentos: adapted });
             fichas.push({ tipo: TipoDadoSerializado.FICHA_ATENDIMENTO_INDIVIDUAL, uuid: uuidPrefix + u, bytes });
-            for (const a of validos) idsAtend.push(a.id);
+            if ((ats ?? []).length) for (const a of validos) idsAtend.push(a.id);
             totais.fai = validos.length;
           }
         }
@@ -519,6 +527,10 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
         void buildFACThrift; void buildFPThrift; void buildFVDThrift;
         void buildFMCAThrift; void buildFAEThrift; void buildFCZMThrift; void buildFVThrift;
 
+        if (fichas.length === 0) {
+          throw new Error("Nenhuma ficha válida encontrada para esse período/unidade. O ZIP não será gerado vazio.");
+        }
+
         const { zipBytes } = await packLDI({
           cnes: unidade.cnes,
           ibge: unidade.ibge_municipio,
@@ -539,11 +551,11 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
         });
         if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
 
-        await supabase.from("esus_exportacoes").update({
+        const { error: updErr } = await supabase.from("esus_exportacoes").update({
           status: "concluido", arquivo_path: path, arquivo_tamanho_bytes: zipBytes.byteLength,
           total_fcd: totais.fcd, total_fci: totais.fci, total_fad: totais.fad,
-          concluido_em: new Date().toISOString(),
         }).eq("id", exp.id);
+        if (updErr) throw new Error(`Falha ao salvar exportação: ${updErr.message}`);
 
         // Marca fichas exportadas para não reaparecerem na próxima geração
         try {
@@ -622,6 +634,10 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
       }
 
       zip.file("manifest.json", JSON.stringify(manifest, null, 2));
+      const totalJson = Object.values(manifest.fichas).reduce((sum: number, value: any) => sum + Number(value || 0), 0);
+      if (totalJson === 0) {
+        throw new Error("Nenhuma ficha válida encontrada para esse período/unidade. O ZIP não será gerado vazio.");
+      }
       zip.file("LEIA-ME.txt",
         "Lote e-SUS APS (LEDI 7.4) gerado pelo SpokenMED.\n" +
         "Formato: JSON-LEDI (Bridge UFSC).\n" +
@@ -635,11 +651,11 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
       });
       if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
 
-      await supabase.from("esus_exportacoes").update({
+      const { error: updErr } = await supabase.from("esus_exportacoes").update({
         status: "concluido", arquivo_path: path, arquivo_tamanho_bytes: buf.byteLength,
         total_fcd: manifest.fichas.fcd, total_fci: manifest.fichas.fci, total_fad: manifest.fichas.fad,
-        concluido_em: new Date().toISOString(),
       }).eq("id", exp.id);
+      if (updErr) throw new Error(`Falha ao salvar exportação: ${updErr.message}`);
       return { ok: true, path, totais: manifest.fichas, tamanho: buf.byteLength, formato };
     } catch (err: any) {
       await supabase.from("esus_exportacoes").update({
