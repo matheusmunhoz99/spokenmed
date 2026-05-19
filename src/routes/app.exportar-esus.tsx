@@ -71,13 +71,30 @@ function ExportarEsusPage() {
     queryKey: ["esus-profs", unidadeId],
     enabled: !!unidadeId,
     queryFn: async () => {
-      const { data } = await supabase
+      // 1) titulares (unidade_id direto)
+      const direct = await supabase
         .from("profissionais")
         .select("id, nome, cns, cbo")
         .eq("ativo", true)
-        .or(`unidade_id.eq.${unidadeId},id.in.(select profissional_id from profissional_unidades where unidade_id=${unidadeId})`)
-        .order("nome");
-      return data ?? [];
+        .eq("unidade_id", unidadeId);
+      // 2) vínculos secundários via profissional_unidades
+      const links = await supabase
+        .from("profissional_unidades")
+        .select("profissional_id")
+        .eq("unidade_id", unidadeId);
+      const linkedIds = (links.data ?? []).map((r: any) => r.profissional_id);
+      let secondary: any[] = [];
+      if (linkedIds.length) {
+        const sec = await supabase
+          .from("profissionais")
+          .select("id, nome, cns, cbo")
+          .eq("ativo", true)
+          .in("id", linkedIds);
+        secondary = sec.data ?? [];
+      }
+      const map = new Map<string, any>();
+      for (const p of [...(direct.data ?? []), ...secondary]) map.set(p.id, p);
+      return Array.from(map.values()).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
     },
   });
 
@@ -92,6 +109,18 @@ function ExportarEsusPage() {
     setProfissionalId("");
     setPreview(null);
   }, [unidadeId]);
+
+  // Auto-seleciona enfermeira (CBO 2235*) com CNS válido quando lista carrega
+  useEffect(() => {
+    if (profissionalId || !profissionais.length) return;
+    const isCnsOk = (c?: string | null) => !!c && /^\d{15}$/.test(c.replace(/\D/g, ""));
+    const enfermeira = profissionais.find(
+      (p: any) => p.cbo?.startsWith("2235") && isCnsOk(p.cns),
+    );
+    const fallback = profissionais.find((p: any) => isCnsOk(p.cns) && p.cbo);
+    const escolhido = enfermeira ?? fallback;
+    if (escolhido) setProfissionalId(escolhido.id);
+  }, [profissionais, profissionalId]);
 
   const podePreview = unidadeId && profissionalId && inicio && fim && tipos.length > 0;
 
