@@ -586,12 +586,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
         if (totalArquivos === 0) {
           throw new Error("Nenhuma ficha válida encontrada para esse período/unidade. O ZIP não será gerado vazio.");
         }
-
-        zipXml.file("LEIA-ME.txt",
-          "Lote e-SUS APS gerado pelo SpokenMED.\n" +
-          "Formato: XML transport (dadoTransporteTransportXml).\n" +
-          `Lote: ${exp.lote_uuid} | numLote: ${numLote}\n` +
-          "Importar pelo modulo CDS/Transporte do PEC e-SUS.\n");
+        // ZIP "limpo": APENAS .xml na raiz, sem LEIA-ME nem pasta data/.
 
         const xmlBytes = await zipXml.generateAsync({
           type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 6 },
