@@ -1,8 +1,10 @@
 // Server functions para exportação e-SUS PEC (CDS)
-// Fase 1: pré-validação + histórico. Geração do .zip Thrift virá nas próximas fases.
+// Fase 2: gera .zip LEDI-JSON pronto pra envio via API/Bridge ou conversão Thrift.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import JSZip from "jszip";
+import { buildFCD, buildFCI, buildFAD, type Cabecalho } from "./esus-ledi-builder";
 
 const escopoSchema = z.object({
   unidadeId: z.string().uuid(),
@@ -188,4 +190,163 @@ export const registrarExportacaoEsus = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
     return inserted;
+  });
+
+// ---------------- Geração efetiva do .zip ----------------
+function uuidv4(): string {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export const gerarExportacaoEsus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ exportacaoId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as any;
+
+    const { data: exp, error: expErr } = await supabase
+      .from("esus_exportacoes")
+      .select("*")
+      .eq("id", data.exportacaoId)
+      .single();
+    if (expErr || !exp) throw new Error("Exportação não encontrada");
+    if (exp.status === "concluido") throw new Error("Esta exportação já foi gerada");
+
+    await supabase.from("esus_exportacoes").update({ status: "processando" }).eq("id", exp.id);
+
+    try {
+      const [unidadeRes, equipeRes, profRes] = await Promise.all([
+        supabase.from("unidades").select("*").eq("id", exp.unidade_id).single(),
+        exp.equipe_id ? supabase.from("equipes").select("*").eq("id", exp.equipe_id).single() : Promise.resolve({ data: null }),
+        supabase.from("profissionais").select("*").eq("id", exp.profissional_id).single(),
+      ]);
+      const unidade = unidadeRes.data;
+      const equipe = equipeRes.data;
+      const prof = profRes.data;
+      if (!unidade?.cnes) throw new Error("Unidade sem CNES");
+      if (!prof?.cns) throw new Error("Profissional sem CNS");
+      if (!prof?.cbo) throw new Error("Profissional sem CBO");
+
+      const dataAtendimento = Date.now();
+      const cab = (uuidFicha: string): Cabecalho => ({
+        uuidFicha,
+        cnesUnidade: unidade.cnes,
+        ineEquipe: equipe?.ine ?? null,
+        cnsProfissional: prof.cns,
+        cboProfissional: prof.cbo,
+        dataAtendimento,
+      });
+
+      const zip = new JSZip();
+      const manifest: any = {
+        ledi_versao: "7.4",
+        lote_uuid: exp.lote_uuid,
+        gerado_em: new Date().toISOString(),
+        unidade: { cnes: unidade.cnes, nome: unidade.nome, ibge_municipio: unidade.ibge_municipio, uf: unidade.uf },
+        equipe: equipe ? { ine: equipe.ine, nome: equipe.nome } : null,
+        profissional: { cns: prof.cns, cbo: prof.cbo, nome: prof.nome },
+        periodo: { inicio: exp.intervalo_inicio, fim: exp.intervalo_fim },
+        fichas: { fcd: 0, fci: 0, fad: 0 },
+      };
+
+      const tipos: string[] = exp.tipos_fichas ?? [];
+
+      // FCD
+      if (tipos.includes("FCD")) {
+        const { data: domicilios } = await supabase
+          .from("domicilios").select("*, familias(*, familia_membros(*))")
+          .eq("unidade_id", exp.unidade_id)
+          .gte("updated_at", exp.intervalo_inicio)
+          .lte("updated_at", exp.intervalo_fim + "T23:59:59");
+        for (const d of domicilios ?? []) {
+          if (!d.logradouro || !d.bairro || (!d.numero && !d.sem_numero) || !d.tipo_imovel) continue;
+          const fichaUuid = d.uuid_ficha ?? uuidv4();
+          const payload = buildFCD({ ...d, ibge_municipio: unidade.ibge_municipio, uf: unidade.uf }, cab(fichaUuid));
+          zip.folder("fcd")!.file(`${fichaUuid}.json`, JSON.stringify(payload, null, 2));
+          manifest.fichas.fcd++;
+        }
+      }
+
+      // FCI
+      if (tipos.includes("FCI")) {
+        const { data: pacientes } = await supabase
+          .from("pacientes").select("*")
+          .gte("updated_at", exp.intervalo_inicio)
+          .lte("updated_at", exp.intervalo_fim + "T23:59:59");
+        for (const p of pacientes ?? []) {
+          if (!p.nome || (!p.cpf && !p.cns) || !p.data_nascimento || !p.sexo) continue;
+          const fichaUuid = uuidv4();
+          const payload = buildFCI(p, cab(fichaUuid));
+          zip.folder("fci")!.file(`${fichaUuid}.json`, JSON.stringify(payload, null, 2));
+          manifest.fichas.fci++;
+        }
+      }
+
+      // FAD
+      if (tipos.includes("FAD")) {
+        const { data: visitas } = await supabase
+          .from("visitas_domiciliares").select("*, pacientes(cpf, cns, data_nascimento, sexo)")
+          .eq("unidade_id", exp.unidade_id)
+          .gte("created_at", exp.intervalo_inicio)
+          .lte("created_at", exp.intervalo_fim + "T23:59:59");
+        for (const v of visitas ?? []) {
+          if (!v.motivos?.length || !v.desfecho || !v.turno || !v.paciente_id) continue;
+          const fichaUuid = v.uuid_ficha ?? uuidv4();
+          const pac = (v as any).pacientes ?? {};
+          const payload = buildFAD({ ...v, cpf: pac.cpf, cns: pac.cns, data_nascimento_cidadao: pac.data_nascimento, sexo_cidadao: pac.sexo }, cab(fichaUuid));
+          zip.folder("fad")!.file(`${fichaUuid}.json`, JSON.stringify(payload, null, 2));
+          manifest.fichas.fad++;
+        }
+      }
+
+      zip.file("manifest.json", JSON.stringify(manifest, null, 2));
+      zip.file("LEIA-ME.txt",
+        "Lote e-SUS APS (LEDI 7.4) gerado pelo SpokenMED.\n\n" +
+        "Formato: JSON-LEDI (1 arquivo por ficha em pastas fcd/, fci/, fad/).\n" +
+        "Use com Bridge UFSC, importadores compatíveis com LEDI ou conversor Thrift.\n" +
+        `Lote: ${exp.lote_uuid}\nGerado em: ${manifest.gerado_em}\n`,
+      );
+
+      const buf = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 6 } });
+      const nomeArquivo = `${unidade.cnes}_${exp.intervalo_inicio}_${exp.intervalo_fim}_${exp.lote_uuid}.zip`;
+      const path = `${exp.unidade_id}/${nomeArquivo}`;
+
+      const { error: upErr } = await supabase.storage.from("esus-exportacoes").upload(path, buf, {
+        contentType: "application/zip",
+        upsert: true,
+      });
+      if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
+
+      await supabase.from("esus_exportacoes").update({
+        status: "concluido",
+        arquivo_path: path,
+        arquivo_tamanho_bytes: buf.byteLength,
+        total_fcd: manifest.fichas.fcd,
+        total_fci: manifest.fichas.fci,
+        total_fad: manifest.fichas.fad,
+        concluido_em: new Date().toISOString(),
+      }).eq("id", exp.id);
+
+      return { ok: true, path, totais: manifest.fichas, tamanho: buf.byteLength };
+    } catch (err: any) {
+      await supabase.from("esus_exportacoes").update({
+        status: "erro", erro_msg: String(err?.message ?? err),
+      }).eq("id", exp.id);
+      throw err;
+    }
+  });
+
+export const baixarExportacaoEsus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ exportacaoId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as any;
+    const { data: exp } = await supabase.from("esus_exportacoes").select("arquivo_path").eq("id", data.exportacaoId).single();
+    if (!exp?.arquivo_path) throw new Error("Arquivo ainda não gerado");
+    const { data: signed, error } = await supabase.storage.from("esus-exportacoes").createSignedUrl(exp.arquivo_path, 60 * 10);
+    if (error) throw new Error(error.message);
+    return { url: signed.signedUrl };
   });
