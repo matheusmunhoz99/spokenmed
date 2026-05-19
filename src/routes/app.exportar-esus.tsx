@@ -22,12 +22,14 @@ export const Route = createFileRoute("/app/exportar-esus")({
   component: ExportarEsusPage,
 });
 
-type FichaTipo = "FCD" | "FCI" | "FAD" | "FAI" | "FAO";
+type FichaTipo = "FCD" | "FCI" | "FAD" | "FAI" | "FAO" | "FAC" | "FP" | "FVD" | "FMCA" | "FAE" | "FCZM" | "FV";
 const FICHA_LABEL: Record<FichaTipo, string> = {
-  FCD: "Cadastro Domiciliar", FCI: "Cadastro Individual", FAD: "Visita Domiciliar",
+  FCD: "Cadastro Domiciliar", FCI: "Cadastro Individual", FAD: "Atendimento Domiciliar",
   FAI: "Atendimento Individual", FAO: "Atendimento Odontológico",
+  FAC: "Atividade Coletiva", FP: "Procedimentos", FVD: "Visita Domiciliar",
+  FMCA: "Marcadores Cons. Alimentar", FAE: "Avaliação Elegibilidade", FCZM: "Zika/Microcefalia", FV: "Vacinação",
 };
-const FICHAS_ALL: FichaTipo[] = ["FCD", "FCI", "FAD", "FAI", "FAO"];
+const FICHAS_ALL: FichaTipo[] = ["FCD", "FCI", "FAD", "FAI", "FAO", "FAC", "FP", "FVD", "FMCA", "FAE", "FCZM", "FV"];
 
 function ExportarEsusPage() {
   const { isAdmin } = useAuth();
@@ -238,6 +240,7 @@ function ExportarEsusPage() {
       linhas,
       [
         { header: "Severidade", get: (l) => l.severidade },
+        { header: "Unidade", get: (l: any) => l.unidadeNome ?? "" },
         { header: "Ficha", get: (l) => l.tipo },
         { header: "Registro", get: (l) => l.registroId },
         { header: "Campo", get: (l) => l.campo },
@@ -250,7 +253,7 @@ function ExportarEsusPage() {
 
   const unidadeSelecionada = unidades.find((u) => u.id === unidadeId);
   const profSelecionado = profissionais.find((p) => p.id === profissionalId);
-  const totalPronto = preview ? preview.prontos.fcd + preview.prontos.fci + preview.prontos.fad + preview.prontos.fai + preview.prontos.fao : 0;
+  const totalPronto = preview ? Object.values(preview.prontos).reduce((a, b) => a + (Number(b) || 0), 0) : 0;
   const podeGerar = preview && preview.erros.length === 0 && totalPronto > 0;
 
   return (
@@ -399,14 +402,16 @@ function ExportarEsusPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
               {FICHAS_ALL.map((t) => {
                 const key = t.toLowerCase() as keyof typeof preview.prontos;
                 const ativo = tipos.includes(t);
+                const pronto = (preview.prontos as any)[key] ?? 0;
+                const total = (preview.resumo as any)[key] ?? 0;
                 return (
                   <div key={t} className={`rounded-lg border p-3 ${ativo ? "" : "opacity-50"}`}>
                     <div className="text-xs text-muted-foreground font-mono">{t}</div>
-                    <div className="text-2xl font-semibold">{preview.prontos[key]}<span className="text-base text-muted-foreground"> / {preview.resumo[key]}</span></div>
+                    <div className="text-2xl font-semibold">{pronto}<span className="text-base text-muted-foreground"> / {total}</span></div>
                     <div className="text-xs text-muted-foreground">prontos</div>
                   </div>
                 );
@@ -437,6 +442,7 @@ function ExportarEsusPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-16">Ficha</TableHead>
+                        {isTodas && <TableHead className="w-40">Unidade</TableHead>}
                         <TableHead>Descrição</TableHead>
                         <TableHead className="w-24">Ação</TableHead>
                       </TableRow>
@@ -445,12 +451,17 @@ function ExportarEsusPage() {
                       {preview.erros.slice(0, 100).map((e, i) => (
                         <TableRow key={i}>
                           <TableCell><span className="font-mono text-xs">{e.tipo}</span></TableCell>
+                          {isTodas && <TableCell className="text-xs">{e.unidadeNome ?? "—"}</TableCell>}
                           <TableCell className="text-xs text-destructive">{e.descricao}</TableCell>
                           <TableCell>
                             {e.rota && (
-                              <Link to={e.rota as any} className="text-xs underline inline-flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => navigate({ to: e.rota!.to as any, params: e.rota!.params as any, search: e.rota!.search as any })}
+                                className="text-xs underline inline-flex items-center gap-1 hover:text-primary"
+                              >
                                 Abrir <ExternalLink className="h-3 w-3" />
-                              </Link>
+                              </button>
                             )}
                           </TableCell>
                         </TableRow>
@@ -471,28 +482,59 @@ function ExportarEsusPage() {
                 onClick={async () => {
                   if (!preview || !podeGerar) return;
                   setGerando(true);
+                  setProgresso("");
                   try {
-                    const reg = await registrarFn({ data: {
-                      unidadeId, equipeId: equipeId || null, profissionalId,
-                      intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos,
-                      somenteNovos, totais: preview.prontos, validacao: { erros: preview.erros.length, avisos: preview.avisos.length },
-                    } as any });
-                    toast.info(formato === "thrift" ? "Gerando .zip Thrift (PEC offline)…" : "Gerando .zip JSON-LEDI (Bridge)…");
-                    const r = await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
-                    toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad} · FAI ${(r.totais as any).fai ?? 0} · FAO ${(r.totais as any).fao ?? 0}`);
-                    const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
-                    window.open(url, "_blank");
+                    if (!isTodas) {
+                      const reg = await registrarFn({ data: {
+                        unidadeId, equipeId: equipeId || null, profissionalId,
+                        intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos,
+                        somenteNovos, totais: preview.prontos, validacao: { erros: preview.erros.length, avisos: preview.avisos.length },
+                      } as any });
+                      toast.info(formato === "thrift" ? "Gerando .zip Thrift (PEC offline)…" : "Gerando .zip JSON-LEDI (Bridge)…");
+                      const r = await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
+                      toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad} · FAI ${(r.totais as any).fai ?? 0} · FAO ${(r.totais as any).fao ?? 0}`);
+                      const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
+                      window.open(url, "_blank");
+                    } else {
+                      // Modo "Todas as unidades": gera um .zip por unidade, sequencialmente.
+                      let ok = 0, fail = 0;
+                      for (let i = 0; i < unidades.length; i++) {
+                        const u = unidades[i];
+                        setProgresso(`Gerando ${i + 1}/${unidades.length} — ${u.nome}`);
+                        const respId = await pickResponsavelUnidade(u.id);
+                        if (!respId) { fail++; continue; }
+                        try {
+                          const reg = await registrarFn({ data: {
+                            unidadeId: u.id, equipeId: null, profissionalId: respId,
+                            intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos,
+                            somenteNovos, totais: { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 },
+                            validacao: { erros: 0, avisos: 0 },
+                          } as any });
+                          await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
+                          const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
+                          // abre cada arquivo em nova aba (browser pode pedir permissão pop-ups)
+                          window.open(url, "_blank");
+                          ok++;
+                        } catch (e: any) {
+                          console.error("Falha exportando", u.nome, e);
+                          fail++;
+                        }
+                      }
+                      toast.success(`Exportação concluída: ${ok} unidade(s) ok${fail ? ` · ${fail} com falha` : ""}.`);
+                    }
                     refetchHistorico();
                   } catch (e: any) {
                     toast.error(e?.message ?? "Falha ao gerar exportação");
                   } finally {
                     setGerando(false);
+                    setProgresso("");
                   }
                 }}
               >
                 {gerando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-                Gerar arquivo CDS .zip ({totalPronto} ficha{totalPronto === 1 ? "" : "s"})
+                {isTodas ? `Gerar lotes (${unidades.length} unidade${unidades.length === 1 ? "" : "s"})` : `Gerar arquivo CDS .zip (${totalPronto} ficha${totalPronto === 1 ? "" : "s"})`}
               </Button>
+              {progresso && <span className="text-xs text-muted-foreground">{progresso}</span>}
               <div className="flex items-center gap-2">
                 <Label className="text-xs whitespace-nowrap">Formato:</Label>
                 <Select value={formato} onValueChange={(v) => setFormato(v as "thrift" | "json")}>
