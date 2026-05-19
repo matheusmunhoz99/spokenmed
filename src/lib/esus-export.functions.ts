@@ -382,7 +382,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
         if (tipos.includes("FAI")) {
           const { data: ags } = await supabase
             .from("agendamentos")
-            .select("*, pacientes(cpf, cns, data_nascimento, sexo, numero_prontuario), procedimentos(codigo_sigtap)")
+            .select("*, pacientes(cpf, cns, data_nascimento, sexo), procedimentos(codigo_sigtap)")
             .eq("unidade_id", exp.unidade_id)
             .eq("status", "atendido")
             .gte("data", exp.intervalo_inicio)
@@ -413,7 +413,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
           if (cboOdonto) {
             const { data: ags } = await supabase
               .from("agendamentos")
-              .select("*, pacientes(cpf, cns, data_nascimento, sexo, numero_prontuario), procedimentos(codigo_sigtap)")
+              .select("*, pacientes(cpf, cns, data_nascimento, sexo), procedimentos(codigo_sigtap)")
               .eq("unidade_id", exp.unidade_id)
               .eq("profissional_id", exp.profissional_id)
               .eq("status", "atendido")
