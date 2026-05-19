@@ -327,6 +327,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
       const tipos: string[] = exp.tipos_fichas ?? [];
       const totais = { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 };
       const formato: "thrift" | "json" = data.formato;
+      const ignorarValidacao = !!(exp.validacao_resultado as any)?.ignorado;
 
       // Validações oficiais LEDI (CNS/CNES/INE/CBO/IBGE)
       const issues = validarHeaderTransporte({
@@ -335,7 +336,12 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
         dataAtendimentoEpochMs: dataAtendimento,
       });
       if (issues.length > 0) {
-        throw new Error(`Validação LEDI falhou: ${issues.map((i) => `${i.campo}: ${i.motivo}`).join("; ")}`);
+        const msg = `Validação LEDI falhou: ${issues.map((i) => `${i.campo}: ${i.motivo}`).join("; ")}`;
+        if (ignorarValidacao) {
+          console.warn("[esus-export] ignorando validação LEDI (modo teste):", msg);
+        } else {
+          throw new Error(msg);
+        }
       }
 
       // ============================================================
