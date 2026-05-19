@@ -482,28 +482,59 @@ function ExportarEsusPage() {
                 onClick={async () => {
                   if (!preview || !podeGerar) return;
                   setGerando(true);
+                  setProgresso("");
                   try {
-                    const reg = await registrarFn({ data: {
-                      unidadeId, equipeId: equipeId || null, profissionalId,
-                      intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos,
-                      somenteNovos, totais: preview.prontos, validacao: { erros: preview.erros.length, avisos: preview.avisos.length },
-                    } as any });
-                    toast.info(formato === "thrift" ? "Gerando .zip Thrift (PEC offline)…" : "Gerando .zip JSON-LEDI (Bridge)…");
-                    const r = await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
-                    toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad} · FAI ${(r.totais as any).fai ?? 0} · FAO ${(r.totais as any).fao ?? 0}`);
-                    const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
-                    window.open(url, "_blank");
+                    if (!isTodas) {
+                      const reg = await registrarFn({ data: {
+                        unidadeId, equipeId: equipeId || null, profissionalId,
+                        intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos,
+                        somenteNovos, totais: preview.prontos, validacao: { erros: preview.erros.length, avisos: preview.avisos.length },
+                      } as any });
+                      toast.info(formato === "thrift" ? "Gerando .zip Thrift (PEC offline)…" : "Gerando .zip JSON-LEDI (Bridge)…");
+                      const r = await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
+                      toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad} · FAI ${(r.totais as any).fai ?? 0} · FAO ${(r.totais as any).fao ?? 0}`);
+                      const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
+                      window.open(url, "_blank");
+                    } else {
+                      // Modo "Todas as unidades": gera um .zip por unidade, sequencialmente.
+                      let ok = 0, fail = 0;
+                      for (let i = 0; i < unidades.length; i++) {
+                        const u = unidades[i];
+                        setProgresso(`Gerando ${i + 1}/${unidades.length} — ${u.nome}`);
+                        const respId = await pickResponsavelUnidade(u.id);
+                        if (!respId) { fail++; continue; }
+                        try {
+                          const reg = await registrarFn({ data: {
+                            unidadeId: u.id, equipeId: null, profissionalId: respId,
+                            intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos,
+                            somenteNovos, totais: { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 },
+                            validacao: { erros: 0, avisos: 0 },
+                          } as any });
+                          await gerarFn({ data: { exportacaoId: (reg as any).id, formato } });
+                          const { url } = await baixarFn({ data: { exportacaoId: (reg as any).id } });
+                          // abre cada arquivo em nova aba (browser pode pedir permissão pop-ups)
+                          window.open(url, "_blank");
+                          ok++;
+                        } catch (e: any) {
+                          console.error("Falha exportando", u.nome, e);
+                          fail++;
+                        }
+                      }
+                      toast.success(`Exportação concluída: ${ok} unidade(s) ok${fail ? ` · ${fail} com falha` : ""}.`);
+                    }
                     refetchHistorico();
                   } catch (e: any) {
                     toast.error(e?.message ?? "Falha ao gerar exportação");
                   } finally {
                     setGerando(false);
+                    setProgresso("");
                   }
                 }}
               >
                 {gerando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-                Gerar arquivo CDS .zip ({totalPronto} ficha{totalPronto === 1 ? "" : "s"})
+                {isTodas ? `Gerar lotes (${unidades.length} unidade${unidades.length === 1 ? "" : "s"})` : `Gerar arquivo CDS .zip (${totalPronto} ficha${totalPronto === 1 ? "" : "s"})`}
               </Button>
+              {progresso && <span className="text-xs text-muted-foreground">{progresso}</span>}
               <div className="flex items-center gap-2">
                 <Label className="text-xs whitespace-nowrap">Formato:</Label>
                 <Select value={formato} onValueChange={(v) => setFormato(v as "thrift" | "json")}>
