@@ -33,8 +33,12 @@ export type ErroExport = {
   registroId: string;
   descricao: string;
   campo: string;
-  /** Destino navegável: rota TanStack + search params. */
-  rota?: { to: string; search?: Record<string, string | number | boolean> };
+  /** Destino navegável: rota TanStack + params/search. */
+  rota?: {
+    to: string;
+    params?: Record<string, string>;
+    search?: Record<string, string | number | boolean>;
+  };
   /** Nome da unidade (preenchido quando preview agrega várias unidades). */
   unidadeNome?: string;
 };
