@@ -207,9 +207,9 @@ export function buildFCZMThrift(i: FczmInput): Uint8Array {
       w.optString(2, digits(a.cnsCidadao));
       w.optString(3, digits(a.cpfCidadao));
       if (a.dataAvaliacao) w.optI64(4, epoch(a.dataAvaliacao));
-      if (a.perimetroCefalico != null) w.optDouble(5, Number(a.perimetroCefalico));
-      if (a.peso != null) w.optDouble(6, Number(a.peso));
-      if (a.altura != null) w.optDouble(7, Number(a.altura));
+      if (a.perimetroCefalico != null) { w.writeFieldBegin(4, 5); w.writeDouble(Number(a.perimetroCefalico)); }
+      if (a.peso != null) { w.writeFieldBegin(4, 6); w.writeDouble(Number(a.peso)); }
+      if (a.altura != null) { w.writeFieldBegin(4, 7); w.writeDouble(Number(a.altura)); }
       w.optListI64(8, a.atrasoDesenvolvimento);
       w.optListI64(9, a.encaminhamentos);
     },
