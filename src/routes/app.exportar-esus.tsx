@@ -131,7 +131,7 @@ function ExportarEsusPage() {
     );
   }
 
-  if (!isAdmin) return <SemAcesso modulo="exportação e-SUS" />;
+  if (!isAdmin) return <SemAcesso titulo="Exportação e-SUS — somente administradores" />;
 
   const unidadeSelecionada = unidades.find((u) => u.id === unidadeId);
   const profSelecionado = profissionais.find((p) => p.id === profissionalId);
