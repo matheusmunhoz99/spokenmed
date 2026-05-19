@@ -322,8 +322,8 @@ function ExportarEsusPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Profissional responsável *</Label>
-              <Select value={profissionalId} onValueChange={setProfissionalId} disabled={!unidadeId}>
-                <SelectTrigger><SelectValue placeholder="Quem vai assinar o lote" /></SelectTrigger>
+              <Select value={profissionalId} onValueChange={setProfissionalId} disabled={!unidadeId || isTodas}>
+                <SelectTrigger><SelectValue placeholder={isTodas ? "Auto: enfermeira de cada unidade" : "Quem vai assinar o lote"} /></SelectTrigger>
                 <SelectContent>
                   {profissionais.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
@@ -332,7 +332,10 @@ function ExportarEsusPage() {
                   ))}
                 </SelectContent>
               </Select>
-              {profSelecionado && (!(profSelecionado as any).cns || !profSelecionado.cbo) && (
+              {isTodas && (
+                <p className="text-xs text-muted-foreground">Auto-seleciona a enfermeira (CBO 2235*) de cada unidade.</p>
+              )}
+              {!isTodas && profSelecionado && (!(profSelecionado as any).cns || !profSelecionado.cbo) && (
                 <p className="text-xs text-destructive flex items-center gap-1">
                   <AlertCircle className="h-3 w-3" /> Falta CNS ou CBO.{" "}
                   <Link to="/app/profissionais" className="underline">Cadastrar</Link>
