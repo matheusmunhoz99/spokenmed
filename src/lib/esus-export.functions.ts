@@ -28,15 +28,30 @@ const escopoSchema = z.object({
 });
 
 export type FichaTipo = "FCD" | "FCI" | "FAD" | "FAI" | "FAO";
+export type ErroExport = {
+  tipo: FichaTipo;
+  registroId: string;
+  descricao: string;
+  campo: string;
+  /** Destino navegável: rota TanStack + params/search. */
+  rota?: {
+    to: string;
+    params?: Record<string, string>;
+    search?: Record<string, string | number | boolean>;
+  };
+  /** Nome da unidade (preenchido quando preview agrega várias unidades). */
+  unidadeNome?: string;
+};
 export type PreviewResultado = {
   resumo: { fcd: number; fci: number; fad: number; fai: number; fao: number };
-  erros: Array<{ tipo: FichaTipo; registroId: string; descricao: string; campo: string; rota?: string }>;
-  avisos: Array<{ tipo: FichaTipo; registroId: string; descricao: string; campo: string }>;
+  erros: ErroExport[];
+  avisos: Array<{ tipo: FichaTipo; registroId: string; descricao: string; campo: string; unidadeNome?: string }>;
   prontos: { fcd: number; fci: number; fad: number; fai: number; fao: number };
   unidade: { id: string; nome: string; cnes: string | null; ibge: string | null; uf: string | null } | null;
   equipe: { id: string; ine: string | null; nome: string } | null;
   profissional: { id: string; nome: string; cns: string | null; cbo: string | null } | null;
 };
+
 
 export const previewExportacaoEsus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -70,10 +85,11 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
     const avisos: PreviewResultado["avisos"] = [];
 
     // Pré-condições do PEC (bloqueiam tudo)
-    if (!unidade?.cnes) erros.push({ tipo: "FCD", registroId: data.unidadeId, descricao: "Unidade sem CNES cadastrado", campo: "cnes", rota: "/app/configuracoes" });
-    if (!unidade?.ibge) erros.push({ tipo: "FCD", registroId: data.unidadeId, descricao: "Unidade sem código IBGE do município", campo: "ibge_municipio", rota: "/app/configuracoes" });
-    if (!profissional?.cns) erros.push({ tipo: "FCD", registroId: data.profissionalId, descricao: "Profissional responsável sem CNS", campo: "cns", rota: "/app/profissionais" });
-    if (!profissional?.cbo) erros.push({ tipo: "FCD", registroId: data.profissionalId, descricao: "Profissional responsável sem CBO", campo: "cbo", rota: "/app/profissionais" });
+    if (!unidade?.cnes) erros.push({ tipo: "FCD", registroId: data.unidadeId, descricao: "Unidade sem CNES cadastrado", campo: "cnes", rota: { to: "/app/configuracoes" } });
+    if (!unidade?.ibge) erros.push({ tipo: "FCD", registroId: data.unidadeId, descricao: "Unidade sem código IBGE do município", campo: "ibge_municipio", rota: { to: "/app/configuracoes" } });
+    if (!profissional?.cns) erros.push({ tipo: "FCD", registroId: data.profissionalId, descricao: "Profissional responsável sem CNS", campo: "cns", rota: { to: "/app/profissionais" } });
+    if (!profissional?.cbo) erros.push({ tipo: "FCD", registroId: data.profissionalId, descricao: "Profissional responsável sem CBO", campo: "cbo", rota: { to: "/app/profissionais" } });
+
 
     const resumo = { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 };
     const prontos = { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 };
@@ -96,7 +112,7 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
         if (!d.condicao_moradia) avisos.push({ tipo: "FCD", registroId: d.id, descricao: "Sem condição de moradia", campo: "condicao_moradia" });
         if (!d.localizacao) avisos.push({ tipo: "FCD", registroId: d.id, descricao: "Sem localização (urbana/rural)", campo: "localizacao" });
         if (eFCD.length) {
-          erros.push({ tipo: "FCD", registroId: d.id, descricao: `Campos obrigatórios faltando: ${eFCD.join(", ")}`, campo: eFCD[0], rota: `/app/domicilios/${d.id}` });
+          erros.push({ tipo: "FCD", registroId: d.id, descricao: `Campos obrigatórios faltando: ${eFCD.join(", ")}`, campo: eFCD[0], rota: { to: "/app/domicilios/$id", params: { id: d.id } } });
         } else {
           prontos.fcd++;
         }
@@ -119,7 +135,7 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
         if (!p.sexo) eFCI.push("sexo");
         if (!(p as any).raca_cor) avisos.push({ tipo: "FCI", registroId: p.id, descricao: "Sem raça/cor", campo: "raca_cor" });
         if (eFCI.length) {
-          erros.push({ tipo: "FCI", registroId: p.id, descricao: `Campos obrigatórios faltando: ${eFCI.join(", ")}`, campo: eFCI[0], rota: `/app/pacientes` });
+          erros.push({ tipo: "FCI", registroId: p.id, descricao: `Campos obrigatórios faltando: ${eFCI.join(", ")}`, campo: eFCI[0], rota: { to: "/app/pacientes", search: { abrir: p.id } } });
         } else {
           prontos.fci++;
         }
@@ -143,7 +159,7 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
         if (!v.turno) eFAD.push("turno");
         if (!v.paciente_id) eFAD.push("paciente");
         if (eFAD.length) {
-          erros.push({ tipo: "FAD", registroId: v.id, descricao: `Campos obrigatórios faltando: ${eFAD.join(", ")}`, campo: eFAD[0], rota: `/app/visitas` });
+          erros.push({ tipo: "FAD", registroId: v.id, descricao: `Campos obrigatórios faltando: ${eFAD.join(", ")}`, campo: eFAD[0], rota: { to: "/app/visitas" } });
         } else {
           prontos.fad++;
         }
@@ -167,7 +183,7 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
         if (!pac.data_nascimento) e.push("data_nascimento");
         if (!pac.sexo) e.push("sexo");
         if (!a.cid10) avisos.push({ tipo: "FAI", registroId: a.id, descricao: "Atendimento sem CID-10", campo: "cid10" });
-        if (e.length) erros.push({ tipo: "FAI", registroId: a.id, descricao: `Cidadão sem dados obrigatórios: ${e.join(", ")}`, campo: e[0], rota: `/app/pacientes` });
+        if (e.length) erros.push({ tipo: "FAI", registroId: a.paciente_id ?? a.id, descricao: `Cidadão sem dados obrigatórios: ${e.join(", ")}`, campo: e[0], rota: { to: "/app/pacientes", search: { abrir: a.paciente_id ?? "" } } });
         else prontos.fai++;
       }
     }
@@ -192,7 +208,7 @@ export const previewExportacaoEsus = createServerFn({ method: "POST" })
         const pac = a.pacientes ?? {};
         if (!pac.cpf && !pac.cns) e.push("CPF ou CNS do cidadão");
         if (!pac.data_nascimento) e.push("data_nascimento");
-        if (e.length) erros.push({ tipo: "FAO", registroId: a.id, descricao: `Cidadão sem dados obrigatórios: ${e.join(", ")}`, campo: e[0] });
+        if (e.length) erros.push({ tipo: "FAO", registroId: a.paciente_id ?? a.id, descricao: `Cidadão sem dados obrigatórios: ${e.join(", ")}`, campo: e[0], rota: { to: "/app/pacientes", search: { abrir: a.paciente_id ?? "" } } });
         else if (cboOdonto) prontos.fao++;
       }
     }

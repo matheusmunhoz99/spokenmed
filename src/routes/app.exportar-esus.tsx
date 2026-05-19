@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertCircle, CheckCircle2, Download, ExternalLink, FileText, Info, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
-import { previewExportacaoEsus, listarExportacoesEsus, registrarExportacaoEsus, gerarExportacaoEsus, baixarExportacaoEsus, type PreviewResultado } from "@/lib/esus-export.functions";
+import { previewExportacaoEsus, listarExportacoesEsus, registrarExportacaoEsus, gerarExportacaoEsus, baixarExportacaoEsus, type PreviewResultado, type ErroExport } from "@/lib/esus-export.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { downloadCsv } from "@/lib/csv";
@@ -36,11 +36,15 @@ function ExportarEsusPage() {
   const registrarFn = useServerFn(registrarExportacaoEsus);
   const gerarFn = useServerFn(gerarExportacaoEsus);
   const baixarFn = useServerFn(baixarExportacaoEsus);
+  const navigate = useNavigate();
   const [gerando, setGerando] = useState(false);
+  const [progresso, setProgresso] = useState<string>("");
 
+  const TODAS = "__all__";
   const [unidadeId, setUnidadeId] = useState<string>("");
   const [equipeId, setEquipeId] = useState<string>("");
   const [profissionalId, setProfissionalId] = useState<string>("");
+  const isTodas = unidadeId === TODAS;
   const hoje = new Date();
   const trintaDias = new Date(hoje.getTime() - 30 * 24 * 3600 * 1000);
   const [inicio, setInicio] = useState(trintaDias.toISOString().slice(0, 10));
@@ -50,6 +54,7 @@ function ExportarEsusPage() {
   const [somenteNovos, setSomenteNovos] = useState(false);
   const [preview, setPreview] = useState<PreviewResultado | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+
 
   // load combos
   const { data: unidades = [] } = useQuery({
@@ -61,7 +66,7 @@ function ExportarEsusPage() {
   });
   const { data: equipes = [] } = useQuery({
     queryKey: ["esus-equipes", unidadeId],
-    enabled: !!unidadeId,
+    enabled: !!unidadeId && !isTodas,
     queryFn: async () => {
       const { data } = await supabase.from("equipes").select("id, ine, nome, tipo_equipe").eq("unidade_id", unidadeId).eq("ativo", true).order("nome");
       return data ?? [];
@@ -69,7 +74,7 @@ function ExportarEsusPage() {
   });
   const { data: profissionais = [] } = useQuery({
     queryKey: ["esus-profs", unidadeId],
-    enabled: !!unidadeId,
+    enabled: !!unidadeId && !isTodas,
     queryFn: async () => {
       // 1) titulares (unidade_id direto)
       const direct = await supabase
@@ -122,34 +127,105 @@ function ExportarEsusPage() {
     if (escolhido) setProfissionalId(escolhido.id);
   }, [profissionais, profissionalId]);
 
-  const podePreview = unidadeId && profissionalId && inicio && fim && tipos.length > 0;
+  // Helper: escolhe enfermeira responsável para uma unidade arbitrária.
+  // Usado no modo "Todas as unidades" onde não há seleção manual por unidade.
+  async function pickResponsavelUnidade(uid: string): Promise<string | null> {
+    const isCnsOk = (c?: string | null) => !!c && /^\d{15}$/.test(String(c).replace(/\D/g, ""));
+    const direct = await supabase
+      .from("profissionais").select("id, nome, cns, cbo")
+      .eq("ativo", true).eq("unidade_id", uid);
+    const links = await supabase
+      .from("profissional_unidades").select("profissional_id").eq("unidade_id", uid);
+    const ids = (links.data ?? []).map((r: any) => r.profissional_id);
+    let sec: any[] = [];
+    if (ids.length) {
+      const s = await supabase.from("profissionais").select("id, nome, cns, cbo").eq("ativo", true).in("id", ids);
+      sec = s.data ?? [];
+    }
+    const map = new Map<string, any>();
+    for (const p of [...(direct.data ?? []), ...sec]) map.set(p.id, p);
+    const lista = Array.from(map.values());
+    const enf = lista.find((p) => p.cbo?.startsWith("2235") && isCnsOk(p.cns));
+    const fb = lista.find((p) => isCnsOk(p.cns) && p.cbo);
+    return (enf ?? fb)?.id ?? null;
+  }
+
+  const podePreview = !!unidadeId && (isTodas || !!profissionalId) && !!inicio && !!fim && tipos.length > 0;
 
   async function rodarPreview() {
     if (!podePreview) return;
     setLoadingPreview(true);
     setPreview(null);
+    setProgresso("");
     try {
-      const r = await previewFn({
-        data: {
-          unidadeId,
-          equipeId: equipeId || null,
-          profissionalId,
-          intervaloInicio: inicio,
-          intervaloFim: fim,
-          tiposFichas: tipos,
-          somenteNovos,
-        },
-      });
-      setPreview(r);
-      const totalErros = r.erros.length;
-      if (totalErros === 0) toast.success("Pré-validação OK — todos os registros estão prontos.");
-      else toast.warning(`Foram encontrados ${totalErros} erro(s) bloqueante(s).`);
+      if (!isTodas) {
+        const r = await previewFn({
+          data: {
+            unidadeId, equipeId: equipeId || null, profissionalId,
+            intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos, somenteNovos,
+          },
+        });
+        setPreview(r);
+        const totalErros = r.erros.length;
+        if (totalErros === 0) toast.success("Pré-validação OK — todos os registros estão prontos.");
+        else toast.warning(`Foram encontrados ${totalErros} erro(s) bloqueante(s).`);
+      } else {
+        // Modo "Todas as unidades": agrega preview de todas
+        const agreg: PreviewResultado = {
+          resumo: { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 },
+          prontos: { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 },
+          erros: [], avisos: [], unidade: null, equipe: null, profissional: null,
+        };
+        let semResp = 0;
+        for (let i = 0; i < unidades.length; i++) {
+          const u = unidades[i];
+          setProgresso(`Pré-validando ${i + 1}/${unidades.length} — ${u.nome}`);
+          const respId = await pickResponsavelUnidade(u.id);
+          if (!respId) {
+            semResp++;
+            agreg.erros.push({
+              tipo: "FCD", registroId: u.id,
+              descricao: `Sem profissional responsável (enfermeira com CNS) na unidade ${u.nome}`,
+              campo: "responsavel",
+              rota: { to: "/app/profissionais" },
+              unidadeNome: u.nome,
+            });
+            continue;
+          }
+          try {
+            const r = await previewFn({
+              data: {
+                unidadeId: u.id, equipeId: null, profissionalId: respId,
+                intervaloInicio: inicio, intervaloFim: fim, tiposFichas: tipos, somenteNovos,
+              },
+            });
+            (["fcd", "fci", "fad", "fai", "fao"] as const).forEach((k) => {
+              agreg.resumo[k] += r.resumo[k];
+              agreg.prontos[k] += r.prontos[k];
+            });
+            agreg.erros.push(...r.erros.map((e) => ({ ...e, unidadeNome: u.nome })));
+            agreg.avisos.push(...r.avisos.map((a) => ({ ...a, unidadeNome: u.nome })));
+          } catch (e: any) {
+            agreg.erros.push({
+              tipo: "FCD", registroId: u.id,
+              descricao: `Falha pré-validando ${u.nome}: ${e?.message ?? e}`,
+              campo: "preview", unidadeNome: u.nome,
+            });
+          }
+        }
+        setPreview(agreg);
+        setProgresso("");
+        if (agreg.erros.length === 0) toast.success(`Pré-validação OK em ${unidades.length} unidade(s).`);
+        else toast.warning(`${agreg.erros.length} erro(s) em ${unidades.length} unidade(s)${semResp ? ` · ${semResp} sem responsável` : ""}.`);
+      }
     } catch (e: any) {
       toast.error(e?.message ?? "Falha na pré-validação");
     } finally {
       setLoadingPreview(false);
+      setProgresso("");
     }
   }
+
 
   function baixarRelatorioPendencias() {
     if (!preview) return;
@@ -214,6 +290,7 @@ function ExportarEsusPage() {
               <Select value={unidadeId} onValueChange={setUnidadeId}>
                 <SelectTrigger><SelectValue placeholder="Selecione a UBS…" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={TODAS}>🏥 Todas as unidades (lote por unidade)</SelectItem>
                   {unidades.map((u) => (
                     <SelectItem key={u.id} value={u.id}>
                       {u.nome} {u.cnes ? `· CNES ${u.cnes}` : <span className="text-destructive">· sem CNES</span>}
@@ -230,7 +307,7 @@ function ExportarEsusPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Equipe (opcional)</Label>
-              <Select value={equipeId || "__none__"} onValueChange={(v) => setEquipeId(v === "__none__" ? "" : v)} disabled={!unidadeId}>
+              <Select value={equipeId || "__none__"} onValueChange={(v) => setEquipeId(v === "__none__" ? "" : v)} disabled={!unidadeId || isTodas}>
                 <SelectTrigger><SelectValue placeholder={unidadeId ? "Todas / sem filtro" : "Escolha a unidade"} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">Todas as equipes</SelectItem>
@@ -245,8 +322,8 @@ function ExportarEsusPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Profissional responsável *</Label>
-              <Select value={profissionalId} onValueChange={setProfissionalId} disabled={!unidadeId}>
-                <SelectTrigger><SelectValue placeholder="Quem vai assinar o lote" /></SelectTrigger>
+              <Select value={profissionalId} onValueChange={setProfissionalId} disabled={!unidadeId || isTodas}>
+                <SelectTrigger><SelectValue placeholder={isTodas ? "Auto: enfermeira de cada unidade" : "Quem vai assinar o lote"} /></SelectTrigger>
                 <SelectContent>
                   {profissionais.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
@@ -255,7 +332,10 @@ function ExportarEsusPage() {
                   ))}
                 </SelectContent>
               </Select>
-              {profSelecionado && (!(profSelecionado as any).cns || !profSelecionado.cbo) && (
+              {isTodas && (
+                <p className="text-xs text-muted-foreground">Auto-seleciona a enfermeira (CBO 2235*) de cada unidade.</p>
+              )}
+              {!isTodas && profSelecionado && (!(profSelecionado as any).cns || !profSelecionado.cbo) && (
                 <p className="text-xs text-destructive flex items-center gap-1">
                   <AlertCircle className="h-3 w-3" /> Falta CNS ou CBO.{" "}
                   <Link to="/app/profissionais" className="underline">Cadastrar</Link>
@@ -298,12 +378,14 @@ function ExportarEsusPage() {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <Button onClick={rodarPreview} disabled={!podePreview || loadingPreview}>
               {loadingPreview ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
               Pré-validar
             </Button>
+            {progresso && <span className="text-xs text-muted-foreground">{progresso}</span>}
           </div>
+
         </CardContent>
       </Card>
 
