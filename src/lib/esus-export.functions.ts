@@ -24,6 +24,16 @@ import {
   buildFaiXml, buildFaoXml, buildFvdXml, buildFciXml, buildFcdXml,
   type HeaderTransport as XmlHeader,
 } from "./esus-xml";
+import {
+  serializeDadoTransporteFvd,
+  makeLediUuid,
+  visitaFromDb,
+  TipoDadoSerializado as LediTipoDado,
+  type DadoInstalacao as LediDadoInstalacao,
+  type HeaderTransport as LediHeaderTransport,
+  type FichaVisitaDomiciliarMaster as LediFichaVisitaDomiciliarMaster,
+  type VisitaRowDb as LediVisitaRowDb,
+} from "./esus-ledi";
 
 const TIPOS_FICHA = [
   "FCD", "FCI", "FAD", "FAI", "FAO",
@@ -413,22 +423,69 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
           }
         }
 
-        // ---- FVD (Visita Domiciliar) ----
+        // ---- FVD (Visita Domiciliar) — XML oficial LEDI 6.3.5 ----
         if (tipos.includes("FAD") || tipos.includes("FVD")) {
           const { data: visitas } = await supabase
             .from("visitas_domiciliares").select("*, pacientes(cpf, cns, data_nascimento, sexo)")
             .eq("unidade_id", exp.unidade_id)
             .gte("created_at", exp.intervalo_inicio)
             .lte("created_at", exp.intervalo_fim + "T23:59:59");
-          for (const v of (visitas ?? []) as any[]) {
-            if (!v.motivos?.length || !v.desfecho || !v.turno || !v.paciente_id) continue;
-            const { uuidDadoSerializado, xml } = buildFvdXml({
-              header: xmlHeader, cnes: unidade.cnes, ine: equipe?.ine ?? null,
-              codIbge: unidade.ibge_municipio, numLote, loteUuid: exp.lote_uuid,
-              visita: v, paciente: v.pacientes ?? {},
+          const visitasValidas = ((visitas ?? []) as any[]).filter(
+            (v) => v.motivos?.length && v.desfecho && v.turno && v.paciente_id,
+          );
+          if (visitasValidas.length) {
+            const { data: cfg } = await supabase
+              .from("esus_remetente_config")
+              .select("*").eq("ativo", true)
+              .order("updated_at", { ascending: false }).limit(1).maybeSingle();
+            const remetente: LediDadoInstalacao = {
+              contraChave: cfg?.contra_chave ?? "SpokenMED-PEC",
+              uuidInstalacao: cfg?.uuid_instalacao ?? exp.lote_uuid,
+              cpfOuCnpj: cfg?.cpf_ou_cnpj ?? "00000000000000",
+              nomeOuRazaoSocial: cfg?.nome_ou_razao_social ?? "SpokenMED",
+              versaoSistema: cfg?.versao_sistema ?? "1.0.0",
+            };
+            const lediHeader: LediHeaderTransport = {
+              profissionalCNS: prof.cns,
+              cboCodigo_2002: prof.cbo,
+              cnes: unidade.cnes,
+              ine: equipe?.ine ?? undefined,
+              dataAtendimento,
+              codigoIbgeMunicipio: unidade.ibge_municipio,
+            };
+            const rows: LediVisitaRowDb[] = visitasValidas.map((v: any) => ({
+              id: v.id,
+              uuid_ficha: v.uuid_ficha,
+              turno: v.turno,
+              microarea: v.microarea,
+              fora_area: v.fora_area,
+              desfecho: v.desfecho,
+              motivos: v.motivos,
+              paciente: v.pacientes ?? null,
+              tipo_imovel: v.tipo_imovel ?? null,
+            }));
+            // 1 Master XML por exportação, contendo N <visitasDomiciliares>.
+            const ficha: LediFichaVisitaDomiciliarMaster = {
+              uuidFicha: makeLediUuid(unidade.cnes),
+              tpCdsOrigem: 3,
+              headerTransport: lediHeader,
+              visitasDomiciliares: rows.map((r) => visitaFromDb(r, unidade.cnes)),
+            };
+            const uuidDadoSerializado = makeLediUuid(unidade.cnes);
+            const xml = serializeDadoTransporteFvd({
+              uuidDadoSerializado,
+              tipoDadoSerializado: LediTipoDado.VISITA_DOMICILIAR,
+              codIbge: unidade.ibge_municipio,
+              cnesDadoSerializado: unidade.cnes,
+              ineDadoSerializado: equipe?.ine ?? undefined,
+              numLote,
+              ficha,
+              remetente,
+              originadora: remetente,
+              versao: { major: 6, minor: 3, revision: 5 },
             });
             writeFicha(uuidDadoSerializado, xml);
-            xmlTotais.fad++;
+            xmlTotais.fad += rows.length;
           }
         }
 
