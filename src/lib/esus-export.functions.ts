@@ -24,6 +24,16 @@ import {
   buildFaiXml, buildFaoXml, buildFvdXml, buildFciXml, buildFcdXml,
   type HeaderTransport as XmlHeader,
 } from "./esus-xml";
+import {
+  serializeDadoTransporteFvd,
+  makeLediUuid,
+  visitaFromDb,
+  TipoDadoSerializado as LediTipoDado,
+  type DadoInstalacao as LediDadoInstalacao,
+  type HeaderTransport as LediHeaderTransport,
+  type FichaVisitaDomiciliarMaster as LediFichaVisitaDomiciliarMaster,
+  type VisitaRowDb as LediVisitaRowDb,
+} from "./esus-ledi";
 
 const TIPOS_FICHA = [
   "FCD", "FCI", "FAD", "FAI", "FAO",
