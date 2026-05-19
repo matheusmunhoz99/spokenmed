@@ -54,9 +54,18 @@ function ExportarEsusPage() {
   const registrarFn = useServerFn(registrarExportacaoEsus);
   const gerarFn = useServerFn(gerarExportacaoEsus);
   const baixarFn = useServerFn(baixarExportacaoEsus);
-  
+  const limparFn = useServerFn(limparTodosLotes);
+
   const [gerando, setGerando] = useState(false);
   const [progresso, setProgresso] = useState<string>("");
+  const [loteGerado, setLoteGerado] = useState<{
+    blob: Blob;
+    filename: string;
+    totais: { fcd: number; fci: number; fad: number; fai: number; fao: number } | null;
+    multi?: { ok: number; fail: number };
+  } | null>(null);
+  const [confirmLimpar, setConfirmLimpar] = useState(false);
+  const [limpando, setLimpando] = useState(false);
 
   const TODAS = "__all__";
   const [unidadeId, setUnidadeId] = useState<string>("");
