@@ -34,6 +34,7 @@ const titles: Record<string, string> = {
   "/app/configuracoes/sistema": "Configurações",
   "/app/auditoria": "Central de Auditoria",
   "/app/relatorios": "Relatórios & Dashboards",
+  "/app/exportar-esus": "Exportar para e-SUS PEC",
   "/app/sessoes": "Segurança & Sessões",
 };
 

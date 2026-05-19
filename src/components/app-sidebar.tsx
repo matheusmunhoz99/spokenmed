@@ -3,7 +3,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, Stethoscope, CalendarCog, CalendarPlus,
   CalendarDays, Building2, Settings, LogOut, MonitorPlay, ListOrdered, ShieldCheck, BarChart3, KeyRound,
-  Activity, FolderPlus, UserCog, ChevronRight, History, ClipboardList, HeartPulse, Home,
+  Activity, FolderPlus, UserCog, ChevronRight, History, ClipboardList, HeartPulse, Home, FileDown,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -54,6 +54,7 @@ const modules: Module[] = [
     adminOnly: true,
     items: [
       { title: "Relatórios", url: "/app/relatorios", icon: BarChart3, module: "relatorios" },
+      { title: "Exportar e-SUS PEC", url: "/app/exportar-esus", icon: FileDown },
       { title: "Unidades & Especialidades", url: "/app/configuracoes", icon: Building2, module: "unidades_especialidades" },
       { title: "Configurações", url: "/app/configuracoes/sistema", icon: Settings, module: "usuarios" },
       { title: "Auditoria (LGPD)", url: "/app/auditoria", icon: ShieldCheck, module: "auditoria" },
