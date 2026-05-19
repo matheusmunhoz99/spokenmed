@@ -2,7 +2,7 @@
 // Esses payloads espelham os DTOs públicos da PEC e podem ser usados via API
 // LEDI/Bridge. A versão Thrift binária (.zip CDS offline) será gerada a partir
 // destes mesmos objetos usando os IDLs da PEC numa segunda etapa.
-import { RACA_COR, NACIONALIDADE, ESCOLARIDADE, TIPO_IMOVEL, CONDICAO_MORADIA, LOCALIZACAO_DOMICILIO } from "./esus-codigos";
+import { RACA_COR, NACIONALIDADE, ESCOLARIDADE, TIPO_IMOVEL, CONDICAO_MORADIA, LOCALIZACAO } from "./esus-codigos";
 
 export type Cabecalho = {
   uuidFicha: string;
@@ -70,7 +70,7 @@ export function buildFCD(d: any, cab: Cabecalho) {
           stDisponibilidadeEnergiaEletrica: d.energia_eletrica ?? undefined,
         }
       : undefined,
-    stLocalizacao: mapEnum(LOCALIZACAO_DOMICILIO, d.localizacao) ?? undefined,
+    stLocalizacao: mapEnum(LOCALIZACAO, d.localizacao) ?? undefined,
     familias: (d.familias ?? []).map((f: any) => ({
       uuidFicha: f.uuid_ficha ?? cab.uuidFicha,
       numeroProntuarioFamiliar: f.numero_prontuario ?? undefined,
