@@ -35,7 +35,11 @@ function PacientesGuard() {
   if (!can("pacientes")) return <SemAcesso />;
   return <PacientesPage />;
 }
-export const Route = createFileRoute("/app/pacientes")({ component: PacientesGuard });
+export const Route = createFileRoute("/app/pacientes")({
+  component: PacientesGuard,
+  validateSearch: (s: Record<string, unknown>) =>
+    z.object({ abrir: z.string().uuid().optional() }).parse(s),
+});
 
 type Paciente = any;
 
