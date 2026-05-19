@@ -307,7 +307,7 @@ function ExportarEsusPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Equipe (opcional)</Label>
-              <Select value={equipeId || "__none__"} onValueChange={(v) => setEquipeId(v === "__none__" ? "" : v)} disabled={!unidadeId}>
+              <Select value={equipeId || "__none__"} onValueChange={(v) => setEquipeId(v === "__none__" ? "" : v)} disabled={!unidadeId || isTodas}>
                 <SelectTrigger><SelectValue placeholder={unidadeId ? "Todas / sem filtro" : "Escolha a unidade"} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">Todas as equipes</SelectItem>
