@@ -252,7 +252,7 @@ function ExportarEsusPage() {
 
   const unidadeSelecionada = unidades.find((u) => u.id === unidadeId);
   const profSelecionado = profissionais.find((p) => p.id === profissionalId);
-  const totalPronto = preview ? preview.prontos.fcd + preview.prontos.fci + preview.prontos.fad + preview.prontos.fai + preview.prontos.fao : 0;
+  const totalPronto = preview ? Object.values(preview.prontos).reduce((a, b) => a + (Number(b) || 0), 0) : 0;
   const podeGerar = preview && preview.erros.length === 0 && totalPronto > 0;
 
   return (
