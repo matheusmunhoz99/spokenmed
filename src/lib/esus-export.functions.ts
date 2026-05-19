@@ -330,7 +330,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
       const dataAtendimento = Date.now();
       const tipos: string[] = exp.tipos_fichas ?? [];
       const totais = { fcd: 0, fci: 0, fad: 0, fai: 0, fao: 0 };
-      const formato: "thrift" | "json" = data.formato;
+      const formato: "xml" | "thrift" | "json" = data.formato;
       const ignorarValidacao = !!(exp.validacao_resultado as any)?.ignorado;
 
       // Validações oficiais LEDI (CNS/CNES/INE/CBO/IBGE)
