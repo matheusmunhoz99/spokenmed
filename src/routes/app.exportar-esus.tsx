@@ -58,6 +58,12 @@ function ExportarEsusPage() {
   const [somenteNovos, setSomenteNovos] = useState(false);
   const [preview, setPreview] = useState<PreviewResultado | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [cienteErros, setCienteErros] = useState(false);
+  const [corrigindo, setCorrigindo] = useState<{ rota: RotaErro; descricao: string } | null>(null);
+
+  // Reseta o flag de "ciente" sempre que rodar nova validação
+  useEffect(() => { setCienteErros(false); }, [preview]);
+
 
 
   // load combos
