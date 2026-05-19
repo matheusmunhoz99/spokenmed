@@ -415,7 +415,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
           }
         }
 
-        // ----- FAI (Atendimento Individual) — só atendimentos pendentes/desatualizados -----
+        // ----- FAI (Atendimento Individual) -----
         if (tipos.includes("FAI")) {
           const { data: ats } = await supabase
             .from("atendimentos" as any)
@@ -515,6 +515,10 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
         // Silencia warning unused
         void buildFACThrift; void buildFPThrift; void buildFVDThrift;
         void buildFMCAThrift; void buildFAEThrift; void buildFCZMThrift; void buildFVThrift;
+
+        if (fichas.length === 0) {
+          throw new Error("Nenhuma ficha válida encontrada para esse período/unidade. O ZIP não será gerado vazio.");
+        }
 
         const { zipBytes } = await packLDI({
           cnes: unidade.cnes,
@@ -619,6 +623,10 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
       }
 
       zip.file("manifest.json", JSON.stringify(manifest, null, 2));
+      const totalJson = Object.values(manifest.fichas).reduce((sum: number, value: any) => sum + Number(value || 0), 0);
+      if (totalJson === 0) {
+        throw new Error("Nenhuma ficha válida encontrada para esse período/unidade. O ZIP não será gerado vazio.");
+      }
       zip.file("LEIA-ME.txt",
         "Lote e-SUS APS (LEDI 7.4) gerado pelo SpokenMED.\n" +
         "Formato: JSON-LEDI (Bridge UFSC).\n" +
