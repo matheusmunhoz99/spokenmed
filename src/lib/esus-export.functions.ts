@@ -512,7 +512,7 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
           }
         }
 
-        // ---- FAI ----
+        // ---- FAI (Atendimento Individual) — XML oficial LEDI 6.3.5 ----
         if (tipos.includes("FAI")) {
           const { data: ats } = await supabase
             .from("atendimentos" as any)
@@ -521,17 +521,42 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
             .not("finalizado_em", "is", null)
             .gte("data_atendimento", exp.intervalo_inicio)
             .lte("data_atendimento", exp.intervalo_fim);
-          for (const a of (ats ?? []) as any[]) {
+          const validos = ((ats ?? []) as any[]).filter((a) => {
             const p = a.pacientes ?? {};
-            if ((!p.cpf && !p.cns) || !p.data_nascimento || !p.sexo) continue;
-            const { uuidDadoSerializado, xml } = buildFaiXml({
-              header: xmlHeader, cnes: unidade.cnes, ine: equipe?.ine ?? null,
-              codIbge: unidade.ibge_municipio, numLote, loteUuid: exp.lote_uuid,
-              atendimento: a, paciente: p,
+            return (p.cpf || p.cns) && p.data_nascimento && p.sexo;
+          });
+          if (validos.length) {
+            const atendimentos = validos.map((a) => atendimentoFromDb(a, unidade.cnes, dataAtendimento));
+            const uuidDadoSerializado = makeLediUuid(unidade.cnes);
+            const xml = serializeDadoTransporteFai({
+              uuidDadoSerializado,
+              tipoDadoSerializado: LediTipoDado.ATENDIMENTO_INDIVIDUAL,
+              codIbge: unidade.ibge_municipio,
+              cnesDadoSerializado: unidade.cnes,
+              ineDadoSerializado: equipe?.ine ?? undefined,
+              numLote,
+              ficha: {
+                uuidFicha: makeLediUuid(unidade.cnes),
+                tpCdsOrigem: 3,
+                headerVariasLotacoes: {
+                  lotacaoFormPrincipal: {
+                    profissionalCNS: prof.cns,
+                    cboCodigo_2002: prof.cbo,
+                    cnes: unidade.cnes,
+                    ine: equipe?.ine ?? undefined,
+                  },
+                  dataAtendimento,
+                  codigoIbgeMunicipio: unidade.ibge_municipio,
+                },
+                atendimentosIndividuais: atendimentos,
+              },
+              remetente,
+              originadora: remetente,
+              versao: { major: 6, minor: 3, revision: 5 },
             });
             writeFicha(uuidDadoSerializado, xml);
-            idsAtend.push(a.id);
-            xmlTotais.fai++;
+            for (const a of validos) idsAtend.push(a.id);
+            xmlTotais.fai += validos.length;
           }
         }
 
