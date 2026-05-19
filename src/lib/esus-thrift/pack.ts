@@ -81,12 +81,6 @@ export async function packLDI(input: PackInput): Promise<PackResult> {
     fichas: manifestFichas,
   };
   zip.file("manifest.json", JSON.stringify(manifest, null, 2));
-  zip.file(
-    "LEIA-ME.txt",
-    "Lote e-SUS APS (LEDI 7.4) — formato Thrift binário.\n" +
-      "Cada arquivo em data/ é um DadoTransporte serializado (TBinaryProtocol).\n" +
-      "Importe pelo módulo Transporte CDS do e-SUS PEC.\n",
-  );
 
   const zipBytes = await zip.generateAsync({
     type: "uint8array",

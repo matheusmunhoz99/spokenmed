@@ -13,7 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertCircle, AlertTriangle, CheckCircle2, Download, FileText, Info, Loader2, Pencil, RefreshCw, ShieldCheck } from "lucide-react";
-import { previewExportacaoEsus, listarExportacoesEsus, registrarExportacaoEsus, gerarExportacaoEsus, baixarExportacaoEsus, type PreviewResultado, type ErroExport } from "@/lib/esus-export.functions";
+import { previewExportacaoEsus, listarExportacoesEsus, registrarExportacaoEsus, gerarExportacaoEsus, baixarExportacaoEsus, limparTodosLotes, type PreviewResultado, type ErroExport } from "@/lib/esus-export.functions";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { downloadCsv } from "@/lib/csv";
@@ -52,9 +54,18 @@ function ExportarEsusPage() {
   const registrarFn = useServerFn(registrarExportacaoEsus);
   const gerarFn = useServerFn(gerarExportacaoEsus);
   const baixarFn = useServerFn(baixarExportacaoEsus);
-  
+  const limparFn = useServerFn(limparTodosLotes);
+
   const [gerando, setGerando] = useState(false);
   const [progresso, setProgresso] = useState<string>("");
+  const [loteGerado, setLoteGerado] = useState<{
+    blob: Blob;
+    filename: string;
+    totais: { fcd: number; fci: number; fad: number; fai: number; fao: number } | null;
+    multi?: { ok: number; fail: number };
+  } | null>(null);
+  const [confirmLimpar, setConfirmLimpar] = useState(false);
+  const [limpando, setLimpando] = useState(false);
 
   const TODAS = "__all__";
   const [unidadeId, setUnidadeId] = useState<string>("");
@@ -538,8 +549,11 @@ function ExportarEsusPage() {
                       if (!resp.ok) throw new Error("Falha ao baixar o arquivo gerado");
                       const blob = await resp.blob();
                       const ext = formato === "json" ? "json.zip" : "zip";
-                      downloadBlob(blob, `esus-${unidadeSelecionada?.cnes ?? "lote"}-${inicio}_${fim}.${ext}`);
-                      toast.success(`Arquivo pronto: FCD ${r.totais.fcd} · FCI ${r.totais.fci} · FAD ${r.totais.fad} · FAI ${(r.totais as any).fai ?? 0} · FAO ${(r.totais as any).fao ?? 0}`);
+                      setLoteGerado({
+                        blob,
+                        filename: `esus-${unidadeSelecionada?.cnes ?? "lote"}-${inicio}_${fim}.${ext}`,
+                        totais: r.totais as any,
+                      });
                     } else {
                       // Modo "Todas as unidades": gera cada lote e consolida num único .zip
                       const master = new JSZip();
@@ -588,15 +602,14 @@ function ExportarEsusPage() {
                       if (ok === 0) {
                         throw new Error("Nenhuma unidade gerou fichas válidas; corrija as pendências ou ajuste o período antes de baixar.");
                       }
-                      master.file("LEIA-ME.txt", relatorio.join("\n"));
+                      // ZIP consolidado "limpo": apenas os .zip por unidade, sem LEIA-ME.
                       setProgresso("Compactando lote consolidado…");
                       const blob = await master.generateAsync({
                         type: "blob",
                         compression: "DEFLATE",
                         compressionOptions: { level: 6 },
                       });
-                      downloadBlob(blob, `esus-todas-unidades-${inicio}_${fim}.zip`);
-                      toast.success(`Lote consolidado: ${ok} unidade(s) ok${fail ? ` · ${fail} com falha (ver LEIA-ME.txt)` : ""}.`);
+                      setLoteGerado({ blob, filename: `esus-todas-unidades-${inicio}_${fim}.zip`, totais: null, multi: { ok, fail } });
                     }
                     refetchHistorico();
                   } catch (e: any) {
@@ -644,9 +657,20 @@ function ExportarEsusPage() {
             <CardTitle className="text-lg">Histórico de exportações</CardTitle>
             <CardDescription>Últimos 50 lotes gerados.</CardDescription>
           </div>
-          <Button size="sm" variant="ghost" onClick={() => refetchHistorico()}>
-            <RefreshCw className="h-4 w-4 mr-1" /> Atualizar
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={() => refetchHistorico()}>
+              <RefreshCw className="h-4 w-4 mr-1" /> Atualizar
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setConfirmLimpar(true)}
+              disabled={!historico?.exportacoes?.length}
+            >
+              <Trash2 className="h-4 w-4 mr-1" /> Limpar todos os lotes
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {!historico?.exportacoes?.length ? (
@@ -723,6 +747,87 @@ function ExportarEsusPage() {
           else toast.info('Clique em "Validar" pra re-rodar a checagem.');
         }}
       />
+
+      {/* Modal: lote gerado com sucesso */}
+      <AlertDialog open={!!loteGerado} onOpenChange={(o) => { if (!o) setLoteGerado(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-success" />
+              Gerado com sucesso!
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>O lote foi gerado e está pronto para envio ao e-SUS PEC.</p>
+                {loteGerado?.totais && (
+                  <p className="text-xs font-mono bg-muted p-2 rounded">
+                    FCD {loteGerado.totais.fcd} · FCI {loteGerado.totais.fci} · FAD {loteGerado.totais.fad} · FAI {loteGerado.totais.fai} · FAO {loteGerado.totais.fao}
+                  </p>
+                )}
+                {loteGerado?.multi && (
+                  <p className="text-xs font-mono bg-muted p-2 rounded">
+                    {loteGerado.multi.ok} unidade(s) ok{loteGerado.multi.fail ? ` · ${loteGerado.multi.fail} com falha` : ""}
+                  </p>
+                )}
+                <p className="font-medium">Quer fazer o download do lote agora?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Agora não</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (loteGerado) {
+                downloadBlob(loteGerado.blob, loteGerado.filename);
+                toast.success("Download iniciado.");
+              }
+              setLoteGerado(null);
+            }}>
+              <Download className="h-4 w-4 mr-1" /> Sim, baixar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Modal: confirmar limpeza */}
+      <AlertDialog open={confirmLimpar} onOpenChange={setConfirmLimpar}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Limpar todos os lotes?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Isto vai apagar TODOS os lotes gerados (arquivos e histórico) e resetar o status de envio
+              de todos os atendimentos, pacientes e domicílios para <strong>pendente</strong>.
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={limpando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={limpando}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                setLimpando(true);
+                try {
+                  const r = await limparFn();
+                  toast.success(`Lotes limpos. ${(r as any)?.removidos ?? 0} arquivo(s) removido(s).`);
+                  setConfirmLimpar(false);
+                  refetchHistorico();
+                } catch (err: any) {
+                  toast.error(err?.message ?? "Falha ao limpar lotes");
+                } finally {
+                  setLimpando(false);
+                }
+              }}
+            >
+              {limpando ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              Sim, limpar tudo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
