@@ -914,33 +914,34 @@ export function ConsultorioDialog({ open, onOpenChange, agendamento, onFinalizad
                   <Textarea rows={3} value={lmeExames} onChange={(e) => setLmeExames(e.target.value)} /></div>
               </TabsContent>
             </Tabs>
-            <div className="h-24 sm:hidden" />
+
+            {/* Barra de ação sticky (mobile) — acompanha o scroll, gruda no fim */}
+            <div className="sticky bottom-0 z-10 -mx-3 mt-6 border-t bg-card/95 px-3 py-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:hidden">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={salvarRascunhoManual}
+                  className="h-12 gap-1.5"
+                  title="Salvar rascunho"
+                >
+                  <Save className="h-4 w-4" />
+                  Salvar
+                </Button>
+                <Button
+                  onClick={finalizar}
+                  className="h-12 flex-1 gap-2 bg-gradient-to-r from-primary to-primary/85 text-base font-semibold shadow-lg shadow-primary/25"
+                  size="lg"
+                >
+                  <Send className="h-5 w-5" />
+                  Finalizar e enviar ao e-SUS APS
+                </Button>
+              </div>
+            </div>
           </main>
         </div>
-
-        {/* Barra de ação fixa (mobile) — sempre visível acima do teclado */}
-        <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-card/95 px-3 py-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.15)] backdrop-blur sm:hidden">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={salvarRascunhoManual}
-              className="h-12 gap-1.5"
-              title="Salvar rascunho"
-            >
-              <Save className="h-4 w-4" />
-              Salvar
-            </Button>
-            <Button
-              onClick={finalizar}
-              className="h-12 flex-1 gap-2 bg-gradient-to-r from-primary to-primary/85 text-base font-semibold shadow-lg shadow-primary/25"
-              size="lg"
-            >
-              <Send className="h-5 w-5" />
-              Finalizar e enviar ao e-SUS APS
-            </Button>
-          </div>
-        </div>
       </div>
+
+
 
       <EnvioEsusOverlay open={enviando} onClose={handleEnvioFechar} pacienteNome={paciente} />
     </>
