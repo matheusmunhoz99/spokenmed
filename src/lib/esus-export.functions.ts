@@ -538,6 +538,18 @@ export const gerarExportacaoEsus = createServerFn({ method: "POST" })
           total_fcd: totais.fcd, total_fci: totais.fci, total_fad: totais.fad,
           concluido_em: new Date().toISOString(),
         }).eq("id", exp.id);
+
+        // Marca fichas exportadas para não reaparecerem na próxima geração
+        try {
+          await supabase.rpc("marcar_fichas_exportadas", {
+            p_exportacao_id: exp.id,
+            p_atendimentos: idsAtend,
+            p_pacientes: idsPac,
+            p_domicilios: idsDom,
+          });
+        } catch (e) {
+          console.error("[esus-export] falha ao marcar fichas exportadas", e);
+        }
         return { ok: true, path, totais, tamanho: zipBytes.byteLength, formato };
       }
 
