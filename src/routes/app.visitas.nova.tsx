@@ -87,7 +87,7 @@ function NovaVisitaPage() {
     queryFn: async () => {
       let q = supabase
         .from("domicilios")
-        .select("id, logradouro, numero, bairro, cidade, uf, microarea, cep, latitude, longitude, familias(id)")
+        .select("id, unidade_id, logradouro, numero, bairro, cidade, uf, microarea, cep, latitude, longitude, familias(id)")
         .order("created_at", { ascending: false })
         .limit(50);
       if (buscaDom.trim().length >= 2) {
