@@ -43,6 +43,12 @@ type Membro = {
   pacientes: { id: string; nome: string; cpf: string | null; data_nascimento: string | null } | null;
 };
 
+type AssinaturaAtual = {
+  assinatura: string | null;
+  recusou: boolean;
+  motivoRecusa: string;
+};
+
 function NovaVisitaPage() {
   const nav = useNavigate();
   const { user } = useAuth();
@@ -164,12 +170,12 @@ function NovaVisitaPage() {
     prosseguirSalvar();
   };
 
-  const prosseguirSalvar = () => {
+  const prosseguirSalvar = (assinaturaAtual?: AssinaturaAtual) => {
     const totalMembros = membros?.length ?? 0;
     if (totalMembros >= 2) {
       setAskReplicar(true);
     } else {
-      void salvar(false);
+      void salvar(false, assinaturaAtual);
     }
   };
 
@@ -184,11 +190,14 @@ function NovaVisitaPage() {
       setMotivoRecusa("");
       setAssinatura(r.assinatura);
     }
-    // dar um tick para o estado atualizar antes de seguir
-    setTimeout(() => prosseguirSalvar(), 0);
+    prosseguirSalvar(
+      r.recusou
+        ? { assinatura: null, recusou: true, motivoRecusa: r.motivoRecusa }
+        : { assinatura: r.assinatura, recusou: false, motivoRecusa: "" },
+    );
   };
 
-  const salvar = async (replicar: boolean) => {
+  const salvar = async (replicar: boolean, assinaturaAtual?: AssinaturaAtual) => {
     setAskReplicar(false);
     setSaving(true);
     try {
@@ -203,9 +212,10 @@ function NovaVisitaPage() {
 
       // Para desfechos diferentes de "realizada", o PEC/CDS não exige assinatura.
       const isRealizada = desfecho === "visita_realizada";
-      const assinaturaFinal = isRealizada && !recusou ? assinatura : null;
-      const recusadaFinal = isRealizada ? recusou : false;
-      const motivoRecusaFinal = isRealizada && recusou ? motivoRecusa : null;
+      const assinaturaFonte = assinaturaAtual ?? { assinatura, recusou, motivoRecusa };
+      const assinaturaFinal = isRealizada && !assinaturaFonte.recusou ? assinaturaFonte.assinatura : null;
+      const recusadaFinal = isRealizada ? assinaturaFonte.recusou : false;
+      const motivoRecusaFinal = isRealizada && assinaturaFonte.recusou ? assinaturaFonte.motivoRecusa : null;
 
       const basePayload: any = {
         acs_user_id: user!.id,
