@@ -87,7 +87,7 @@ function NovaVisitaPage() {
     queryFn: async () => {
       let q = supabase
         .from("domicilios")
-        .select("id, logradouro, numero, bairro, cidade, uf, microarea, cep, latitude, longitude, familias(id)")
+        .select("id, unidade_id, logradouro, numero, bairro, cidade, uf, microarea, cep, latitude, longitude, familias(id)")
         .order("created_at", { ascending: false })
         .limit(50);
       if (buscaDom.trim().length >= 2) {
@@ -201,6 +201,12 @@ function NovaVisitaPage() {
         fotosMeta.push({ path, name: f.name, size: f.size });
       }
 
+      // Para desfechos diferentes de "realizada", o PEC/CDS não exige assinatura.
+      const isRealizada = desfecho === "visita_realizada";
+      const assinaturaFinal = isRealizada && !recusou ? assinatura : null;
+      const recusadaFinal = isRealizada ? recusou : false;
+      const motivoRecusaFinal = isRealizada && recusou ? motivoRecusa : null;
+
       const basePayload: any = {
         acs_user_id: user!.id,
         unidade_id: domicilio.unidade_id ?? null,
@@ -223,10 +229,10 @@ function NovaVisitaPage() {
         gps_capturado_em: geo!.captured_at,
         endereco_visitado: endereco || enderecoDom || null,
         observacoes: obs || null,
-        assinatura_paciente: recusou ? null : assinatura,
-        assinatura_paciente_em: assinatura && !recusou ? new Date().toISOString() : null,
-        assinatura_recusada: recusou,
-        assinatura_recusa_motivo: recusou ? motivoRecusa : null,
+        assinatura_paciente: assinaturaFinal,
+        assinatura_paciente_em: assinaturaFinal ? new Date().toISOString() : null,
+        assinatura_recusada: recusadaFinal,
+        assinatura_recusa_motivo: motivoRecusaFinal,
         fotos: fotosMeta,
       };
 
