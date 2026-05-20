@@ -201,6 +201,7 @@ function NovaVisitaPage() {
 
   const salvar = async (replicar: boolean, assinaturaAtual?: AssinaturaAtual) => {
     setAskReplicar(false);
+    assinaturaPendenteRef.current = null;
     setSaving(true);
     try {
       // upload fotos (uma única vez)
