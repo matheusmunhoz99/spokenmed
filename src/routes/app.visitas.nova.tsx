@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,6 +43,12 @@ type Membro = {
   pacientes: { id: string; nome: string; cpf: string | null; data_nascimento: string | null } | null;
 };
 
+type AssinaturaAtual = {
+  assinatura: string | null;
+  recusou: boolean;
+  motivoRecusa: string;
+};
+
 function NovaVisitaPage() {
   const nav = useNavigate();
   const { user } = useAuth();
@@ -74,6 +80,7 @@ function NovaVisitaPage() {
   const [saving, setSaving] = useState(false);
   const [askReplicar, setAskReplicar] = useState(false);
   const [askAssinatura, setAskAssinatura] = useState(false);
+  const assinaturaPendenteRef = useRef<AssinaturaAtual | null>(null);
   const [resumo, setResumo] = useState<null | {
     pacientes: { id: string; nome: string }[];
     replicado: boolean;
@@ -164,12 +171,13 @@ function NovaVisitaPage() {
     prosseguirSalvar();
   };
 
-  const prosseguirSalvar = () => {
+  const prosseguirSalvar = (assinaturaAtual?: AssinaturaAtual) => {
     const totalMembros = membros?.length ?? 0;
     if (totalMembros >= 2) {
+      assinaturaPendenteRef.current = assinaturaAtual ?? null;
       setAskReplicar(true);
     } else {
-      void salvar(false);
+      void salvar(false, assinaturaAtual);
     }
   };
 
@@ -184,12 +192,16 @@ function NovaVisitaPage() {
       setMotivoRecusa("");
       setAssinatura(r.assinatura);
     }
-    // dar um tick para o estado atualizar antes de seguir
-    setTimeout(() => prosseguirSalvar(), 0);
+    prosseguirSalvar(
+      r.recusou
+        ? { assinatura: null, recusou: true, motivoRecusa: r.motivoRecusa }
+        : { assinatura: r.assinatura, recusou: false, motivoRecusa: "" },
+    );
   };
 
-  const salvar = async (replicar: boolean) => {
+  const salvar = async (replicar: boolean, assinaturaAtual?: AssinaturaAtual) => {
     setAskReplicar(false);
+    assinaturaPendenteRef.current = null;
     setSaving(true);
     try {
       // upload fotos (uma única vez)
@@ -203,9 +215,10 @@ function NovaVisitaPage() {
 
       // Para desfechos diferentes de "realizada", o PEC/CDS não exige assinatura.
       const isRealizada = desfecho === "visita_realizada";
-      const assinaturaFinal = isRealizada && !recusou ? assinatura : null;
-      const recusadaFinal = isRealizada ? recusou : false;
-      const motivoRecusaFinal = isRealizada && recusou ? motivoRecusa : null;
+      const assinaturaFonte = assinaturaAtual ?? { assinatura, recusou, motivoRecusa };
+      const assinaturaFinal = isRealizada && !assinaturaFonte.recusou ? assinaturaFonte.assinatura : null;
+      const recusadaFinal = isRealizada ? assinaturaFonte.recusou : false;
+      const motivoRecusaFinal = isRealizada && assinaturaFonte.recusou ? assinaturaFonte.motivoRecusa : null;
 
       const basePayload: any = {
         acs_user_id: user!.id,
@@ -557,10 +570,10 @@ function NovaVisitaPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2">
-            <AlertDialogCancel onClick={() => void salvar(false)} className="mt-0">
+            <AlertDialogCancel onClick={() => void salvar(false, assinaturaPendenteRef.current ?? undefined)} className="mt-0">
               Apenas {pacienteSelecionado?.nome?.split(" ")[0]}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={() => void salvar(true)}>
+            <AlertDialogAction onClick={() => void salvar(true, assinaturaPendenteRef.current ?? undefined)}>
               Sim, replicar para todos
             </AlertDialogAction>
           </AlertDialogFooter>
