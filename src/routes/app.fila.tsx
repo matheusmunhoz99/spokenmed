@@ -92,7 +92,8 @@ function urgenciaBadgeClass(u: Urgencia) {
 }
 
 function FilaPage() {
-  const { user, profile, isAdmin } = useAuth();
+  const { user, profile, isAdmin, can } = useAuth();
+  const podeRemover = isAdmin || can("fila", "manage");
   const qc = useQueryClient();
   const { data: unidadesAllowed } = useAllowedUnidades();
   const [unidadeId, setUnidadeId] = useState("");
@@ -389,7 +390,7 @@ function FilaPage() {
                                 <span className={urg === u ? "" : "ml-6"}>{URGENCIA_LABEL[u]}</span>
                               </DropdownMenuItem>
                             ))}
-                            {isAdmin && (
+                            {podeRemover && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-destructive" onClick={() => setRemoverItem(f)}>
