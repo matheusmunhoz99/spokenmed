@@ -390,7 +390,7 @@ function FilaPage() {
                                 <span className={urg === u ? "" : "ml-6"}>{URGENCIA_LABEL[u]}</span>
                               </DropdownMenuItem>
                             ))}
-                            {isAdmin && (
+                            {podeRemover && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-destructive" onClick={() => setRemoverItem(f)}>
