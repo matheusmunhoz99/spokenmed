@@ -92,7 +92,8 @@ function urgenciaBadgeClass(u: Urgencia) {
 }
 
 function FilaPage() {
-  const { user, profile, isAdmin } = useAuth();
+  const { user, profile, isAdmin, can } = useAuth();
+  const podeRemover = isAdmin || can("fila", "manage");
   const qc = useQueryClient();
   const { data: unidadesAllowed } = useAllowedUnidades();
   const [unidadeId, setUnidadeId] = useState("");
