@@ -396,9 +396,41 @@ function AgendarPage() {
             <Textarea rows={2} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Opcional" />
           </div>
 
+          {cotaInfo && cotaInfo.regime === "cota" && (
+            <div className="rounded-md border bg-muted/40 p-3 space-y-2 text-xs">
+              <div className="flex items-center gap-2 font-medium">
+                <AlertTriangle className="h-3.5 w-3.5 text-warning" /> Unidade sob cota mensal
+              </div>
+              {especialidadeId && especialidadeId !== "all" && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">Especialidade</span>
+                  <div className="flex gap-1">
+                    <Badge variant="outline">UBS {cotaInfo.esp_usadas_ubs ?? 0}/{cotaInfo.esp_totais ?? 0}</Badge>
+                    <Badge variant="outline">Secretaria {cotaInfo.esp_usadas_sec ?? 0}/{cotaInfo.esp_secretaria ?? 0}</Badge>
+                  </div>
+                </div>
+              )}
+              {procedimentoId && (cotaInfo.proc_totais > 0 || cotaInfo.proc_secretaria > 0) && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">Procedimento</span>
+                  <div className="flex gap-1">
+                    <Badge variant="outline">UBS {cotaInfo.proc_usadas_ubs ?? 0}/{cotaInfo.proc_totais ?? 0}</Badge>
+                    <Badge variant="outline">Secretaria {cotaInfo.proc_usadas_sec ?? 0}/{cotaInfo.proc_secretaria ?? 0}</Badge>
+                  </div>
+                </div>
+              )}
+              {podeSecretaria && (
+                <label className="flex items-center justify-between gap-2 pt-1 cursor-pointer">
+                  <span className="font-medium">Agendar como Secretaria (urgência)</span>
+                  <Switch checked={origemSecretaria} onCheckedChange={setOrigemSecretaria} />
+                </label>
+              )}
+            </div>
+          )}
+
           <Button className="w-full" disabled={!canConfirm || submitting} onClick={handleAgendar}>
             {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-            Confirmar agendamento
+            {origemSecretaria ? "Confirmar (Secretaria)" : "Confirmar agendamento"}
           </Button>
         </CardContent>
       </Card>
