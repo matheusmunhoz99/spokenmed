@@ -52,6 +52,22 @@ function AgendarPage() {
   const [submitting, setSubmitting] = useState(false);
   const [comprovanteOpen, setComprovanteOpen] = useState(false);
   const [ultimoAgendamentoId, setUltimoAgendamentoId] = useState<string | null>(null);
+  const [origemSecretaria, setOrigemSecretaria] = useState(false);
+
+  const competencia = useMemo(() => `${data.slice(0, 7)}-01`, [data]);
+  const { data: cotaInfo } = useQuery({
+    queryKey: ["consumo-cota", unidadeId, especialidadeId, procedimentoId, competencia],
+    enabled: !!unidadeId && (!!especialidadeId && especialidadeId !== "all" || !!procedimentoId),
+    queryFn: async () => {
+      const { data: rows } = await supabase.rpc("consumo_cota" as any, {
+        _unidade_id: unidadeId,
+        _especialidade_id: especialidadeId && especialidadeId !== "all" ? especialidadeId : null,
+        _procedimento_id: procedimentoId || null,
+        _competencia: competencia,
+      });
+      return (Array.isArray(rows) ? rows[0] : rows) ?? null;
+    },
+  });
 
   const { data: procedimentos } = useQuery({
     queryKey: ["procedimentos-ativos"],
