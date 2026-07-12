@@ -23,6 +23,9 @@ import { formatCPF, formatCNS, formatTime, onlyDigits } from "@/lib/format";
 import { gerarComprovante } from "@/lib/pdf-comprovante";
 
 import { SemAcesso } from "@/components/sem-acesso";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { AlertTriangle } from "lucide-react";
 function AgendarGuard() {
   const { can } = useAuth();
   if (!can("agendar")) return <SemAcesso />;
