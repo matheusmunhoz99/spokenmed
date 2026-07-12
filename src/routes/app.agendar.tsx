@@ -34,10 +34,11 @@ function AgendarGuard() {
 export const Route = createFileRoute("/app/agendar")({ component: AgendarGuard });
 
 function AgendarPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin, can } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: unidadesAllowed } = useAllowedUnidades();
+  const podeSecretaria = isAdmin || can("secretaria_agendar", "manage");
 
   const [unidadeId, setUnidadeId] = useState("");
   const [especialidadeId, setEspecialidadeId] = useState("");
