@@ -42,6 +42,7 @@ import { Route as AppTeleAgendamentoIdRouteImport } from './routes/app.tele.$age
 import { Route as AppDomiciliosNovoRouteImport } from './routes/app.domicilios.novo'
 import { Route as AppDomiciliosIdRouteImport } from './routes/app.domicilios.$id'
 import { Route as AppConfiguracoesSistemaRouteImport } from './routes/app.configuracoes.sistema'
+import { Route as AppConfiguracoesCotasRouteImport } from './routes/app.configuracoes.cotas'
 import { Route as ApiPublicVersionRouteImport } from './routes/api/public/version'
 
 const VerificarRoute = VerificarRouteImport.update({
@@ -210,6 +211,11 @@ const AppConfiguracoesSistemaRoute = AppConfiguracoesSistemaRouteImport.update({
   path: '/sistema',
   getParentRoute: () => AppConfiguracoesRoute,
 } as any)
+const AppConfiguracoesCotasRoute = AppConfiguracoesCotasRouteImport.update({
+  id: '/cotas',
+  path: '/cotas',
+  getParentRoute: () => AppConfiguracoesRoute,
+} as any)
 const ApiPublicVersionRoute = ApiPublicVersionRouteImport.update({
   id: '/api/public/version',
   path: '/api/public/version',
@@ -243,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/tele/$token': typeof TeleTokenRouteWithChildren
   '/app/': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
+  '/app/configuracoes/cotas': typeof AppConfiguracoesCotasRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
   '/app/domicilios/$id': typeof AppDomiciliosIdRoute
   '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
@@ -276,6 +283,7 @@ export interface FileRoutesByTo {
   '/tele/$token': typeof TeleTokenRouteWithChildren
   '/app': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
+  '/app/configuracoes/cotas': typeof AppConfiguracoesCotasRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
   '/app/domicilios/$id': typeof AppDomiciliosIdRoute
   '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
@@ -313,6 +321,7 @@ export interface FileRoutesById {
   '/tele/$token': typeof TeleTokenRouteWithChildren
   '/app/': typeof AppIndexRoute
   '/api/public/version': typeof ApiPublicVersionRoute
+  '/app/configuracoes/cotas': typeof AppConfiguracoesCotasRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
   '/app/domicilios/$id': typeof AppDomiciliosIdRoute
   '/app/domicilios/novo': typeof AppDomiciliosNovoRoute
@@ -351,6 +360,7 @@ export interface FileRouteTypes {
     | '/tele/$token'
     | '/app/'
     | '/api/public/version'
+    | '/app/configuracoes/cotas'
     | '/app/configuracoes/sistema'
     | '/app/domicilios/$id'
     | '/app/domicilios/novo'
@@ -384,6 +394,7 @@ export interface FileRouteTypes {
     | '/tele/$token'
     | '/app'
     | '/api/public/version'
+    | '/app/configuracoes/cotas'
     | '/app/configuracoes/sistema'
     | '/app/domicilios/$id'
     | '/app/domicilios/novo'
@@ -420,6 +431,7 @@ export interface FileRouteTypes {
     | '/tele/$token'
     | '/app/'
     | '/api/public/version'
+    | '/app/configuracoes/cotas'
     | '/app/configuracoes/sistema'
     | '/app/domicilios/$id'
     | '/app/domicilios/novo'
@@ -674,6 +686,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConfiguracoesSistemaRouteImport
       parentRoute: typeof AppConfiguracoesRoute
     }
+    '/app/configuracoes/cotas': {
+      id: '/app/configuracoes/cotas'
+      path: '/cotas'
+      fullPath: '/app/configuracoes/cotas'
+      preLoaderRoute: typeof AppConfiguracoesCotasRouteImport
+      parentRoute: typeof AppConfiguracoesRoute
+    }
     '/api/public/version': {
       id: '/api/public/version'
       path: '/api/public/version'
@@ -685,10 +704,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppConfiguracoesRouteChildren {
+  AppConfiguracoesCotasRoute: typeof AppConfiguracoesCotasRoute
   AppConfiguracoesSistemaRoute: typeof AppConfiguracoesSistemaRoute
 }
 
 const AppConfiguracoesRouteChildren: AppConfiguracoesRouteChildren = {
+  AppConfiguracoesCotasRoute: AppConfiguracoesCotasRoute,
   AppConfiguracoesSistemaRoute: AppConfiguracoesSistemaRoute,
 }
 

@@ -23,6 +23,9 @@ import { formatCPF, formatCNS, formatTime, onlyDigits } from "@/lib/format";
 import { gerarComprovante } from "@/lib/pdf-comprovante";
 
 import { SemAcesso } from "@/components/sem-acesso";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { AlertTriangle } from "lucide-react";
 function AgendarGuard() {
   const { can } = useAuth();
   if (!can("agendar")) return <SemAcesso />;
@@ -31,10 +34,11 @@ function AgendarGuard() {
 export const Route = createFileRoute("/app/agendar")({ component: AgendarGuard });
 
 function AgendarPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin, can } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: unidadesAllowed } = useAllowedUnidades();
+  const podeSecretaria = isAdmin || can("secretaria_agendar", "manage");
 
   const [unidadeId, setUnidadeId] = useState("");
   const [especialidadeId, setEspecialidadeId] = useState("");
@@ -48,6 +52,22 @@ function AgendarPage() {
   const [submitting, setSubmitting] = useState(false);
   const [comprovanteOpen, setComprovanteOpen] = useState(false);
   const [ultimoAgendamentoId, setUltimoAgendamentoId] = useState<string | null>(null);
+  const [origemSecretaria, setOrigemSecretaria] = useState(false);
+
+  const competencia = useMemo(() => `${data.slice(0, 7)}-01`, [data]);
+  const { data: cotaInfo } = useQuery({
+    queryKey: ["consumo-cota", unidadeId, especialidadeId, procedimentoId, competencia],
+    enabled: !!unidadeId && (!!especialidadeId && especialidadeId !== "all" || !!procedimentoId),
+    queryFn: async () => {
+      const { data: rows } = await supabase.rpc("consumo_cota" as any, {
+        _unidade_id: unidadeId,
+        _especialidade_id: especialidadeId && especialidadeId !== "all" ? especialidadeId : null,
+        _procedimento_id: procedimentoId || null,
+        _competencia: competencia,
+      });
+      return (Array.isArray(rows) ? rows[0] : rows) ?? null;
+    },
+  });
 
   const { data: procedimentos } = useQuery({
     queryKey: ["procedimentos-ativos"],
@@ -156,7 +176,8 @@ function AgendarPage() {
       data, hora_inicio: slot.hora_inicio,
       motivo: motivo || null, criado_por: user?.id,
       procedimento_id: procedimentoId || null,
-    }).select("id").single();
+      origem_agenda: origemSecretaria ? "secretaria" : "ubs",
+    } as any).select("id").single();
     setSubmitting(false);
     if (e2 || !created) {
       const msg = e2?.message ?? "";
@@ -164,12 +185,17 @@ function AgendarPage() {
       if (msg.includes("slot_indisponivel")) friendly = "Esse horário acabou de ser reservado. Escolha outro.";
       else if (msg.includes("slot_incoerente")) friendly = "Horário inválido para os filtros selecionados.";
       else if (msg.includes("slot_inexistente")) friendly = "Horário não existe mais.";
+      else if (msg.includes("cota_esgotada_ubs_esp")) friendly = "Cota da UBS para esta especialidade esgotada neste mês.";
+      else if (msg.includes("cota_esgotada_secretaria_esp")) friendly = "Cota da Secretaria para esta especialidade esgotada neste mês.";
+      else if (msg.includes("cota_esgotada_ubs_proc")) friendly = "Cota da UBS para este procedimento esgotada neste mês.";
+      else if (msg.includes("cota_esgotada_secretaria_proc")) friendly = "Cota da Secretaria para este procedimento esgotada neste mês.";
       else if (msg.toLowerCase().includes("permission")) friendly = "Sem permissão para agendar nesta unidade.";
       else if (msg) friendly = msg;
       qc.invalidateQueries({ queryKey: ["slots-ag"] });
+      qc.invalidateQueries({ queryKey: ["consumo-cota"] });
       return toast.error(friendly);
     }
-    toast.success("Consulta agendada!");
+    toast.success(origemSecretaria ? "Urgência agendada pela Secretaria!" : "Consulta agendada!");
     qc.invalidateQueries();
     setUltimoAgendamentoId(created.id);
     setComprovanteOpen(true);
@@ -370,9 +396,41 @@ function AgendarPage() {
             <Textarea rows={2} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Opcional" />
           </div>
 
+          {cotaInfo && cotaInfo.regime === "cota" && (
+            <div className="rounded-md border bg-muted/40 p-3 space-y-2 text-xs">
+              <div className="flex items-center gap-2 font-medium">
+                <AlertTriangle className="h-3.5 w-3.5 text-warning" /> Unidade sob cota mensal
+              </div>
+              {especialidadeId && especialidadeId !== "all" && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">Especialidade</span>
+                  <div className="flex gap-1">
+                    <Badge variant="outline">UBS {cotaInfo.esp_usadas_ubs ?? 0}/{cotaInfo.esp_totais ?? 0}</Badge>
+                    <Badge variant="outline">Secretaria {cotaInfo.esp_usadas_sec ?? 0}/{cotaInfo.esp_secretaria ?? 0}</Badge>
+                  </div>
+                </div>
+              )}
+              {procedimentoId && (cotaInfo.proc_totais > 0 || cotaInfo.proc_secretaria > 0) && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">Procedimento</span>
+                  <div className="flex gap-1">
+                    <Badge variant="outline">UBS {cotaInfo.proc_usadas_ubs ?? 0}/{cotaInfo.proc_totais ?? 0}</Badge>
+                    <Badge variant="outline">Secretaria {cotaInfo.proc_usadas_sec ?? 0}/{cotaInfo.proc_secretaria ?? 0}</Badge>
+                  </div>
+                </div>
+              )}
+              {podeSecretaria && (
+                <label className="flex items-center justify-between gap-2 pt-1 cursor-pointer">
+                  <span className="font-medium">Agendar como Secretaria (urgência)</span>
+                  <Switch checked={origemSecretaria} onCheckedChange={setOrigemSecretaria} />
+                </label>
+              )}
+            </div>
+          )}
+
           <Button className="w-full" disabled={!canConfirm || submitting} onClick={handleAgendar}>
             {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-            Confirmar agendamento
+            {origemSecretaria ? "Confirmar (Secretaria)" : "Confirmar agendamento"}
           </Button>
         </CardContent>
       </Card>
