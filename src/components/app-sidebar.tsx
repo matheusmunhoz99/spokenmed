@@ -56,6 +56,7 @@ const modules: Module[] = [
       { title: "Relatórios", url: "/app/relatorios", icon: BarChart3, module: "relatorios" },
       { title: "Exportar e-SUS PEC", url: "/app/exportar-esus", icon: FileDown },
       { title: "Unidades & Especialidades", url: "/app/configuracoes", icon: Building2, module: "unidades_especialidades" },
+      { title: "Cotas de agendamento", url: "/app/configuracoes/cotas", icon: ListOrdered, module: "cotas" },
       { title: "Configurações", url: "/app/configuracoes/sistema", icon: Settings, module: "usuarios" },
       { title: "Auditoria (LGPD)", url: "/app/auditoria", icon: ShieldCheck, module: "auditoria" },
     ],
