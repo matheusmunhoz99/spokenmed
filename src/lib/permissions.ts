@@ -13,7 +13,9 @@ export type ModuleKey =
   | "auditoria"
   | "triagem"
   | "visitas"
-  | "domicilios";
+  | "domicilios"
+  | "cotas"
+  | "secretaria_agendar";
 
 export type AppRole = "admin" | "recepcionista" | "medico" | "triagem" | "acs";
 
@@ -31,6 +33,8 @@ export const MODULES: { key: ModuleKey; label: string; manageable: boolean }[] =
   { key: "painel", label: "Painel de Chamada", manageable: true },
   { key: "unidades_especialidades", label: "Unidades & Especialidades", manageable: true },
   { key: "usuarios", label: "Usuários do sistema", manageable: true },
+  { key: "cotas", label: "Cotas de agendamento", manageable: true },
+  { key: "secretaria_agendar", label: "Agendar como Secretaria (urgência)", manageable: true },
   { key: "relatorios", label: "Relatórios & Dashboards", manageable: false },
   { key: "auditoria", label: "Auditoria (LGPD)", manageable: false },
 ];
