@@ -176,7 +176,8 @@ function AgendarPage() {
       data, hora_inicio: slot.hora_inicio,
       motivo: motivo || null, criado_por: user?.id,
       procedimento_id: procedimentoId || null,
-    }).select("id").single();
+      origem_agenda: origemSecretaria ? "secretaria" : "ubs",
+    } as any).select("id").single();
     setSubmitting(false);
     if (e2 || !created) {
       const msg = e2?.message ?? "";
@@ -184,12 +185,17 @@ function AgendarPage() {
       if (msg.includes("slot_indisponivel")) friendly = "Esse horário acabou de ser reservado. Escolha outro.";
       else if (msg.includes("slot_incoerente")) friendly = "Horário inválido para os filtros selecionados.";
       else if (msg.includes("slot_inexistente")) friendly = "Horário não existe mais.";
+      else if (msg.includes("cota_esgotada_ubs_esp")) friendly = "Cota da UBS para esta especialidade esgotada neste mês.";
+      else if (msg.includes("cota_esgotada_secretaria_esp")) friendly = "Cota da Secretaria para esta especialidade esgotada neste mês.";
+      else if (msg.includes("cota_esgotada_ubs_proc")) friendly = "Cota da UBS para este procedimento esgotada neste mês.";
+      else if (msg.includes("cota_esgotada_secretaria_proc")) friendly = "Cota da Secretaria para este procedimento esgotada neste mês.";
       else if (msg.toLowerCase().includes("permission")) friendly = "Sem permissão para agendar nesta unidade.";
       else if (msg) friendly = msg;
       qc.invalidateQueries({ queryKey: ["slots-ag"] });
+      qc.invalidateQueries({ queryKey: ["consumo-cota"] });
       return toast.error(friendly);
     }
-    toast.success("Consulta agendada!");
+    toast.success(origemSecretaria ? "Urgência agendada pela Secretaria!" : "Consulta agendada!");
     qc.invalidateQueries();
     setUltimoAgendamentoId(created.id);
     setComprovanteOpen(true);
