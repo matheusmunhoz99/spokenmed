@@ -8,12 +8,17 @@ const MODULE_KEYS = [
   "agendar",
   "fila",
   "recepcao",
+  "triagem",
+  "visitas",
+  "domicilios",
   "pacientes",
   "profissionais",
   "agendas",
   "painel",
   "unidades_especialidades",
   "usuarios",
+  "cotas",
+  "secretaria_agendar",
   "relatorios",
   "auditoria",
 ] as const;
@@ -32,12 +37,13 @@ function defaultPermsFor(role: AppRole) {
       };
     }
     if (role === "triagem") {
-      const manage = (m === "fila" || m === "recepcao" || m === "pacientes") as boolean;
+      const manage = (m === "triagem" || m === "fila" || m === "recepcao" || m === "pacientes") as boolean;
       const view = manage || m === "agenda_dia" || m === "painel";
       return { module: m, can_view: view, can_manage: manage };
     }
     if (role === "acs") {
-      return { module: m, can_view: m === "pacientes", can_manage: false };
+      const manage = m === "visitas" || m === "domicilios" || m === "pacientes";
+      return { module: m, can_view: manage, can_manage: manage };
     }
     // recepcionista (administrativo)
     if (m === "agenda_dia" || m === "agendar" || m === "fila" || m === "pacientes" || m === "painel" || m === "recepcao") {
