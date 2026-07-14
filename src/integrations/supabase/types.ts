@@ -134,6 +134,7 @@ export type Database = {
           modalidade: string
           motivo: string | null
           observacoes: string | null
+          origem_agenda: string
           paciente_id: string
           procedimento_id: string | null
           profissional_id: string
@@ -173,6 +174,7 @@ export type Database = {
           modalidade?: string
           motivo?: string | null
           observacoes?: string | null
+          origem_agenda?: string
           paciente_id: string
           procedimento_id?: string | null
           profissional_id: string
@@ -212,6 +214,7 @@ export type Database = {
           modalidade?: string
           motivo?: string | null
           observacoes?: string | null
+          origem_agenda?: string
           paciente_id?: string
           procedimento_id?: string | null
           profissional_id?: string
@@ -666,6 +669,7 @@ export type Database = {
           observacoes: string | null
           unidade_id: string
           updated_at: string
+          vagas_secretaria: number
           vagas_totais: number
         }
         Insert: {
@@ -676,6 +680,7 @@ export type Database = {
           observacoes?: string | null
           unidade_id: string
           updated_at?: string
+          vagas_secretaria?: number
           vagas_totais: number
         }
         Update: {
@@ -686,6 +691,7 @@ export type Database = {
           observacoes?: string | null
           unidade_id?: string
           updated_at?: string
+          vagas_secretaria?: number
           vagas_totais?: number
         }
         Relationships: [
@@ -698,6 +704,57 @@ export type Database = {
           },
           {
             foreignKeyName: "cotas_especialidade_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cotas_procedimento: {
+        Row: {
+          competencia: string
+          created_at: string
+          id: string
+          observacoes: string | null
+          procedimento_id: string
+          unidade_id: string
+          updated_at: string
+          vagas_secretaria: number
+          vagas_totais: number
+        }
+        Insert: {
+          competencia: string
+          created_at?: string
+          id?: string
+          observacoes?: string | null
+          procedimento_id: string
+          unidade_id: string
+          updated_at?: string
+          vagas_secretaria?: number
+          vagas_totais?: number
+        }
+        Update: {
+          competencia?: string
+          created_at?: string
+          id?: string
+          observacoes?: string | null
+          procedimento_id?: string
+          unidade_id?: string
+          updated_at?: string
+          vagas_secretaria?: number
+          vagas_totais?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cotas_procedimento_procedimento_id_fkey"
+            columns: ["procedimento_id"]
+            isOneToOne: false
+            referencedRelation: "procedimentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotas_procedimento_unidade_id_fkey"
             columns: ["unidade_id"]
             isOneToOne: false
             referencedRelation: "unidades"
@@ -2289,6 +2346,7 @@ export type Database = {
           logradouro: string | null
           nome: string
           numero: string | null
+          regime_agendamento: string
           telefone: string | null
           tipo_unidade: string | null
           uf: string | null
@@ -2306,6 +2364,7 @@ export type Database = {
           logradouro?: string | null
           nome: string
           numero?: string | null
+          regime_agendamento?: string
           telefone?: string | null
           tipo_unidade?: string | null
           uf?: string | null
@@ -2323,6 +2382,7 @@ export type Database = {
           logradouro?: string | null
           nome?: string
           numero?: string | null
+          regime_agendamento?: string
           telefone?: string | null
           tipo_unidade?: string | null
           uf?: string | null
@@ -2609,6 +2669,25 @@ export type Database = {
           sala_token: string
           status: Database["public"]["Enums"]["agendamento_status"]
           unidade_nome: string
+        }[]
+      }
+      consumo_cota: {
+        Args: {
+          _competencia: string
+          _especialidade_id: string
+          _procedimento_id: string
+          _unidade_id: string
+        }
+        Returns: {
+          esp_secretaria: number
+          esp_totais: number
+          esp_usadas_sec: number
+          esp_usadas_ubs: number
+          proc_secretaria: number
+          proc_totais: number
+          proc_usadas_sec: number
+          proc_usadas_ubs: number
+          regime: string
         }[]
       }
       gen_agendamento_codigo: { Args: never; Returns: string }
