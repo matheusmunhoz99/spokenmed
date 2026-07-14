@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
@@ -16,6 +16,8 @@ import { SemAcesso } from "@/components/sem-acesso";
 import { CsvImportDialog, type ColumnSpec, normName } from "@/components/csv-import-dialog";
 function ConfigGuard() {
   const { can } = useAuth();
+  const path = useRouterState({ select: (r) => r.location.pathname });
+  if (path.startsWith("/app/configuracoes/cotas") || path.startsWith("/app/configuracoes/sistema")) return <Outlet />;
   if (!can("unidades_especialidades")) return <SemAcesso />;
   return <ConfigPage />;
 }

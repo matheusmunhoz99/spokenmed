@@ -30,8 +30,9 @@ const titles: Record<string, string> = {
   "/app/pacientes": "Pacientes",
   "/app/profissionais": "Profissionais",
   "/app/agendas": "Agendas dos Profissionais",
-  "/app/configuracoes": "Unidades & Especialidades",
   "/app/configuracoes/sistema": "Configurações",
+  "/app/configuracoes/cotas": "Cotas de agendamento",
+  "/app/configuracoes": "Unidades & Especialidades",
   "/app/auditoria": "Central de Auditoria",
   "/app/relatorios": "Relatórios & Dashboards",
   "/app/exportar-esus": "Exportar para e-SUS PEC",
@@ -63,7 +64,7 @@ function AppLayout() {
     );
   }
 
-  const title = titles[path] ?? Object.entries(titles).find(([k]) => path.startsWith(k))?.[1] ?? "SpokenMed";
+  const title = titles[path] ?? Object.entries(titles).sort((a, b) => b[0].length - a[0].length).find(([k]) => path.startsWith(k))?.[1] ?? "SpokenMed";
 
 
   return (

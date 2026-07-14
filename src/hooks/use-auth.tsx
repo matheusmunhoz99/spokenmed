@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useCallback, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 import { defaultPermsFor, type AppRole, type ModuleKey } from "@/lib/permissions";
@@ -33,12 +33,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [permissions, setPermissions] = useState<PermMap>({});
   const [loading, setLoading] = useState(true);
 
-  const loadUserData = async (userId: string) => {
-    const [{ data: prof }, { data: r }, { data: perms }] = await Promise.all([
+  const clearUserData = useCallback(() => {
+    setProfile(null);
+    setRoles([]);
+    setPermissions({});
+  }, []);
+
+  const loadUserData = useCallback(async (userId: string) => {
+    const [{ data: prof, error: profError }, { data: r, error: rolesError }, { data: perms, error: permsError }] = await Promise.all([
       supabase.from("profiles").select("nome, cargo, conselho_tipo, conselho_numero, conselho_uf, cbo, especialidade, rqe").eq("id", userId).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", userId),
       supabase.from("user_permissions").select("module, can_view, can_manage").eq("user_id", userId),
     ]);
+
+    if (profError || rolesError || permsError) {
+      console.error("[auth] Falha ao carregar perfil/permissões", profError ?? rolesError ?? permsError);
+      clearUserData();
+      return;
+    }
+
     setProfile(prof ?? null);
     setRoles((r ?? []).map((x: any) => x.role as AppRole));
     const map: PermMap = {};
@@ -46,33 +59,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       map[p.module] = { view: !!p.can_view, manage: !!p.can_manage };
     });
     setPermissions(map);
-  };
+  }, [clearUserData]);
 
   useEffect(() => {
+    let active = true;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, sess) => {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
-        setTimeout(() => loadUserData(sess.user.id), 0);
+        setLoading(true);
+        setTimeout(async () => {
+          await loadUserData(sess.user.id);
+          if (active) setLoading(false);
+        }, 0);
       } else {
         if (event === "SIGNED_OUT") {
           import("@/lib/audit").then((m) => m.logAuth("LOGOUT"));
         }
-        setProfile(null);
-        setRoles([]);
-        setPermissions({});
+        clearUserData();
+        setLoading(false);
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session: sess } }) => {
+    supabase.auth.getSession().then(async ({ data: { session: sess } }) => {
+      if (!active) return;
       setSession(sess);
       setUser(sess?.user ?? null);
-      if (sess?.user) loadUserData(sess.user.id);
-      setLoading(false);
+      if (sess?.user) {
+        await loadUserData(sess.user.id);
+      } else {
+        clearUserData();
+      }
+      if (active) setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [clearUserData, loadUserData]);
 
   const isAdmin = roles.includes("admin");
   const isMedico = roles.includes("medico");
