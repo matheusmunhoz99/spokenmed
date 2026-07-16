@@ -30,6 +30,7 @@ import { Route as AppFilaRouteImport } from './routes/app.fila'
 import { Route as AppExportarEsusRouteImport } from './routes/app.exportar-esus'
 import { Route as AppDomiciliosRouteImport } from './routes/app.domicilios'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
+import { Route as AppCadastrosRouteImport } from './routes/app.cadastros'
 import { Route as AppAuditoriaRouteImport } from './routes/app.auditoria'
 import { Route as AppAgendasRouteImport } from './routes/app.agendas'
 import { Route as AppAgendarRouteImport } from './routes/app.agendar'
@@ -151,6 +152,11 @@ const AppConfiguracoesRoute = AppConfiguracoesRouteImport.update({
   path: '/configuracoes',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCadastrosRoute = AppCadastrosRouteImport.update({
+  id: '/cadastros',
+  path: '/cadastros',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAuditoriaRoute = AppAuditoriaRouteImport.update({
   id: '/auditoria',
   path: '/auditoria',
@@ -233,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/app/agendar': typeof AppAgendarRoute
   '/app/agendas': typeof AppAgendasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
+  '/app/cadastros': typeof AppCadastrosRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/domicilios': typeof AppDomiciliosRouteWithChildren
   '/app/exportar-esus': typeof AppExportarEsusRoute
@@ -269,6 +276,7 @@ export interface FileRoutesByTo {
   '/app/agendar': typeof AppAgendarRoute
   '/app/agendas': typeof AppAgendasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
+  '/app/cadastros': typeof AppCadastrosRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/exportar-esus': typeof AppExportarEsusRoute
   '/app/fila': typeof AppFilaRoute
@@ -305,6 +313,7 @@ export interface FileRoutesById {
   '/app/agendar': typeof AppAgendarRoute
   '/app/agendas': typeof AppAgendasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
+  '/app/cadastros': typeof AppCadastrosRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/domicilios': typeof AppDomiciliosRouteWithChildren
   '/app/exportar-esus': typeof AppExportarEsusRoute
@@ -344,6 +353,7 @@ export interface FileRouteTypes {
     | '/app/agendar'
     | '/app/agendas'
     | '/app/auditoria'
+    | '/app/cadastros'
     | '/app/configuracoes'
     | '/app/domicilios'
     | '/app/exportar-esus'
@@ -380,6 +390,7 @@ export interface FileRouteTypes {
     | '/app/agendar'
     | '/app/agendas'
     | '/app/auditoria'
+    | '/app/cadastros'
     | '/app/configuracoes'
     | '/app/exportar-esus'
     | '/app/fila'
@@ -415,6 +426,7 @@ export interface FileRouteTypes {
     | '/app/agendar'
     | '/app/agendas'
     | '/app/auditoria'
+    | '/app/cadastros'
     | '/app/configuracoes'
     | '/app/domicilios'
     | '/app/exportar-esus'
@@ -602,6 +614,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConfiguracoesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/cadastros': {
+      id: '/app/cadastros'
+      path: '/cadastros'
+      fullPath: '/app/cadastros'
+      preLoaderRoute: typeof AppCadastrosRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/auditoria': {
       id: '/app/auditoria'
       path: '/auditoria'
@@ -751,6 +770,7 @@ interface AppRouteChildren {
   AppAgendarRoute: typeof AppAgendarRoute
   AppAgendasRoute: typeof AppAgendasRoute
   AppAuditoriaRoute: typeof AppAuditoriaRoute
+  AppCadastrosRoute: typeof AppCadastrosRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRouteWithChildren
   AppDomiciliosRoute: typeof AppDomiciliosRouteWithChildren
   AppExportarEsusRoute: typeof AppExportarEsusRoute
@@ -773,6 +793,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAgendarRoute: AppAgendarRoute,
   AppAgendasRoute: AppAgendasRoute,
   AppAuditoriaRoute: AppAuditoriaRoute,
+  AppCadastrosRoute: AppCadastrosRoute,
   AppConfiguracoesRoute: AppConfiguracoesRouteWithChildren,
   AppDomiciliosRoute: AppDomiciliosRouteWithChildren,
   AppExportarEsusRoute: AppExportarEsusRoute,
@@ -817,13 +838,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

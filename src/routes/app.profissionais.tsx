@@ -24,7 +24,7 @@ function ProfissionaisGuard() {
 }
 export const Route = createFileRoute("/app/profissionais")({ component: ProfissionaisGuard });
 
-function ProfissionaisPage() {
+export function ProfissionaisPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
