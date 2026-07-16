@@ -156,11 +156,12 @@ function useSectionCount(key: string): string | null {
     queryKey: ["cadastros-count", key],
     staleTime: 30_000,
     queryFn: async () => {
-      const q = (table: string, filter?: (b: any) => any) => {
-        let b: any = supabase.from(table).select("*", { count: "exact", head: true });
+      const q = (table: any, filter?: (b: any) => any) => {
+        let b: any = (supabase as any).from(table).select("*", { count: "exact", head: true });
         if (filter) b = filter(b);
         return b;
       };
+
       switch (key) {
         case "unidades": {
           const { count } = await q("unidades", (b) => b.eq("ativo", true));
