@@ -29,7 +29,7 @@ function firstOfMonth(d: Date) {
   return `${s}-01`;
 }
 
-function CotasPage() {
+export function CotasPage() {
   return (
     <div className="space-y-6">
       <div>

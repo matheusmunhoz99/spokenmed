@@ -52,7 +52,7 @@ type SystemUser = {
 type Unidade = { id: string; nome: string };
 type ProfLink = { id: string; nome: string; user_id: string | null };
 
-function ConfigSistema() {
+export function ConfigSistema() {
   const { profile, user, isAdmin, roles } = useAuth();
 
   if (!isAdmin) return <SemAcesso titulo="Apenas administradores" />;

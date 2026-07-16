@@ -83,7 +83,7 @@ function ConfigPage() {
   );
 }
 
-function EquipesCard() {
+export function EquipesCard() {
   const qc = useQueryClient();
   const [unidadeId, setUnidadeId] = useState("");
   const [nome, setNome] = useState("");
@@ -160,7 +160,7 @@ function EquipesCard() {
 }
 
 
-function UnidadesCard() {
+export function UnidadesCard() {
   const qc = useQueryClient();
   const [nome, setNome] = useState(""); const [endereco, setEndereco] = useState(""); const [telefone, setTelefone] = useState(""); const [cnes, setCnes] = useState("");
   const [ibge, setIbge] = useState(""); const [uf, setUf] = useState(""); const [cep, setCep] = useState("");
@@ -302,7 +302,7 @@ function UnidadesCard() {
   );
 }
 
-function EspecialidadesCard() {
+export function EspecialidadesCard() {
   const qc = useQueryClient();
   const [nome, setNome] = useState("");
   const { data } = useQuery({ queryKey: ["especialidades"], queryFn: async () => (await supabase.from("especialidades").select("*").order("nome")).data ?? [] });
@@ -346,7 +346,7 @@ function EspecialidadesCard() {
   );
 }
 
-function ProcedimentosCard() {
+export function ProcedimentosCard() {
   const qc = useQueryClient();
   const [codigo, setCodigo] = useState("");
   const [nome, setNome] = useState("");
