@@ -120,22 +120,42 @@ function VerificarPage() {
     const p = extrairProtocolo(proto);
     if (!p) return;
     setLoading(true); setDoc(null); setAssinaturaPdf(null); setNotFound(false); setErro(null);
+
+    const buscarAssinatura = async () => {
+      const { data: sig, error: sigErr } = await supabase.rpc("verificar_assinatura_pdf" as never, { p_protocolo: p } as never);
+      if (sigErr) throw sigErr;
+      const rows = (sig ?? []) as unknown as AssinaturaPdf[];
+      return rows.length > 0 ? rows[0] : null;
+    };
+
     try {
-      const { data, error } = await supabase.rpc("verificar_documento", { p_protocolo: p });
-      if (error) throw error;
-      if (data && data.length > 0) {
-        setDoc(data[0] as unknown as Documento);
+      // Protocolos ASSIN- são assinaturas de PDF; os demais são documentos emitidos.
+      if (p.toUpperCase().startsWith("ASSIN-")) {
+        const sig = await buscarAssinatura();
+        if (sig) setAssinaturaPdf(sig); else setNotFound(true);
+        return;
+      }
+
+      let docs: unknown[] | null = null;
+      try {
+        const { data, error } = await supabase.rpc("verificar_documento", { p_protocolo: p });
+        if (error) throw error;
+        docs = data as unknown[];
+      } catch {
+        docs = null; // falha na consulta de documentos: tenta assinaturas
+      }
+
+      if (docs && docs.length > 0) {
+        setDoc(docs[0] as unknown as Documento);
       } else {
-        const { data: sig, error: sigErr } = await supabase.rpc("verificar_assinatura_pdf" as never, { p_protocolo: p } as never);
-        if (sigErr) throw sigErr;
-        const rows = (sig ?? []) as unknown as AssinaturaPdf[];
-        if (rows.length > 0) setAssinaturaPdf(rows[0]);
-        else setNotFound(true);
+        const sig = await buscarAssinatura();
+        if (sig) setAssinaturaPdf(sig); else setNotFound(true);
       }
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha ao consultar.");
     } finally { setLoading(false); }
   };
+
 
   useEffect(() => {
     if (search.p && search.p.trim()) {
