@@ -32,7 +32,7 @@ export const Route = createFileRoute("/app/assinaturas")({
 
 function AssinaturasGuard() {
   const { can, isAdmin } = useAuth();
-  if (!isAdmin && !can("assinaturas", "view")) return <SemAcesso modulo="Assinatura Digital" />;
+  if (!isAdmin && !can("assinaturas", "view")) return <SemAcesso titulo="Assinatura Digital" />;
   return <AssinaturasPage />;
 }
 

@@ -3,7 +3,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, Stethoscope, CalendarCog, CalendarPlus,
   CalendarDays, Building2, Settings, LogOut, MonitorPlay, ListOrdered, ShieldCheck, BarChart3, KeyRound,
-  Activity, FolderPlus, UserCog, ChevronRight, History, ClipboardList, HeartPulse, Home, FileDown,
+  Activity, FolderPlus, UserCog, ChevronRight, History, ClipboardList, HeartPulse, Home, FileDown, FileSignature,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -45,6 +45,7 @@ const modules: Module[] = [
       { title: "Pacientes", url: "/app/pacientes", icon: Users, module: "pacientes" },
       { title: "Profissionais", url: "/app/profissionais", icon: Stethoscope, module: "profissionais" },
       { title: "Agendas", url: "/app/agendas", icon: CalendarCog, module: "agendas" },
+      { title: "Assinatura Digital", url: "/app/assinaturas", icon: FileSignature, module: "assinaturas" },
     ],
   },
   {
