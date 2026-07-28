@@ -351,6 +351,109 @@ export type Database = {
           },
         ]
       }
+      assinaturas_pdf: {
+        Row: {
+          agendamento_id: string | null
+          assinado_em: string
+          assinante_cbo: string | null
+          assinante_conselho: string | null
+          assinante_email: string | null
+          assinante_nome: string
+          assinante_user_id: string
+          assinatura: string
+          assinatura_payload_sha: string | null
+          created_at: string
+          hash_assinado: string | null
+          hash_original: string
+          id: string
+          ip: unknown
+          motivo: string | null
+          nome_arquivo: string
+          paciente_id: string | null
+          protocolo: string
+          storage_path: string | null
+          storage_path_original: string | null
+          tamanho_bytes: number | null
+          unidade_id: string | null
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          agendamento_id?: string | null
+          assinado_em?: string
+          assinante_cbo?: string | null
+          assinante_conselho?: string | null
+          assinante_email?: string | null
+          assinante_nome: string
+          assinante_user_id: string
+          assinatura: string
+          assinatura_payload_sha?: string | null
+          created_at?: string
+          hash_assinado?: string | null
+          hash_original: string
+          id?: string
+          ip?: unknown
+          motivo?: string | null
+          nome_arquivo: string
+          paciente_id?: string | null
+          protocolo: string
+          storage_path?: string | null
+          storage_path_original?: string | null
+          tamanho_bytes?: number | null
+          unidade_id?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          agendamento_id?: string | null
+          assinado_em?: string
+          assinante_cbo?: string | null
+          assinante_conselho?: string | null
+          assinante_email?: string | null
+          assinante_nome?: string
+          assinante_user_id?: string
+          assinatura?: string
+          assinatura_payload_sha?: string | null
+          created_at?: string
+          hash_assinado?: string | null
+          hash_original?: string
+          id?: string
+          ip?: unknown
+          motivo?: string | null
+          nome_arquivo?: string
+          paciente_id?: string | null
+          protocolo?: string
+          storage_path?: string | null
+          storage_path_original?: string | null
+          tamanho_bytes?: number | null
+          unidade_id?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assinaturas_pdf_agendamento_id_fkey"
+            columns: ["agendamento_id"]
+            isOneToOne: false
+            referencedRelation: "agendamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assinaturas_pdf_paciente_id_fkey"
+            columns: ["paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assinaturas_pdf_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       atendimentos: {
         Row: {
           agendamento_id: string | null
@@ -2770,6 +2873,22 @@ export type Database = {
           _unidade_id: string
         }
         Returns: number
+      }
+      verificar_assinatura_pdf: {
+        Args: { p_protocolo: string }
+        Returns: {
+          assinado_em: string
+          assinante_conselho: string
+          assinante_email_mask: string
+          assinante_nome: string
+          assinatura_curta: string
+          hash_original: string
+          ip_mask: string
+          motivo: string
+          nome_arquivo: string
+          protocolo: string
+          unidade_nome: string
+        }[]
       }
       verificar_documento: {
         Args: { p_protocolo: string }
