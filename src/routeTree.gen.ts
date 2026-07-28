@@ -9,62 +9,47 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as VerificarRouteImport } from './routes/verificar'
-import { Route as PainelRouteImport } from './routes/painel'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as CidadaoRouteImport } from './routes/cidadao'
-import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as CidadaoRouteImport } from './routes/cidadao'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as PainelRouteImport } from './routes/painel'
+import { Route as VerificarRouteImport } from './routes/verificar'
 import { Route as AppIndexRouteImport } from './routes/app.index'
-import { Route as TeleTokenRouteImport } from './routes/tele.$token'
-import { Route as AppVisitasRouteImport } from './routes/app.visitas'
-import { Route as AppTriagemRouteImport } from './routes/app.triagem'
-import { Route as AppSessoesRouteImport } from './routes/app.sessoes'
-import { Route as AppRelatoriosRouteImport } from './routes/app.relatorios'
-import { Route as AppRecepcaoRouteImport } from './routes/app.recepcao'
-import { Route as AppProfissionaisRouteImport } from './routes/app.profissionais'
-import { Route as AppPacientesRouteImport } from './routes/app.pacientes'
-import { Route as AppMeuPerfilRouteImport } from './routes/app.meu-perfil'
-import { Route as AppHistoricoAtendimentosRouteImport } from './routes/app.historico-atendimentos'
-import { Route as AppFilaRouteImport } from './routes/app.fila'
-import { Route as AppExportarEsusRouteImport } from './routes/app.exportar-esus'
-import { Route as AppDomiciliosRouteImport } from './routes/app.domicilios'
-import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
-import { Route as AppCadastrosRouteImport } from './routes/app.cadastros'
-import { Route as AppAuditoriaRouteImport } from './routes/app.auditoria'
-import { Route as AppAssinaturasRouteImport } from './routes/app.assinaturas'
-import { Route as AppAgendasRouteImport } from './routes/app.agendas'
-import { Route as AppAgendarRouteImport } from './routes/app.agendar'
 import { Route as AppAgendaDiaRouteImport } from './routes/app.agenda-dia'
-import { Route as AppVisitasIndexRouteImport } from './routes/app.visitas.index'
-import { Route as AppDomiciliosIndexRouteImport } from './routes/app.domicilios.index'
-import { Route as TeleTokenAvaliarRouteImport } from './routes/tele.$token.avaliar'
-import { Route as AppVisitasNovaRouteImport } from './routes/app.visitas.nova'
-import { Route as AppTeleAgendamentoIdRouteImport } from './routes/app.tele.$agendamentoId'
-import { Route as AppDomiciliosNovoRouteImport } from './routes/app.domicilios.novo'
-import { Route as AppDomiciliosIdRouteImport } from './routes/app.domicilios.$id'
-import { Route as AppConfiguracoesSistemaRouteImport } from './routes/app.configuracoes.sistema'
-import { Route as AppConfiguracoesCotasRouteImport } from './routes/app.configuracoes.cotas'
+import { Route as AppAgendarRouteImport } from './routes/app.agendar'
+import { Route as AppAgendasRouteImport } from './routes/app.agendas'
+import { Route as AppAssinaturasRouteImport } from './routes/app.assinaturas'
+import { Route as AppAuditoriaRouteImport } from './routes/app.auditoria'
+import { Route as AppCadastrosRouteImport } from './routes/app.cadastros'
+import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
+import { Route as AppDomiciliosRouteImport } from './routes/app.domicilios'
+import { Route as AppExportarEsusRouteImport } from './routes/app.exportar-esus'
+import { Route as AppFilaRouteImport } from './routes/app.fila'
+import { Route as AppHistoricoAtendimentosRouteImport } from './routes/app.historico-atendimentos'
+import { Route as AppMeuPerfilRouteImport } from './routes/app.meu-perfil'
+import { Route as AppPacientesRouteImport } from './routes/app.pacientes'
+import { Route as AppProfissionaisRouteImport } from './routes/app.profissionais'
+import { Route as AppRecepcaoRouteImport } from './routes/app.recepcao'
+import { Route as AppRelatoriosRouteImport } from './routes/app.relatorios'
+import { Route as AppSessoesRouteImport } from './routes/app.sessoes'
+import { Route as AppTriagemRouteImport } from './routes/app.triagem'
+import { Route as AppVisitasRouteImport } from './routes/app.visitas'
+import { Route as TeleTokenRouteImport } from './routes/tele.$token'
 import { Route as ApiPublicVersionRouteImport } from './routes/api/public/version'
+import { Route as AppConfiguracoesCotasRouteImport } from './routes/app.configuracoes.cotas'
+import { Route as AppConfiguracoesSistemaRouteImport } from './routes/app.configuracoes.sistema'
+import { Route as AppDomiciliosIndexRouteImport } from './routes/app.domicilios.index'
+import { Route as AppDomiciliosIdRouteImport } from './routes/app.domicilios.$id'
+import { Route as AppDomiciliosNovoRouteImport } from './routes/app.domicilios.novo'
+import { Route as AppTeleAgendamentoIdRouteImport } from './routes/app.tele.$agendamentoId'
+import { Route as AppVisitasIndexRouteImport } from './routes/app.visitas.index'
+import { Route as AppVisitasNovaRouteImport } from './routes/app.visitas.nova'
+import { Route as TeleTokenAvaliarRouteImport } from './routes/tele.$token.avaliar'
 
-const VerificarRoute = VerificarRouteImport.update({
-  id: '/verificar',
-  path: '/verificar',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PainelRoute = PainelRouteImport.update({
-  id: '/painel',
-  path: '/painel',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CidadaoRoute = CidadaoRouteImport.update({
-  id: '/cidadao',
-  path: '/cidadao',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -72,9 +57,24 @@ const AppRoute = AppRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CidadaoRoute = CidadaoRouteImport.update({
+  id: '/cidadao',
+  path: '/cidadao',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PainelRoute = PainelRouteImport.update({
+  id: '/painel',
+  path: '/painel',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerificarRoute = VerificarRouteImport.update({
+  id: '/verificar',
+  path: '/verificar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -82,49 +82,54 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
-const TeleTokenRoute = TeleTokenRouteImport.update({
-  id: '/tele/$token',
-  path: '/tele/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppVisitasRoute = AppVisitasRouteImport.update({
-  id: '/visitas',
-  path: '/visitas',
+const AppAgendaDiaRoute = AppAgendaDiaRouteImport.update({
+  id: '/agenda-dia',
+  path: '/agenda-dia',
   getParentRoute: () => AppRoute,
 } as any)
-const AppTriagemRoute = AppTriagemRouteImport.update({
-  id: '/triagem',
-  path: '/triagem',
+const AppAgendarRoute = AppAgendarRouteImport.update({
+  id: '/agendar',
+  path: '/agendar',
   getParentRoute: () => AppRoute,
 } as any)
-const AppSessoesRoute = AppSessoesRouteImport.update({
-  id: '/sessoes',
-  path: '/sessoes',
+const AppAgendasRoute = AppAgendasRouteImport.update({
+  id: '/agendas',
+  path: '/agendas',
   getParentRoute: () => AppRoute,
 } as any)
-const AppRelatoriosRoute = AppRelatoriosRouteImport.update({
-  id: '/relatorios',
-  path: '/relatorios',
+const AppAssinaturasRoute = AppAssinaturasRouteImport.update({
+  id: '/assinaturas',
+  path: '/assinaturas',
   getParentRoute: () => AppRoute,
 } as any)
-const AppRecepcaoRoute = AppRecepcaoRouteImport.update({
-  id: '/recepcao',
-  path: '/recepcao',
+const AppAuditoriaRoute = AppAuditoriaRouteImport.update({
+  id: '/auditoria',
+  path: '/auditoria',
   getParentRoute: () => AppRoute,
 } as any)
-const AppProfissionaisRoute = AppProfissionaisRouteImport.update({
-  id: '/profissionais',
-  path: '/profissionais',
+const AppCadastrosRoute = AppCadastrosRouteImport.update({
+  id: '/cadastros',
+  path: '/cadastros',
   getParentRoute: () => AppRoute,
 } as any)
-const AppPacientesRoute = AppPacientesRouteImport.update({
-  id: '/pacientes',
-  path: '/pacientes',
+const AppConfiguracoesRoute = AppConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
   getParentRoute: () => AppRoute,
 } as any)
-const AppMeuPerfilRoute = AppMeuPerfilRouteImport.update({
-  id: '/meu-perfil',
-  path: '/meu-perfil',
+const AppDomiciliosRoute = AppDomiciliosRouteImport.update({
+  id: '/domicilios',
+  path: '/domicilios',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppExportarEsusRoute = AppExportarEsusRouteImport.update({
+  id: '/exportar-esus',
+  path: '/exportar-esus',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFilaRoute = AppFilaRouteImport.update({
+  id: '/fila',
+  path: '/fila',
   getParentRoute: () => AppRoute,
 } as any)
 const AppHistoricoAtendimentosRoute =
@@ -133,84 +138,69 @@ const AppHistoricoAtendimentosRoute =
     path: '/historico-atendimentos',
     getParentRoute: () => AppRoute,
   } as any)
-const AppFilaRoute = AppFilaRouteImport.update({
-  id: '/fila',
-  path: '/fila',
+const AppMeuPerfilRoute = AppMeuPerfilRouteImport.update({
+  id: '/meu-perfil',
+  path: '/meu-perfil',
   getParentRoute: () => AppRoute,
 } as any)
-const AppExportarEsusRoute = AppExportarEsusRouteImport.update({
-  id: '/exportar-esus',
-  path: '/exportar-esus',
+const AppPacientesRoute = AppPacientesRouteImport.update({
+  id: '/pacientes',
+  path: '/pacientes',
   getParentRoute: () => AppRoute,
 } as any)
-const AppDomiciliosRoute = AppDomiciliosRouteImport.update({
-  id: '/domicilios',
-  path: '/domicilios',
+const AppProfissionaisRoute = AppProfissionaisRouteImport.update({
+  id: '/profissionais',
+  path: '/profissionais',
   getParentRoute: () => AppRoute,
 } as any)
-const AppConfiguracoesRoute = AppConfiguracoesRouteImport.update({
-  id: '/configuracoes',
-  path: '/configuracoes',
+const AppRecepcaoRoute = AppRecepcaoRouteImport.update({
+  id: '/recepcao',
+  path: '/recepcao',
   getParentRoute: () => AppRoute,
 } as any)
-const AppCadastrosRoute = AppCadastrosRouteImport.update({
-  id: '/cadastros',
-  path: '/cadastros',
+const AppRelatoriosRoute = AppRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAuditoriaRoute = AppAuditoriaRouteImport.update({
-  id: '/auditoria',
-  path: '/auditoria',
+const AppSessoesRoute = AppSessoesRouteImport.update({
+  id: '/sessoes',
+  path: '/sessoes',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAssinaturasRoute = AppAssinaturasRouteImport.update({
-  id: '/assinaturas',
-  path: '/assinaturas',
+const AppTriagemRoute = AppTriagemRouteImport.update({
+  id: '/triagem',
+  path: '/triagem',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAgendasRoute = AppAgendasRouteImport.update({
-  id: '/agendas',
-  path: '/agendas',
+const AppVisitasRoute = AppVisitasRouteImport.update({
+  id: '/visitas',
+  path: '/visitas',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAgendarRoute = AppAgendarRouteImport.update({
-  id: '/agendar',
-  path: '/agendar',
-  getParentRoute: () => AppRoute,
+const TeleTokenRoute = TeleTokenRouteImport.update({
+  id: '/tele/$token',
+  path: '/tele/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppAgendaDiaRoute = AppAgendaDiaRouteImport.update({
-  id: '/agenda-dia',
-  path: '/agenda-dia',
-  getParentRoute: () => AppRoute,
+const ApiPublicVersionRoute = ApiPublicVersionRouteImport.update({
+  id: '/api/public/version',
+  path: '/api/public/version',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppVisitasIndexRoute = AppVisitasIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppVisitasRoute,
+const AppConfiguracoesCotasRoute = AppConfiguracoesCotasRouteImport.update({
+  id: '/cotas',
+  path: '/cotas',
+  getParentRoute: () => AppConfiguracoesRoute,
+} as any)
+const AppConfiguracoesSistemaRoute = AppConfiguracoesSistemaRouteImport.update({
+  id: '/sistema',
+  path: '/sistema',
+  getParentRoute: () => AppConfiguracoesRoute,
 } as any)
 const AppDomiciliosIndexRoute = AppDomiciliosIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppDomiciliosRoute,
-} as any)
-const TeleTokenAvaliarRoute = TeleTokenAvaliarRouteImport.update({
-  id: '/avaliar',
-  path: '/avaliar',
-  getParentRoute: () => TeleTokenRoute,
-} as any)
-const AppVisitasNovaRoute = AppVisitasNovaRouteImport.update({
-  id: '/nova',
-  path: '/nova',
-  getParentRoute: () => AppVisitasRoute,
-} as any)
-const AppTeleAgendamentoIdRoute = AppTeleAgendamentoIdRouteImport.update({
-  id: '/tele/$agendamentoId',
-  path: '/tele/$agendamentoId',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDomiciliosNovoRoute = AppDomiciliosNovoRouteImport.update({
-  id: '/novo',
-  path: '/novo',
   getParentRoute: () => AppDomiciliosRoute,
 } as any)
 const AppDomiciliosIdRoute = AppDomiciliosIdRouteImport.update({
@@ -218,20 +208,30 @@ const AppDomiciliosIdRoute = AppDomiciliosIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AppDomiciliosRoute,
 } as any)
-const AppConfiguracoesSistemaRoute = AppConfiguracoesSistemaRouteImport.update({
-  id: '/sistema',
-  path: '/sistema',
-  getParentRoute: () => AppConfiguracoesRoute,
+const AppDomiciliosNovoRoute = AppDomiciliosNovoRouteImport.update({
+  id: '/novo',
+  path: '/novo',
+  getParentRoute: () => AppDomiciliosRoute,
 } as any)
-const AppConfiguracoesCotasRoute = AppConfiguracoesCotasRouteImport.update({
-  id: '/cotas',
-  path: '/cotas',
-  getParentRoute: () => AppConfiguracoesRoute,
+const AppTeleAgendamentoIdRoute = AppTeleAgendamentoIdRouteImport.update({
+  id: '/tele/$agendamentoId',
+  path: '/tele/$agendamentoId',
+  getParentRoute: () => AppRoute,
 } as any)
-const ApiPublicVersionRoute = ApiPublicVersionRouteImport.update({
-  id: '/api/public/version',
-  path: '/api/public/version',
-  getParentRoute: () => rootRouteImport,
+const AppVisitasIndexRoute = AppVisitasIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppVisitasRoute,
+} as any)
+const AppVisitasNovaRoute = AppVisitasNovaRouteImport.update({
+  id: '/nova',
+  path: '/nova',
+  getParentRoute: () => AppVisitasRoute,
+} as any)
+const TeleTokenAvaliarRoute = TeleTokenAvaliarRouteImport.update({
+  id: '/avaliar',
+  path: '/avaliar',
+  getParentRoute: () => TeleTokenRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -479,32 +479,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/verificar': {
-      id: '/verificar'
-      path: '/verificar'
-      fullPath: '/verificar'
-      preLoaderRoute: typeof VerificarRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/painel': {
-      id: '/painel'
-      path: '/painel'
-      fullPath: '/painel'
-      preLoaderRoute: typeof PainelRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cidadao': {
-      id: '/cidadao'
-      path: '/cidadao'
-      fullPath: '/cidadao'
-      preLoaderRoute: typeof CidadaoRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app': {
@@ -514,11 +493,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/cidadao': {
+      id: '/cidadao'
+      path: '/cidadao'
+      fullPath: '/cidadao'
+      preLoaderRoute: typeof CidadaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/painel': {
+      id: '/painel'
+      path: '/painel'
+      fullPath: '/painel'
+      preLoaderRoute: typeof PainelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verificar': {
+      id: '/verificar'
+      path: '/verificar'
+      fullPath: '/verificar'
+      preLoaderRoute: typeof VerificarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/': {
@@ -528,130 +528,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/tele/$token': {
-      id: '/tele/$token'
-      path: '/tele/$token'
-      fullPath: '/tele/$token'
-      preLoaderRoute: typeof TeleTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/app/visitas': {
-      id: '/app/visitas'
-      path: '/visitas'
-      fullPath: '/app/visitas'
-      preLoaderRoute: typeof AppVisitasRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/triagem': {
-      id: '/app/triagem'
-      path: '/triagem'
-      fullPath: '/app/triagem'
-      preLoaderRoute: typeof AppTriagemRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/sessoes': {
-      id: '/app/sessoes'
-      path: '/sessoes'
-      fullPath: '/app/sessoes'
-      preLoaderRoute: typeof AppSessoesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/relatorios': {
-      id: '/app/relatorios'
-      path: '/relatorios'
-      fullPath: '/app/relatorios'
-      preLoaderRoute: typeof AppRelatoriosRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/recepcao': {
-      id: '/app/recepcao'
-      path: '/recepcao'
-      fullPath: '/app/recepcao'
-      preLoaderRoute: typeof AppRecepcaoRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/profissionais': {
-      id: '/app/profissionais'
-      path: '/profissionais'
-      fullPath: '/app/profissionais'
-      preLoaderRoute: typeof AppProfissionaisRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/pacientes': {
-      id: '/app/pacientes'
-      path: '/pacientes'
-      fullPath: '/app/pacientes'
-      preLoaderRoute: typeof AppPacientesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/meu-perfil': {
-      id: '/app/meu-perfil'
-      path: '/meu-perfil'
-      fullPath: '/app/meu-perfil'
-      preLoaderRoute: typeof AppMeuPerfilRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/historico-atendimentos': {
-      id: '/app/historico-atendimentos'
-      path: '/historico-atendimentos'
-      fullPath: '/app/historico-atendimentos'
-      preLoaderRoute: typeof AppHistoricoAtendimentosRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/fila': {
-      id: '/app/fila'
-      path: '/fila'
-      fullPath: '/app/fila'
-      preLoaderRoute: typeof AppFilaRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/exportar-esus': {
-      id: '/app/exportar-esus'
-      path: '/exportar-esus'
-      fullPath: '/app/exportar-esus'
-      preLoaderRoute: typeof AppExportarEsusRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/domicilios': {
-      id: '/app/domicilios'
-      path: '/domicilios'
-      fullPath: '/app/domicilios'
-      preLoaderRoute: typeof AppDomiciliosRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/configuracoes': {
-      id: '/app/configuracoes'
-      path: '/configuracoes'
-      fullPath: '/app/configuracoes'
-      preLoaderRoute: typeof AppConfiguracoesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/cadastros': {
-      id: '/app/cadastros'
-      path: '/cadastros'
-      fullPath: '/app/cadastros'
-      preLoaderRoute: typeof AppCadastrosRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/auditoria': {
-      id: '/app/auditoria'
-      path: '/auditoria'
-      fullPath: '/app/auditoria'
-      preLoaderRoute: typeof AppAuditoriaRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/assinaturas': {
-      id: '/app/assinaturas'
-      path: '/assinaturas'
-      fullPath: '/app/assinaturas'
-      preLoaderRoute: typeof AppAssinaturasRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/agendas': {
-      id: '/app/agendas'
-      path: '/agendas'
-      fullPath: '/app/agendas'
-      preLoaderRoute: typeof AppAgendasRouteImport
+    '/app/agenda-dia': {
+      id: '/app/agenda-dia'
+      path: '/agenda-dia'
+      fullPath: '/app/agenda-dia'
+      preLoaderRoute: typeof AppAgendaDiaRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/agendar': {
@@ -661,53 +542,158 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAgendarRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/agenda-dia': {
-      id: '/app/agenda-dia'
-      path: '/agenda-dia'
-      fullPath: '/app/agenda-dia'
-      preLoaderRoute: typeof AppAgendaDiaRouteImport
+    '/app/agendas': {
+      id: '/app/agendas'
+      path: '/agendas'
+      fullPath: '/app/agendas'
+      preLoaderRoute: typeof AppAgendasRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/visitas/': {
-      id: '/app/visitas/'
-      path: '/'
-      fullPath: '/app/visitas/'
-      preLoaderRoute: typeof AppVisitasIndexRouteImport
-      parentRoute: typeof AppVisitasRoute
+    '/app/assinaturas': {
+      id: '/app/assinaturas'
+      path: '/assinaturas'
+      fullPath: '/app/assinaturas'
+      preLoaderRoute: typeof AppAssinaturasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/auditoria': {
+      id: '/app/auditoria'
+      path: '/auditoria'
+      fullPath: '/app/auditoria'
+      preLoaderRoute: typeof AppAuditoriaRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/cadastros': {
+      id: '/app/cadastros'
+      path: '/cadastros'
+      fullPath: '/app/cadastros'
+      preLoaderRoute: typeof AppCadastrosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/configuracoes': {
+      id: '/app/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/app/configuracoes'
+      preLoaderRoute: typeof AppConfiguracoesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/domicilios': {
+      id: '/app/domicilios'
+      path: '/domicilios'
+      fullPath: '/app/domicilios'
+      preLoaderRoute: typeof AppDomiciliosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/exportar-esus': {
+      id: '/app/exportar-esus'
+      path: '/exportar-esus'
+      fullPath: '/app/exportar-esus'
+      preLoaderRoute: typeof AppExportarEsusRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/fila': {
+      id: '/app/fila'
+      path: '/fila'
+      fullPath: '/app/fila'
+      preLoaderRoute: typeof AppFilaRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/historico-atendimentos': {
+      id: '/app/historico-atendimentos'
+      path: '/historico-atendimentos'
+      fullPath: '/app/historico-atendimentos'
+      preLoaderRoute: typeof AppHistoricoAtendimentosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/meu-perfil': {
+      id: '/app/meu-perfil'
+      path: '/meu-perfil'
+      fullPath: '/app/meu-perfil'
+      preLoaderRoute: typeof AppMeuPerfilRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/pacientes': {
+      id: '/app/pacientes'
+      path: '/pacientes'
+      fullPath: '/app/pacientes'
+      preLoaderRoute: typeof AppPacientesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/profissionais': {
+      id: '/app/profissionais'
+      path: '/profissionais'
+      fullPath: '/app/profissionais'
+      preLoaderRoute: typeof AppProfissionaisRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/recepcao': {
+      id: '/app/recepcao'
+      path: '/recepcao'
+      fullPath: '/app/recepcao'
+      preLoaderRoute: typeof AppRecepcaoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/relatorios': {
+      id: '/app/relatorios'
+      path: '/relatorios'
+      fullPath: '/app/relatorios'
+      preLoaderRoute: typeof AppRelatoriosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/sessoes': {
+      id: '/app/sessoes'
+      path: '/sessoes'
+      fullPath: '/app/sessoes'
+      preLoaderRoute: typeof AppSessoesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/triagem': {
+      id: '/app/triagem'
+      path: '/triagem'
+      fullPath: '/app/triagem'
+      preLoaderRoute: typeof AppTriagemRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/visitas': {
+      id: '/app/visitas'
+      path: '/visitas'
+      fullPath: '/app/visitas'
+      preLoaderRoute: typeof AppVisitasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/tele/$token': {
+      id: '/tele/$token'
+      path: '/tele/$token'
+      fullPath: '/tele/$token'
+      preLoaderRoute: typeof TeleTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/version': {
+      id: '/api/public/version'
+      path: '/api/public/version'
+      fullPath: '/api/public/version'
+      preLoaderRoute: typeof ApiPublicVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/configuracoes/cotas': {
+      id: '/app/configuracoes/cotas'
+      path: '/cotas'
+      fullPath: '/app/configuracoes/cotas'
+      preLoaderRoute: typeof AppConfiguracoesCotasRouteImport
+      parentRoute: typeof AppConfiguracoesRoute
+    }
+    '/app/configuracoes/sistema': {
+      id: '/app/configuracoes/sistema'
+      path: '/sistema'
+      fullPath: '/app/configuracoes/sistema'
+      preLoaderRoute: typeof AppConfiguracoesSistemaRouteImport
+      parentRoute: typeof AppConfiguracoesRoute
     }
     '/app/domicilios/': {
       id: '/app/domicilios/'
       path: '/'
       fullPath: '/app/domicilios/'
       preLoaderRoute: typeof AppDomiciliosIndexRouteImport
-      parentRoute: typeof AppDomiciliosRoute
-    }
-    '/tele/$token/avaliar': {
-      id: '/tele/$token/avaliar'
-      path: '/avaliar'
-      fullPath: '/tele/$token/avaliar'
-      preLoaderRoute: typeof TeleTokenAvaliarRouteImport
-      parentRoute: typeof TeleTokenRoute
-    }
-    '/app/visitas/nova': {
-      id: '/app/visitas/nova'
-      path: '/nova'
-      fullPath: '/app/visitas/nova'
-      preLoaderRoute: typeof AppVisitasNovaRouteImport
-      parentRoute: typeof AppVisitasRoute
-    }
-    '/app/tele/$agendamentoId': {
-      id: '/app/tele/$agendamentoId'
-      path: '/tele/$agendamentoId'
-      fullPath: '/app/tele/$agendamentoId'
-      preLoaderRoute: typeof AppTeleAgendamentoIdRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/domicilios/novo': {
-      id: '/app/domicilios/novo'
-      path: '/novo'
-      fullPath: '/app/domicilios/novo'
-      preLoaderRoute: typeof AppDomiciliosNovoRouteImport
       parentRoute: typeof AppDomiciliosRoute
     }
     '/app/domicilios/$id': {
@@ -717,26 +703,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDomiciliosIdRouteImport
       parentRoute: typeof AppDomiciliosRoute
     }
-    '/app/configuracoes/sistema': {
-      id: '/app/configuracoes/sistema'
-      path: '/sistema'
-      fullPath: '/app/configuracoes/sistema'
-      preLoaderRoute: typeof AppConfiguracoesSistemaRouteImport
-      parentRoute: typeof AppConfiguracoesRoute
+    '/app/domicilios/novo': {
+      id: '/app/domicilios/novo'
+      path: '/novo'
+      fullPath: '/app/domicilios/novo'
+      preLoaderRoute: typeof AppDomiciliosNovoRouteImport
+      parentRoute: typeof AppDomiciliosRoute
     }
-    '/app/configuracoes/cotas': {
-      id: '/app/configuracoes/cotas'
-      path: '/cotas'
-      fullPath: '/app/configuracoes/cotas'
-      preLoaderRoute: typeof AppConfiguracoesCotasRouteImport
-      parentRoute: typeof AppConfiguracoesRoute
+    '/app/tele/$agendamentoId': {
+      id: '/app/tele/$agendamentoId'
+      path: '/tele/$agendamentoId'
+      fullPath: '/app/tele/$agendamentoId'
+      preLoaderRoute: typeof AppTeleAgendamentoIdRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/api/public/version': {
-      id: '/api/public/version'
-      path: '/api/public/version'
-      fullPath: '/api/public/version'
-      preLoaderRoute: typeof ApiPublicVersionRouteImport
-      parentRoute: typeof rootRouteImport
+    '/app/visitas/': {
+      id: '/app/visitas/'
+      path: '/'
+      fullPath: '/app/visitas/'
+      preLoaderRoute: typeof AppVisitasIndexRouteImport
+      parentRoute: typeof AppVisitasRoute
+    }
+    '/app/visitas/nova': {
+      id: '/app/visitas/nova'
+      path: '/nova'
+      fullPath: '/app/visitas/nova'
+      preLoaderRoute: typeof AppVisitasNovaRouteImport
+      parentRoute: typeof AppVisitasRoute
+    }
+    '/tele/$token/avaliar': {
+      id: '/tele/$token/avaliar'
+      path: '/avaliar'
+      fullPath: '/tele/$token/avaliar'
+      preLoaderRoute: typeof TeleTokenAvaliarRouteImport
+      parentRoute: typeof TeleTokenRoute
     }
   }
 }
@@ -859,3 +859,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
