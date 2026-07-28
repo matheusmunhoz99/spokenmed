@@ -15,7 +15,8 @@ export type ModuleKey =
   | "visitas"
   | "domicilios"
   | "cotas"
-  | "secretaria_agendar";
+  | "secretaria_agendar"
+  | "assinaturas";
 
 export type AppRole = "admin" | "recepcionista" | "medico" | "triagem" | "acs";
 
@@ -34,6 +35,7 @@ export const MODULES: { key: ModuleKey; label: string; manageable: boolean }[] =
   { key: "unidades_especialidades", label: "Unidades & Especialidades", manageable: true },
   { key: "usuarios", label: "Usuários do sistema", manageable: true },
   { key: "cotas", label: "Cotas de agendamento", manageable: true },
+  { key: "assinaturas", label: "Assinatura digital de PDF", manageable: true },
   { key: "secretaria_agendar", label: "Agendar como Secretaria (urgência)", manageable: true },
   { key: "relatorios", label: "Relatórios & Dashboards", manageable: false },
   { key: "auditoria", label: "Auditoria (LGPD)", manageable: false },
@@ -56,8 +58,8 @@ export function defaultPermsFor(role: AppRole): PermRow[] {
   if (role === "medico") {
     return MODULES.map((m) => ({
       module: m.key,
-      can_view: m.key === "agenda_dia" || m.key === "pacientes" || m.key === "recepcao",
-      can_manage: false,
+      can_view: m.key === "agenda_dia" || m.key === "pacientes" || m.key === "recepcao" || m.key === "assinaturas",
+      can_manage: m.key === "assinaturas",
     }));
   }
   if (role === "triagem") {

@@ -33,6 +33,7 @@ const titles: Record<string, string> = {
   "/app/configuracoes/sistema": "Configurações",
   "/app/configuracoes/cotas": "Cotas de agendamento",
   "/app/cadastros": "Cadastros & Configurações",
+  "/app/assinaturas": "Assinatura Digital de PDF",
   "/app/configuracoes": "Unidades & Especialidades",
   "/app/auditoria": "Central de Auditoria",
   "/app/relatorios": "Relatórios & Dashboards",

@@ -32,6 +32,7 @@ import { Route as AppDomiciliosRouteImport } from './routes/app.domicilios'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
 import { Route as AppCadastrosRouteImport } from './routes/app.cadastros'
 import { Route as AppAuditoriaRouteImport } from './routes/app.auditoria'
+import { Route as AppAssinaturasRouteImport } from './routes/app.assinaturas'
 import { Route as AppAgendasRouteImport } from './routes/app.agendas'
 import { Route as AppAgendarRouteImport } from './routes/app.agendar'
 import { Route as AppAgendaDiaRouteImport } from './routes/app.agenda-dia'
@@ -162,6 +163,11 @@ const AppAuditoriaRoute = AppAuditoriaRouteImport.update({
   path: '/auditoria',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAssinaturasRoute = AppAssinaturasRouteImport.update({
+  id: '/assinaturas',
+  path: '/assinaturas',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAgendasRoute = AppAgendasRouteImport.update({
   id: '/agendas',
   path: '/agendas',
@@ -238,6 +244,7 @@ export interface FileRoutesByFullPath {
   '/app/agenda-dia': typeof AppAgendaDiaRoute
   '/app/agendar': typeof AppAgendarRoute
   '/app/agendas': typeof AppAgendasRoute
+  '/app/assinaturas': typeof AppAssinaturasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/cadastros': typeof AppCadastrosRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
@@ -275,6 +282,7 @@ export interface FileRoutesByTo {
   '/app/agenda-dia': typeof AppAgendaDiaRoute
   '/app/agendar': typeof AppAgendarRoute
   '/app/agendas': typeof AppAgendasRoute
+  '/app/assinaturas': typeof AppAssinaturasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/cadastros': typeof AppCadastrosRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
@@ -312,6 +320,7 @@ export interface FileRoutesById {
   '/app/agenda-dia': typeof AppAgendaDiaRoute
   '/app/agendar': typeof AppAgendarRoute
   '/app/agendas': typeof AppAgendasRoute
+  '/app/assinaturas': typeof AppAssinaturasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/cadastros': typeof AppCadastrosRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
@@ -352,6 +361,7 @@ export interface FileRouteTypes {
     | '/app/agenda-dia'
     | '/app/agendar'
     | '/app/agendas'
+    | '/app/assinaturas'
     | '/app/auditoria'
     | '/app/cadastros'
     | '/app/configuracoes'
@@ -389,6 +399,7 @@ export interface FileRouteTypes {
     | '/app/agenda-dia'
     | '/app/agendar'
     | '/app/agendas'
+    | '/app/assinaturas'
     | '/app/auditoria'
     | '/app/cadastros'
     | '/app/configuracoes'
@@ -425,6 +436,7 @@ export interface FileRouteTypes {
     | '/app/agenda-dia'
     | '/app/agendar'
     | '/app/agendas'
+    | '/app/assinaturas'
     | '/app/auditoria'
     | '/app/cadastros'
     | '/app/configuracoes'
@@ -628,6 +640,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuditoriaRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/assinaturas': {
+      id: '/app/assinaturas'
+      path: '/assinaturas'
+      fullPath: '/app/assinaturas'
+      preLoaderRoute: typeof AppAssinaturasRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/agendas': {
       id: '/app/agendas'
       path: '/agendas'
@@ -769,6 +788,7 @@ interface AppRouteChildren {
   AppAgendaDiaRoute: typeof AppAgendaDiaRoute
   AppAgendarRoute: typeof AppAgendarRoute
   AppAgendasRoute: typeof AppAgendasRoute
+  AppAssinaturasRoute: typeof AppAssinaturasRoute
   AppAuditoriaRoute: typeof AppAuditoriaRoute
   AppCadastrosRoute: typeof AppCadastrosRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRouteWithChildren
@@ -792,6 +812,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAgendaDiaRoute: AppAgendaDiaRoute,
   AppAgendarRoute: AppAgendarRoute,
   AppAgendasRoute: AppAgendasRoute,
+  AppAssinaturasRoute: AppAssinaturasRoute,
   AppAuditoriaRoute: AppAuditoriaRoute,
   AppCadastrosRoute: AppCadastrosRoute,
   AppConfiguracoesRoute: AppConfiguracoesRouteWithChildren,

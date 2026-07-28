@@ -49,6 +49,20 @@ interface EventoConsulta {
   ip_mask: string | null;
 }
 
+interface AssinaturaPdf {
+  protocolo: string;
+  nome_arquivo: string;
+  motivo: string | null;
+  assinante_nome: string;
+  assinante_conselho: string | null;
+  assinante_email_mask: string | null;
+  unidade_nome: string | null;
+  ip_mask: string | null;
+  hash_original: string;
+  assinatura_curta: string;
+  assinado_em: string;
+}
+
 interface Documento {
   protocolo: string;
   tipo: string;
@@ -97,6 +111,7 @@ function VerificarPage() {
   const [codigo, setCodigo] = useState(search.p ?? "");
   const [loading, setLoading] = useState(false);
   const [doc, setDoc] = useState<Documento | null>(null);
+  const [assinaturaPdf, setAssinaturaPdf] = useState<AssinaturaPdf | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -104,12 +119,19 @@ function VerificarPage() {
   const consultar = async (proto: string) => {
     const p = extrairProtocolo(proto);
     if (!p) return;
-    setLoading(true); setDoc(null); setNotFound(false); setErro(null);
+    setLoading(true); setDoc(null); setAssinaturaPdf(null); setNotFound(false); setErro(null);
     try {
       const { data, error } = await supabase.rpc("verificar_documento", { p_protocolo: p });
       if (error) throw error;
-      if (!data || data.length === 0) setNotFound(true);
-      else setDoc(data[0] as unknown as Documento);
+      if (data && data.length > 0) {
+        setDoc(data[0] as unknown as Documento);
+      } else {
+        const { data: sig, error: sigErr } = await supabase.rpc("verificar_assinatura_pdf" as never, { p_protocolo: p } as never);
+        if (sigErr) throw sigErr;
+        const rows = (sig ?? []) as unknown as AssinaturaPdf[];
+        if (rows.length > 0) setAssinaturaPdf(rows[0]);
+        else setNotFound(true);
+      }
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha ao consultar.");
     } finally { setLoading(false); }
@@ -331,6 +353,60 @@ function VerificarPage() {
             </ol>
             <div className="border-t bg-muted/30 px-6 py-2 text-[11px] text-muted-foreground">
               IPs exibidos em hash anônimo — não é possível identificar o consultante.
+            </div>
+          </div>
+        )}
+
+        {/* Assinatura eletrônica de PDF */}
+        {assinaturaPdf && (
+          <div className="mt-6 space-y-4">
+            <div className="overflow-hidden rounded-3xl border-2 border-emerald-400 bg-gradient-to-br from-emerald-500 to-emerald-700 px-6 py-8 text-white shadow-xl sm:px-10">
+              <div className="flex items-start gap-4">
+                <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white/20 ring-1 ring-white/30 backdrop-blur">
+                  <CheckCircle2 className="h-10 w-10" strokeWidth={2.5} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-semibold uppercase tracking-widest text-emerald-100/90">
+                    Resultado da verificação
+                  </div>
+                  <div className="mt-1 text-2xl font-extrabold leading-tight tracking-tight sm:text-4xl">
+                    ASSINATURA VÁLIDA
+                  </div>
+                  <div className="mt-2 text-sm text-emerald-50/95 sm:text-base">
+                    PDF assinado eletronicamente no SpokenMED e registrado com autor, data, hora e origem.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border bg-card shadow-sm">
+              <div className="flex items-center gap-2 border-b px-6 py-3 text-sm font-semibold">
+                <FileText className="h-4 w-4 text-primary" /> Dados da assinatura
+              </div>
+              <div className="space-y-4 p-6">
+                <Row label="Arquivo" value={assinaturaPdf.nome_arquivo} />
+                {assinaturaPdf.motivo && <Row label="Finalidade" value={assinaturaPdf.motivo} />}
+                <Row label="Assinado por" value={assinaturaPdf.assinante_nome} icon={Stethoscope} />
+                {assinaturaPdf.assinante_conselho && <Row label="Registro" value={assinaturaPdf.assinante_conselho} mono />}
+                {assinaturaPdf.assinante_email_mask && <Row label="Usuário" value={assinaturaPdf.assinante_email_mask} mono />}
+                {assinaturaPdf.unidade_nome && <Row label="Unidade" value={assinaturaPdf.unidade_nome} />}
+                <Row
+                  label="Data e hora"
+                  value={new Date(assinaturaPdf.assinado_em).toLocaleString("pt-BR", { dateStyle: "long", timeStyle: "medium" })}
+                />
+                {assinaturaPdf.ip_mask && <Row label="IP de origem" value={assinaturaPdf.ip_mask} mono />}
+                <Row label="Protocolo" value={assinaturaPdf.protocolo} mono />
+                <div className="rounded-lg border border-emerald-300 bg-emerald-50/60 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                    <ShieldCheck className="h-3.5 w-3.5" /> Integridade do arquivo
+                  </div>
+                  <div className="mt-1 break-all font-mono text-[11px]">SHA-256: {assinaturaPdf.hash_original}</div>
+                  <div className="mt-1 break-all font-mono text-[11px]">HMAC: {assinaturaPdf.assinatura_curta}…</div>
+                  <div className="mt-2 text-[11px] text-muted-foreground">
+                    Assinatura eletrônica avançada (Lei 14.063/2020, art. 4º, II). Qualquer alteração no conteúdo altera o hash e invalida a conferência.
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

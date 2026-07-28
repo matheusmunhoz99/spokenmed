@@ -21,6 +21,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
 import { formatCPF, formatCNS, formatTime, onlyDigits } from "@/lib/format";
 import { gerarComprovante } from "@/lib/pdf-comprovante";
+import { assinarPdf, baixarPdf } from "@/lib/pdf-sign";
+import { FileSignature } from "lucide-react";
 
 import { SemAcesso } from "@/components/sem-acesso";
 import { Switch } from "@/components/ui/switch";
@@ -53,6 +55,7 @@ function AgendarPage() {
   const [comprovanteOpen, setComprovanteOpen] = useState(false);
   const [ultimoAgendamentoId, setUltimoAgendamentoId] = useState<string | null>(null);
   const [origemSecretaria, setOrigemSecretaria] = useState(false);
+  const [assinandoDoc, setAssinandoDoc] = useState(false);
 
   const competencia = useMemo(() => `${data.slice(0, 7)}-01`, [data]);
   const { data: cotaInfo } = useQuery({
@@ -201,15 +204,15 @@ function AgendarPage() {
     setComprovanteOpen(true);
   };
 
-  const imprimirComprovante = async () => {
-    if (!ultimoAgendamentoId) return;
+  const montarComprovante = async () => {
+    if (!ultimoAgendamentoId) return null;
     const { data: ag } = await supabase
       .from("agendamentos")
       .select("id, codigo, data, hora_inicio, motivo, pacientes(nome, cpf, cns, telefone), profissionais(nome, cbo, especialidades(nome)), unidades(nome, endereco, telefone, cnes), procedimentos(codigo_sigtap, nome)")
       .eq("id", ultimoAgendamentoId)
       .single();
-    if (!ag) return toast.error("Não foi possível carregar o comprovante");
-    await gerarComprovante({
+    if (!ag) { toast.error("Não foi possível carregar o comprovante"); return null; }
+    const payload = {
       codigo: (ag as any).codigo ?? ag.id,
       data: ag.data,
       hora: ag.hora_inicio,
@@ -235,7 +238,37 @@ function AgendarPage() {
         : null,
       motivo: ag.motivo,
       emitidoPor: profile?.nome || user?.email || "",
-    });
+    };
+    return { payload, paciente_id: (ag as any).paciente_id as string | undefined };
+  };
+
+  const imprimirComprovante = async () => {
+    const c = await montarComprovante();
+    if (!c) return;
+    await gerarComprovante(c.payload);
+  };
+
+  const assinarComprovante = async () => {
+    const c = await montarComprovante();
+    if (!c) return;
+    setAssinandoDoc(true);
+    try {
+      const bytes = (await gerarComprovante(c.payload, { retornarBytes: true })) as ArrayBuffer;
+      const nome = `guia-${c.payload.codigo}.pdf`;
+      const res = await assinarPdf({
+        bytes,
+        nomeArquivo: nome,
+        motivo: procedimentoId ? "Guia de exame / procedimento agendado" : "Comprovante de agendamento",
+        agendamentoId: ultimoAgendamentoId,
+        unidadeId: unidadeId || null,
+      });
+      baixarPdf(res.bytes, nome.replace(/\.pdf$/i, "") + "-assinado.pdf");
+      toast.success(`Documento assinado · protocolo ${res.protocolo}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao assinar o documento.");
+    } finally {
+      setAssinandoDoc(false);
+    }
   };
 
   const fecharESair = () => {
@@ -443,10 +476,19 @@ function AgendarPage() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               Deseja imprimir o comprovante do agendamento agora?
+              {procedimentoId ? " Para exames, você pode emitir a guia já assinada digitalmente." : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
             <AlertDialogCancel onClick={fecharESair}>Não, obrigado</AlertDialogCancel>
+            <Button
+              variant="outline"
+              disabled={assinandoDoc}
+              onClick={async () => { await assinarComprovante(); fecharESair(); }}
+            >
+              <FileSignature className="mr-2 h-4 w-4" />
+              {assinandoDoc ? "Assinando…" : "Assinar digitalmente"}
+            </Button>
             <AlertDialogAction onClick={async () => { await imprimirComprovante(); fecharESair(); }}>
               <FileText className="mr-2 h-4 w-4" /> Sim, imprimir
             </AlertDialogAction>
