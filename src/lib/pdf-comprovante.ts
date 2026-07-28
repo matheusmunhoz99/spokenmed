@@ -26,7 +26,7 @@ const dataExtenso = (iso: string) =>
     year: "numeric",
   });
 
-export async function gerarComprovante(c: ComprovanteData) {
+export async function gerarComprovante(c: ComprovanteData, opts?: { retornarBytes?: boolean }): Promise<ArrayBuffer | void> {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 40;
@@ -144,6 +144,7 @@ export async function gerarComprovante(c: ComprovanteData) {
     assinatura_payload_sha: sig?.assinatura_payload_sha ?? null,
     assinado_em: sig?.assinado_em ?? null,
   });
+  if (opts?.retornarBytes) return doc.output("arraybuffer") as ArrayBuffer;
   openPdf(doc, `comprovante_${c.codigo.slice(0, 8)}.pdf`);
 }
 
