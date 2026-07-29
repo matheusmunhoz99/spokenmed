@@ -3,7 +3,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, Stethoscope, CalendarCog, CalendarPlus,
   CalendarDays, Building2, Settings, LogOut, MonitorPlay, ListOrdered, ShieldCheck, BarChart3, KeyRound,
-  Activity, FolderPlus, UserCog, ChevronRight, History, ClipboardList, HeartPulse, Home, FileDown, FileSignature, BedDouble,
+  Activity, FolderPlus, UserCog, ChevronRight, History, ClipboardList, HeartPulse, Home, FileDown, FileSignature, BedDouble, Network,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -35,6 +35,7 @@ const modules: Module[] = [
       { title: "Agendar Consulta", url: "/app/agendar", icon: CalendarPlus, module: "agendar" },
       { title: "Fila de Espera", url: "/app/fila", icon: ListOrdered, module: "fila" },
       { title: "Leitos & Internações", url: "/app/leitos", icon: BedDouble, module: "leitos" },
+      { title: "Encaminhamentos / Regulação", url: "/app/encaminhamentos", icon: Network, module: "regulacao" },
       { title: "Painel de Chamada", url: "/painel", icon: MonitorPlay, module: "painel" },
     ],
   },
