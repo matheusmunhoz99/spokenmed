@@ -445,7 +445,7 @@ function LeitosPage() {
         <div className="flex flex-wrap items-center justify-between gap-6 p-7">
           <div className="space-y-2">
             <div className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-[0.2em] text-cyan-400">
-              <Sparkles className="h-4 w-4 animate-pulse text-cyan-400" /> Central Médica de Atendimento
+              <Activity className="h-4 w-4 text-cyan-400" /> Central Médica de Atendimento
             </div>
             <h1 className="text-3xl font-extrabold tracking-tight text-white">
               {moduloAtivo === "observacao" ? "Painel de Observação & Pronto Atendimento" : "Central Hospitalar & Mapa de Leitos"}
