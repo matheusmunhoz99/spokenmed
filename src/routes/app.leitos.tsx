@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -143,6 +143,22 @@ function LeitosPage() {
   const [buscaObs, setBuscaObs] = useState("");
   const [filtroStatusObs, setFiltroStatusObs] = useState<string>("todos");
 
+  // Timer de contagem regressiva da próxima sincronização do .exe (30s)
+  const [segundosParaSync, setSegundosParaSync] = useState(30);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSegundosParaSync((prev) => {
+        if (prev <= 1) {
+          refresh();
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const [leitoOpen, setLeitoOpen] = useState(false);
   const [internacaoOpen, setInternacaoOpen] = useState(false);
   const [altaAlvo, setAltaAlvo] = useState<any>(null);
@@ -185,7 +201,7 @@ function LeitosPage() {
       if (error) throw error;
       return data ?? [];
     },
-    refetchInterval: 5000,
+    refetchInterval: 30000,
   });
 
   const { data: internacoes, isLoading: loadingInt } = useQuery({
@@ -216,7 +232,7 @@ function LeitosPage() {
       if (error) throw error;
       return data ?? [];
     },
-    refetchInterval: 5000,
+    refetchInterval: 30000,
   });
 
   const { data: observacoes, isLoading: loadingObservacoes } = useQuery({
@@ -234,7 +250,7 @@ function LeitosPage() {
       if (error) throw error;
       return data ?? [];
     },
-    refetchInterval: 5000,
+    refetchInterval: 30000,
   });
 
   const { data: obsEvolucoes, isLoading: loadingObsEvolucoes } = useQuery({
@@ -249,7 +265,7 @@ function LeitosPage() {
       if (error) throw error;
       return data ?? [];
     },
-    refetchInterval: 5000,
+    refetchInterval: 30000,
   });
 
   const { data: pacientes } = useQuery({
@@ -482,9 +498,9 @@ function LeitosPage() {
               </button>
             </div>
 
-            <div className="flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-medium text-emerald-300 shadow-sm">
-              <span className="h-2 w-2 animate-ping rounded-full bg-emerald-400" />
-              Sincronizado com Firebird
+            <div className="flex items-center gap-2 rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-xs font-mono font-bold text-cyan-300 shadow-md backdrop-blur-md">
+              <span className="h-2.5 w-2.5 animate-ping rounded-full bg-cyan-400" />
+              <span>Próxima sincronização em: 00:{segundosParaSync.toString().padStart(2, "0")}</span>
             </div>
           </div>
         </div>
