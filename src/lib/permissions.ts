@@ -16,7 +16,8 @@ export type ModuleKey =
   | "domicilios"
   | "cotas"
   | "secretaria_agendar"
-  | "assinaturas";
+  | "assinaturas"
+  | "leitos";
 
 export type AppRole = "admin" | "recepcionista" | "medico" | "triagem" | "acs";
 
@@ -36,6 +37,7 @@ export const MODULES: { key: ModuleKey; label: string; manageable: boolean }[] =
   { key: "usuarios", label: "Usuários do sistema", manageable: true },
   { key: "cotas", label: "Cotas de agendamento", manageable: true },
   { key: "assinaturas", label: "Assinatura digital de PDF", manageable: true },
+  { key: "leitos", label: "Controle de Leitos & Internações", manageable: true },
   { key: "secretaria_agendar", label: "Agendar como Secretaria (urgência)", manageable: true },
   { key: "relatorios", label: "Relatórios & Dashboards", manageable: false },
   { key: "auditoria", label: "Auditoria (LGPD)", manageable: false },
