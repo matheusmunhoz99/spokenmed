@@ -1353,6 +1353,37 @@ function LeitosPage() {
                                   {e.evolucao}
                                 </p>
                               )}
+
+                              {/* Sinais Vitais da Evolução */}
+                              {(e.pressao_sistolica != null || e.bpm != null || e.temperatura != null || e.saturacao != null || e.especialidade) && (
+                                <div className="flex flex-wrap items-center gap-2 pt-2 border-t text-xs">
+                                  {e.especialidade && (
+                                    <Badge variant="outline" className="bg-indigo-50/50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300">
+                                      🩺 {e.especialidade}
+                                    </Badge>
+                                  )}
+                                  {e.pressao_sistolica != null && (
+                                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300 font-mono">
+                                      🩺 PA: {e.pressao_sistolica}/{e.pressao_diastolica ?? "—"} mmHg
+                                    </Badge>
+                                  )}
+                                  {e.bpm != null && (
+                                    <Badge variant="outline" className="bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300 font-mono">
+                                      ❤️ FC: {e.bpm} bpm
+                                    </Badge>
+                                  )}
+                                  {e.temperatura != null && (
+                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300 font-mono">
+                                      🌡️ Temp: {e.temperatura} °C
+                                    </Badge>
+                                  )}
+                                  {e.saturacao != null && (
+                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 font-mono">
+                                      🫁 SpO₂: {e.saturacao}%
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
                             </CardContent>
                           </Card>
                         );

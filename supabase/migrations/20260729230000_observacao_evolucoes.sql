@@ -5,14 +5,31 @@ CREATE TABLE IF NOT EXISTS public.observacao_evolucoes (
   codigo_origem_firebird text NOT NULL UNIQUE,
   profissional_id uuid REFERENCES public.profissionais(id),
   profissional_nome text,
+  especialidade text,
   data_hora timestamptz,
   evolucao text,
   flg_anotacao text,
   anotacao boolean NOT NULL DEFAULT false,
+  pressao_sistolica numeric,
+  pressao_diastolica numeric,
+  bpm numeric,
+  temperatura numeric,
+  saturacao numeric,
+  situacao text,
   usuario text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Garantir adição das colunas de sinais vitais caso a tabela já exista
+ALTER TABLE public.observacao_evolucoes
+  ADD COLUMN IF NOT EXISTS pressao_sistolica numeric,
+  ADD COLUMN IF NOT EXISTS pressao_diastolica numeric,
+  ADD COLUMN IF NOT EXISTS bpm numeric,
+  ADD COLUMN IF NOT EXISTS temperatura numeric,
+  ADD COLUMN IF NOT EXISTS saturacao numeric,
+  ADD COLUMN IF NOT EXISTS especialidade text,
+  ADD COLUMN IF NOT EXISTS situacao text;
 
 CREATE INDEX IF NOT EXISTS observacao_evolucoes_obs_idx
   ON public.observacao_evolucoes(observacao_id, data_hora DESC);
@@ -41,7 +58,7 @@ CREATE POLICY observacao_evolucoes_manage ON public.observacao_evolucoes
     OR private.has_permission(auth.uid(), 'leitos', 'manage')
   );
 
--- Atualização da função de materialização de observação para incluir FICHAATENDIMENTO_EVOLUCAO
+-- Atualização da função de materialização de observação para incluir FICHAATENDIMENTO_EVOLUCAO com sinais vitais e chave única por item
 CREATE OR REPLACE FUNCTION public.materializar_integracao_observacao(p_lote_id uuid)
 RETURNS integer
 LANGUAGE plpgsql
@@ -62,6 +79,7 @@ DECLARE
   v_reavaliacao timestamptz;
   v_dt_evo timestamptz;
   v_codigo text;
+  v_item text;
   v_total integer := 0;
 BEGIN
   -- Processar registros principais de OBSERVACAO
@@ -98,105 +116,109 @@ BEGIN
     LIMIT 1;
     IF v_paciente IS NULL AND NULLIF(p->>'PACIENTE_CPF', '') IS NOT NULL THEN
       SELECT id INTO v_paciente FROM public.pacientes
-      WHERE cpf = NULLIF(regexp_replace(p->>'PACIENTE_CPF', '\D', '', 'g'), '')
-      LIMIT 1;
+      WHERE cpf = regexp_replace(p->>'PACIENTE_CPF', '\D', '', 'g') LIMIT 1;
     END IF;
-    IF v_paciente IS NULL AND NULLIF(p->>'PACIENTE_CNS', '') IS NOT NULL THEN
-      SELECT id INTO v_paciente FROM public.pacientes
-      WHERE cns = NULLIF(regexp_replace(p->>'PACIENTE_CNS', '\D', '', 'g'), '')
-      LIMIT 1;
-    END IF;
+
     IF v_paciente IS NULL THEN
-      INSERT INTO public.pacientes(
-        codigo_origem_firebird, nome, cpf, cns, rg, data_nascimento,
-        sexo, nome_mae, telefone, ativo
+      INSERT INTO public.pacientes (
+        codigo_origem_firebird, nome, cpf, cns, data_nascimento, ativo
       ) VALUES (
-        p->>'NMATRICULA',
-        COALESCE(NULLIF(p->>'PACIENTE_NOME', ''), 'Paciente ' || (p->>'NMATRICULA')),
-        NULLIF(regexp_replace(p->>'PACIENTE_CPF', '\D', '', 'g'), ''),
-        NULLIF(regexp_replace(p->>'PACIENTE_CNS', '\D', '', 'g'), ''),
-        NULLIF(p->>'PACIENTE_RG', ''),
-        NULLIF(left(p->>'PACIENTE_DATANASCIMENTO', 10), '')::date,
-        CASE WHEN upper(p->>'PACIENTE_SEXO') IN ('M', 'F', 'O')
-          THEN upper(p->>'PACIENTE_SEXO')::public.sexo_tipo ELSE NULL END,
-        NULLIF(p->>'PACIENTE_MAE', ''),
-        NULLIF(p->>'PACIENTE_TELEFONE', ''),
+        NULLIF(p->>'NMATRICULA', ''),
+        COALESCE(NULLIF(p->>'PACIENTE_NOME', ''), 'Paciente Ficha ' || (p->>'NFICHA')),
+        NULLIF(regexp_replace(COALESCE(p->>'PACIENTE_CPF', ''), '\D', '', 'g'), ''),
+        NULLIF(p->>'PACIENTE_CNS', ''),
+        CASE WHEN NULLIF(p->>'PACIENTE_DTNASC', '') IS NOT NULL
+          THEN left(p->>'PACIENTE_DTNASC', 10)::date ELSE NULL END,
         true
       )
+      ON CONFLICT (codigo_origem_firebird) DO UPDATE SET
+        nome = COALESCE(NULLIF(EXCLUDED.nome, ''), public.pacientes.nome),
+        cpf = COALESCE(EXCLUDED.cpf, public.pacientes.cpf)
       RETURNING id INTO v_paciente;
-    ELSE
-      UPDATE public.pacientes SET
-        codigo_origem_firebird = COALESCE(codigo_origem_firebird, p->>'NMATRICULA'),
-        nome = COALESCE(NULLIF(p->>'PACIENTE_NOME', ''), nome),
-        ativo = true
-      WHERE id = v_paciente;
     END IF;
 
     v_medico := public.upsert_profissional_firebird(
       NULLIF(p->>'CD_MEDICO', ''),
       NULLIF(p->>'MEDICO_NOME', ''),
-      v_unidade
+      NULL
     );
-    SELECT id INTO v_leito
-    FROM public.leitos
-    WHERE codigo_origem_firebird = NULLIF(p->>'CD_LEITO', '')
-    LIMIT 1;
 
-    v_entrada := CASE WHEN NULLIF(p->>'DATA', '') IS NULL THEN NULL
-      ELSE ((left(p->>'DATA', 10)::date +
-        COALESCE(NULLIF(left(p->>'HORA', 8), '')::time, time '00:00'))
-        AT TIME ZONE 'America/Sao_Paulo') END;
-    v_alta := CASE WHEN NULLIF(p->>'DT_ALTA', '') IS NULL THEN NULL
-      ELSE ((left(p->>'DT_ALTA', 10)::date +
-        COALESCE(NULLIF(left(p->>'HR_ALTA', 8), '')::time, time '00:00'))
-        AT TIME ZONE 'America/Sao_Paulo') END;
-    v_reavaliacao := CASE WHEN NULLIF(p->>'DT_REAVALIAR', '') IS NULL THEN NULL
-      ELSE (left(p->>'DT_REAVALIAR', 19)::timestamp AT TIME ZONE 'America/Sao_Paulo') END;
+    v_leito := NULL;
+    IF NULLIF(p->>'LEITO_DESCRICAO', '') IS NOT NULL OR NULLIF(p->>'QUARTO', '') IS NOT NULL THEN
+      SELECT id INTO v_leito
+      FROM public.leitos
+      WHERE unidade_id = v_unidade
+        AND quarto = COALESCE(NULLIF(p->>'QUARTO', ''), 'OBS')
+        AND numero = COALESCE(NULLIF(p->>'LEITO_DESCRICAO', ''), '1')
+      LIMIT 1;
 
-    INSERT INTO public.observacoes(
-      codigo_origem_firebird, ficha_firebird, paciente_id, unidade_id,
-      leito_id, medico_id, data_entrada, data_alta, status,
-      flag_observacao, reavaliar, data_reavaliacao, pos_consulta,
-      convenio, setor, setor_cor, quarto, leito_descricao,
-      risco, risco_cor, risco_prioridade, tipo_ficha,
-      qtd_acompanhantes, qtd_prescricoes, qtd_medicacoes_pendentes,
-      qtd_evolucoes, qtd_anotacoes, qtd_orientacoes, qtd_guias,
-      qtd_receitas, qtd_atestados, qtd_procedimentos, qtd_questionarios,
-      sincronizado_firebird, payload_atualizado_em
+      IF v_leito IS NULL THEN
+        INSERT INTO public.leitos (
+          unidade_id, ala, quarto, numero, tipo, situacao, observacoes
+        ) VALUES (
+          v_unidade,
+          COALESCE(NULLIF(p->>'SETOR', ''), 'Observação'),
+          COALESCE(NULLIF(p->>'QUARTO', ''), 'OBS'),
+          COALESCE(NULLIF(p->>'LEITO_DESCRICAO', ''), '1'),
+          'observacao',
+          'ocupado',
+          'Importado do Firebird'
+        )
+        ON CONFLICT (unidade_id, quarto, numero) DO UPDATE SET
+          situacao = 'ocupado'
+        RETURNING id INTO v_leito;
+      END IF;
+    END IF;
+
+    v_entrada := CASE WHEN NULLIF(p->>'DATA_ENTRADA', '') IS NULL THEN now()
+      ELSE ((left(p->>'DATA_ENTRADA', 10)::date +
+        COALESCE(NULLIF(left(p->>'HORA_ENTRADA', 8), '')::time, time '00:00'))
+        AT TIME ZONE 'America/Sao_Paulo') END;
+
+    v_alta := CASE WHEN NULLIF(p->>'DATA_ALTA', '') IS NULL THEN NULL
+      ELSE ((left(p->>'DATA_ALTA', 10)::date +
+        COALESCE(NULLIF(left(p->>'HORA_ALTA', 8), '')::time, time '00:00'))
+        AT TIME ZONE 'America/Sao_Paulo') END;
+
+    v_reavaliacao := CASE WHEN NULLIF(p->>'DATA_REAVALIACAO', '') IS NULL THEN NULL
+      ELSE ((left(p->>'DATA_REAVALIACAO', 10)::date +
+        COALESCE(NULLIF(left(p->>'HORA_REAVALIACAO', 8), '')::time, time '00:00'))
+        AT TIME ZONE 'America/Sao_Paulo') END;
+
+    INSERT INTO public.observacoes (
+      codigo_origem_firebird, ficha_firebird, unidade_id, paciente_id, leito_id,
+      medico_id, data_entrada, data_alta, status, flag_observacao, reavaliar,
+      data_reavaliacao, pos_consulta, convenio, setor, setor_cor, quarto,
+      leito_descricao, risco, risco_cor, risco_prioridade, tipo_ficha,
+      qtd_acompanhantes, qtd_prescricoes, qtd_medicacoes_pendentes, qtd_evolucoes,
+      qtd_anotacoes, qtd_orientacoes, qtd_guias, qtd_receitas, qtd_atestados,
+      qtd_procedimentos, qtd_questionarios, sincronizado_firebird, payload_atualizado_em
     ) VALUES (
-      v_codigo, p->>'NFICHA', v_paciente, v_unidade,
-      v_leito, v_medico, v_entrada, v_alta,
-      CASE
-        WHEN upper(COALESCE(p->>'OBSERVACAO_ATIVA', 'N')) <> 'S' THEN 'alta'
-        WHEN upper(COALESCE(p->>'FLG_REAVALIAR', 'N')) = 'S'
-          OR upper(COALESCE(p->>'FLG_OBSERVACAO', '')) = 'R' THEN 'reavaliacao'
-        ELSE 'em_observacao'
-      END,
-      NULLIF(p->>'FLG_OBSERVACAO', ''),
-      upper(COALESCE(p->>'FLG_REAVALIAR', 'N')) = 'S',
-      v_reavaliacao, NULLIF(p->>'POSCONSULTA', ''),
-      NULLIF(p->>'CONVENIO_NOME', ''), NULLIF(p->>'DE_SETOR', ''),
-      NULLIF(p->>'SETOR_COR_GRID', ''), NULLIF(p->>'DE_QUARTO', ''),
-      NULLIF(p->>'DE_LEITO', ''), NULLIF(p->>'DE_RISCO', ''),
-      NULLIF(p->>'RISCO_COR', ''), COALESCE(NULLIF(p->>'RISCO_PRIORIDADE', '')::integer, 99),
-      NULLIF(p->>'DE_TIPOFICHA_GRUPO', ''),
-      COALESCE(NULLIF(p->>'QTD_ACOM', '')::integer, 0),
-      COALESCE(NULLIF(p->>'QTD_PRES', '')::integer, 0),
-      COALESCE(NULLIF(p->>'QTD_AGE', '')::integer, 0),
-      COALESCE(NULLIF(p->>'QTD_EVO', '')::integer, 0),
-      COALESCE(NULLIF(p->>'QTD_ANOT', '')::integer, 0),
-      COALESCE(NULLIF(p->>'QTD_ORI', '')::integer, 0),
-      COALESCE(NULLIF(p->>'QTD_GUIA', '')::integer, 0),
-      COALESCE(NULLIF(p->>'QTD_REC', '')::integer, 0),
-      COALESCE(NULLIF(p->>'QTD_ATE', '')::integer, 0),
-      COALESCE(NULLIF(p->>'QTD_EXT', '')::integer, 0),
-      COALESCE(NULLIF(p->>'QTD_QST', '')::integer, 0),
+      v_codigo, p->>'NFICHA', v_unidade, v_paciente, v_leito, v_medico,
+      v_entrada, v_alta,
+      CASE WHEN v_alta IS NOT NULL THEN 'alta'
+           WHEN upper(COALESCE(p->>'REAVALIAR', 'N')) = 'S' THEN 'reavaliacao'
+           ELSE 'em_observacao' END,
+      p->>'FLG_OBSERVACAO',
+      upper(COALESCE(p->>'REAVALIAR', 'N')) = 'S',
+      v_reavaliacao, p->>'POS_CONSULTA', p->>'CONVENIO', p->>'SETOR',
+      p->>'SETOR_COR', p->>'QUARTO', p->>'LEITO_DESCRICAO', p->>'RISCO',
+      p->>'RISCO_COR', NULLIF(p->>'RISCO_PRIORIDADE', '')::integer, p->>'TIPO_FICHA',
+      COALESCE(NULLIF(p->>'QTD_ACOMPANHANTES', '')::integer, 0),
+      COALESCE(NULLIF(p->>'QTD_PRESCRICOES', '')::integer, 0),
+      COALESCE(NULLIF(p->>'QTD_MEDICACOES_PENDENTES', '')::integer, 0),
+      COALESCE(NULLIF(p->>'QTD_EVOLUCOES', '')::integer, 0),
+      COALESCE(NULLIF(p->>'QTD_ANOTACOES', '')::integer, 0),
+      COALESCE(NULLIF(p->>'QTD_ORIENTACOES', '')::integer, 0),
+      COALESCE(NULLIF(p->>'QTD_GUIAS', '')::integer, 0),
+      COALESCE(NULLIF(p->>'QTD_RECEITAS', '')::integer, 0),
+      COALESCE(NULLIF(p->>'QTD_ATESTADOS', '')::integer, 0),
+      COALESCE(NULLIF(p->>'QTD_PROCEDIMENTOS', '')::integer, 0),
+      COALESCE(NULLIF(p->>'QTD_QUESTIONARIOS', '')::integer, 0),
       true, now()
     )
     ON CONFLICT (codigo_origem_firebird) DO UPDATE SET
-      ficha_firebird = EXCLUDED.ficha_firebird,
       paciente_id = EXCLUDED.paciente_id,
-      unidade_id = EXCLUDED.unidade_id,
       leito_id = EXCLUDED.leito_id,
       medico_id = EXCLUDED.medico_id,
       data_entrada = EXCLUDED.data_entrada,
@@ -239,7 +261,20 @@ BEGIN
       AND tabela = 'FICHAATENDIMENTO_EVOLUCAO'
   LOOP
     p := r.payload;
-    v_codigo := NULLIF(p->>'CD_UNIDADE', '') || '|' || NULLIF(p->>'NFICHA', '') || '|' || NULLIF(p->>'ID_ITEM', '');
+
+    -- Gerar identificador único item por item
+    v_item := COALESCE(
+      NULLIF(p->>'CD_ITEM', ''),
+      NULLIF(p->>'ID_ITEM', ''),
+      NULLIF(p->>'ITEM', ''),
+      NULLIF(p->>'SEQUE', ''),
+      NULLIF(p->>'ID_EVOLUCAO', ''),
+      NULLIF(p->>'CD_EVOLUCAO', ''),
+      regexp_replace(COALESCE(p->>'DATA', ''), '\D', '', 'g') || '_' || regexp_replace(COALESCE(p->>'HORA', ''), '\D', '', 'g'),
+      '1'
+    );
+
+    v_codigo := NULLIF(p->>'CD_UNIDADE', '') || '|' || NULLIF(p->>'NFICHA', '') || '|' || v_item;
     IF v_codigo IS NULL THEN CONTINUE; END IF;
 
     -- Localizar a observação mãe
@@ -257,27 +292,43 @@ BEGIN
       NULL
     );
 
-    v_dt_evo := CASE WHEN NULLIF(p->>'DATA', '') IS NULL THEN NULL
+    v_dt_evo := CASE WHEN NULLIF(p->>'DATA', '') IS NULL THEN now()
       ELSE ((left(p->>'DATA', 10)::date +
         COALESCE(NULLIF(left(p->>'HORA', 8), '')::time, time '00:00'))
         AT TIME ZONE 'America/Sao_Paulo') END;
 
     INSERT INTO public.observacao_evolucoes (
-      observacao_id, codigo_origem_firebird, profissional_id, profissional_nome,
-      data_hora, evolucao, flg_anotacao, anotacao, usuario
+      observacao_id, codigo_origem_firebird, profissional_id, profissional_nome, especialidade,
+      data_hora, evolucao, flg_anotacao, anotacao, pressao_sistolica, pressao_diastolica,
+      bpm, temperatura, saturacao, situacao, usuario
     ) VALUES (
-      v_obs_id, v_codigo, v_prof_id, NULLIF(p->>'MEDICO_NOME', ''),
+      v_obs_id, v_codigo, v_prof_id,
+      COALESCE(NULLIF(p->>'MEDICO_NOME', ''), NULLIF(p->>'MEDICO', '')),
+      NULLIF(p->>'ESPEC', ''),
       v_dt_evo, NULLIF(p->>'EVOLUCAO', ''), NULLIF(p->>'FLG_ANOTACAO', ''),
       upper(COALESCE(p->>'FLG_ANOTACAO', 'N')) = 'S',
+      NULLIF(p->>'PRESSAO1', '')::numeric,
+      NULLIF(p->>'PRESSAO2', '')::numeric,
+      NULLIF(p->>'BPM', '')::numeric,
+      NULLIF(p->>'TEMPERATURA', '')::numeric,
+      NULLIF(p->>'SATURACAO', '')::numeric,
+      NULLIF(p->>'CD_SITUACAO', ''),
       NULLIF(p->>'USUARIO', '')
     )
     ON CONFLICT (codigo_origem_firebird) DO UPDATE SET
       profissional_id = EXCLUDED.profissional_id,
       profissional_nome = EXCLUDED.profissional_nome,
+      especialidade = EXCLUDED.especialidade,
       data_hora = EXCLUDED.data_hora,
       evolucao = EXCLUDED.evolucao,
       flg_anotacao = EXCLUDED.flg_anotacao,
       anotacao = EXCLUDED.anotacao,
+      pressao_sistolica = EXCLUDED.pressao_sistolica,
+      pressao_diastolica = EXCLUDED.pressao_diastolica,
+      bpm = EXCLUDED.bpm,
+      temperatura = EXCLUDED.temperatura,
+      saturacao = EXCLUDED.saturacao,
+      situacao = EXCLUDED.situacao,
       usuario = EXCLUDED.usuario,
       updated_at = now();
 
