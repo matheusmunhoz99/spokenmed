@@ -76,7 +76,10 @@ function txt(v: any) {
 
 function fmtData(v: any) {
   if (!v) return "—";
-  const d = new Date(String(v));
+  const texto = String(v).trim();
+  const dataIso = texto.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
+  if (dataIso) return `${dataIso[3]}/${dataIso[2]}/${dataIso[1]}`;
+  const d = new Date(texto);
   if (Number.isNaN(d.getTime())) return String(v);
   return d.toLocaleDateString("pt-BR");
 }
@@ -295,7 +298,18 @@ function EncaminhamentosPage() {
                         </TableCell>
                         <TableCell>{prioridadeBadge(f(p, "VAGA_PRIORIDADE", "TIPO_VAGA")) ?? "—"}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs">
-                          {fmtData(f(p, "DT_ENCAMINHAMENTO", "DATA_ENCA", "DT_ENCA", "DATA", "DT_CADASTRO") ?? r.created_at)}
+                          {fmtData(
+                            f(
+                              p,
+                              "DT_GUIA_ENCA",
+                              "DT_GUIA_CADASTRO",
+                              "DT_ENCAMINHAMENTO",
+                              "DATA_ENCA",
+                              "DT_ENCA",
+                              "DATA",
+                              "DT_CADASTRO",
+                            ) ?? r.created_at,
+                          )}
                         </TableCell>
                         <TableCell>
                           <Button variant="ghost" size="icon" onClick={() => setDetalhe(r)} aria-label="Ver detalhes">
@@ -348,6 +362,7 @@ function EncaminhamentosPage() {
                 {[
                   ["Paciente", f(detalhe.payload, "PACIENTE_NOME")],
                   ["Nascimento", fmtData(f(detalhe.payload, "PACIENTE_DATANASCIMENTO"))],
+                  ["Data do encaminhamento", fmtData(f(detalhe.payload, "DT_GUIA_ENCA", "DT_GUIA_CADASTRO"))],
                   ["Mãe", f(detalhe.payload, "PACIENTE_MAE")],
                   ["Pai", f(detalhe.payload, "PACIENTE_PAI")],
                   ["RG", f(detalhe.payload, "PACIENTE_RG")],
