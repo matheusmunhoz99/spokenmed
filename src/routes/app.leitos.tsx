@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BedDouble, Plus, CheckCircle2, XCircle, LogOut, AlertTriangle, Trash2, Hospital } from "lucide-react";
+import { BedDouble, Plus, CheckCircle2, XCircle, LogOut, AlertTriangle, Trash2, Hospital, Activity, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
@@ -71,6 +71,7 @@ function LeitosPage() {
   const [internacaoOpen, setInternacaoOpen] = useState(false);
   const [altaAlvo, setAltaAlvo] = useState<any>(null);
   const [recusaAlvo, setRecusaAlvo] = useState<any>(null);
+  const [internacaoDetalhe, setInternacaoDetalhe] = useState<any>(null);
   const [buscaPaciente, setBuscaPaciente] = useState("");
 
   const [formLeito, setFormLeito] = useState({ ala: "", quarto: "", numero: "", tipo: "clinico", situacao: "livre", observacoes: "" });
@@ -100,9 +101,23 @@ function LeitosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("internacoes")
-        .select("*, pacientes(id, nome, cpf, data_nascimento), leitos(id, quarto, numero, ala)")
+        .select("*, pacientes(id, nome, cpf, data_nascimento), leitos(id, quarto, numero, ala), medico_responsavel:profissionais!internacoes_medico_responsavel_id_fkey(id, nome)")
         .eq("unidade_id", hospitalId)
         .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: evolucoes, isLoading: loadingEvolucoes } = useQuery({
+    queryKey: ["internacao-evolucoes", internacaoDetalhe?.id],
+    enabled: !!internacaoDetalhe?.id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("internacao_evolucoes")
+        .select("*, profissionais(id, nome)")
+        .eq("internacao_id", internacaoDetalhe.id)
+        .order("data_hora", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -338,6 +353,9 @@ function LeitosPage() {
                         <div className="rounded-md bg-muted/50 p-2 text-sm">
                           <div className="font-medium">{occ.pacientes?.nome}</div>
                           <div className="text-xs text-muted-foreground">{occ.motivo}</div>
+                          {occ.medico_responsavel?.nome && (
+                            <div className="text-xs text-muted-foreground">Dr(a). {occ.medico_responsavel.nome}</div>
+                          )}
                           <div className="mt-1 flex items-center gap-2">
                             <Badge variant="outline">{dias} dia{dias === 1 ? "" : "s"}</Badge>
                             {alerta && <Badge className={alerta.className}>{alerta.nivel === "critico" ? "Crítico" : alerta.nivel === "alto" ? "7+ dias" : "3+ dias"}</Badge>}
@@ -425,14 +443,15 @@ function LeitosPage() {
                     <TableHead>Paciente</TableHead>
                     <TableHead>Leito</TableHead>
                     <TableHead>Motivo</TableHead>
+                    <TableHead>Médico responsável</TableHead>
                     <TableHead>Admissão</TableHead>
                     <TableHead>Dias</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableHead className="text-right">Detalhes</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {ativas.length === 0 && (
-                    <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Nenhum paciente internado.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Nenhum paciente internado.</TableCell></TableRow>
                   )}
                   {ativas.map((i: any) => {
                     const dias = diasInternado(i.data_admissao, null);
@@ -442,14 +461,20 @@ function LeitosPage() {
                         <TableCell className="font-medium">{i.pacientes?.nome}</TableCell>
                         <TableCell>{i.leitos ? `Q${i.leitos.quarto} · L${i.leitos.numero}` : "—"}</TableCell>
                         <TableCell className="max-w-[280px] truncate">{i.motivo}</TableCell>
+                        <TableCell>{i.medico_responsavel?.nome ?? "—"}</TableCell>
                         <TableCell>{i.data_admissao ? new Date(i.data_admissao).toLocaleDateString("pt-BR") : "—"}</TableCell>
                         <TableCell>
                           {alerta ? <Badge className={alerta.className}>{dias} dias</Badge> : <Badge variant="outline">{dias} dias</Badge>}
                         </TableCell>
                         <TableCell className="text-right">
-                          {podeGerenciar && (
-                            <Button size="sm" variant="outline" onClick={() => setAltaAlvo(i)}>Dar alta</Button>
-                          )}
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setInternacaoDetalhe(i)}>
+                              <Eye className="mr-1 h-4 w-4" /> Evoluções
+                            </Button>
+                            {podeGerenciar && !i.sincronizado_firebird && (
+                              <Button size="sm" variant="outline" onClick={() => setAltaAlvo(i)}>Dar alta</Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -495,6 +520,62 @@ function LeitosPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!internacaoDetalhe} onOpenChange={(open) => !open && setInternacaoDetalhe(null)}>
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" /> Evoluções da internação
+            </DialogTitle>
+          </DialogHeader>
+          {internacaoDetalhe && (
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <div className="font-semibold">{internacaoDetalhe.pacientes?.nome}</div>
+              <div className="text-muted-foreground">
+                {internacaoDetalhe.leitos
+                  ? `Quarto ${internacaoDetalhe.leitos.quarto} · Leito ${internacaoDetalhe.leitos.numero}`
+                  : "Sem leito"}
+                {internacaoDetalhe.medico_responsavel?.nome
+                  ? ` · Dr(a). ${internacaoDetalhe.medico_responsavel.nome}`
+                  : ""}
+              </div>
+            </div>
+          )}
+          {loadingEvolucoes ? <LoadingState /> : (evolucoes ?? []).length === 0 ? (
+            <EmptyState title="Sem evoluções" description="Ainda não há evoluções sincronizadas para esta internação." />
+          ) : (
+            <div className="space-y-3">
+              {(evolucoes ?? []).map((e: any) => (
+                <Card key={e.id}>
+                  <CardContent className="space-y-2 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="font-medium">{e.profissionais?.nome ?? "Profissional não informado"}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {e.data_hora ? new Date(e.data_hora).toLocaleString("pt-BR") : "Data não informada"}
+                      </div>
+                    </div>
+                    {e.situacao && <Badge variant="outline">{e.situacao}</Badge>}
+                    {e.evolucao && <p className="whitespace-pre-wrap text-sm">{e.evolucao}</p>}
+                    {e.prescricao && (
+                      <div className="rounded-md bg-muted/50 p-2 text-sm">
+                        <span className="font-medium">Prescrição: </span>{e.prescricao}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      {e.pressao_sistolica != null && <span>PA {e.pressao_sistolica}/{e.pressao_diastolica ?? "—"}</span>}
+                      {e.bpm != null && <span>FC {e.bpm} bpm</span>}
+                      {e.temperatura != null && <span>Temp. {e.temperatura} °C</span>}
+                      {e.saturacao != null && <span>SpO₂ {e.saturacao}%</span>}
+                      {e.glicemia != null && <span>Glicemia {e.glicemia}</span>}
+                      {e.peso != null && <span>Peso {e.peso} kg</span>}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Novo leito */}
       <Dialog open={leitoOpen} onOpenChange={setLeitoOpen}>

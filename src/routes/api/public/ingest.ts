@@ -116,6 +116,16 @@ export const Route = createFileRoute("/api/public/ingest")({
           else inseridos += count ?? semChave.length;
         }
 
+        let materializados: number | null = null;
+        if (!erro && ["LEITO", "INTERNACAO", "INTER_EVOLUCAO"].includes(tabela)) {
+          const { data, error } = await supabaseAdmin.rpc(
+            "materializar_integracao_hospitalar" as never,
+            { p_lote_id: lote.id } as never,
+          );
+          if (error) erro = `materializacao_hospitalar: ${error.message}`;
+          else materializados = typeof data === "number" ? data : null;
+        }
+
         await supabaseAdmin
           .from("integracao_lotes")
           .update({
@@ -135,6 +145,7 @@ export const Route = createFileRoute("/api/public/ingest")({
           tabela,
           recebidos: registros.length,
           gravados: inseridos,
+          materializados,
         });
       },
     },
