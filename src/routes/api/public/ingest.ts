@@ -128,7 +128,7 @@ export const Route = createFileRoute("/api/public/ingest")({
           if (error) erro = `materializacao_hospitalar: ${error.message}`;
           else materializados = typeof data === "number" ? data : null;
         }
-        if (!erro && tabela === "OBSERVACAO") {
+        if (!erro && ["OBSERVACAO", "FICHAATENDIMENTO_EVOLUCAO"].includes(tabela)) {
           const { data, error } = await supabaseAdmin.rpc(
             "materializar_integracao_observacao" as never,
             { p_lote_id: lote.id } as never,

@@ -219,6 +219,21 @@ function LeitosPage() {
     refetchInterval: 5000,
   });
 
+  const { data: obsEvolucoes, isLoading: loadingObsEvolucoes } = useQuery({
+    queryKey: ["observacao-evolucoes", observacaoDetalhe?.id],
+    enabled: !!observacaoDetalhe?.id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("observacao_evolucoes")
+        .select("*, profissionais(id, nome)")
+        .eq("observacao_id", observacaoDetalhe.id)
+        .order("data_hora", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    refetchInterval: 5000,
+  });
+
   const { data: pacientes } = useQuery({
     queryKey: ["pacientes-internacao", buscaPaciente],
     enabled: internacaoOpen,
@@ -1029,87 +1044,164 @@ function LeitosPage() {
         open={!!observacaoDetalhe}
         onOpenChange={(open) => !open && setObservacaoDetalhe(null)}
       >
-        <DialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Stethoscope className="h-5 w-5 text-amber-600" /> Atendimento em observação
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Stethoscope className="h-5 w-5 text-amber-500" /> Prontuário & Atendimento em Observação
             </DialogTitle>
           </DialogHeader>
           {observacaoDetalhe && (
             <div className="space-y-5">
-              <div className="rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 p-5 ring-1 ring-amber-200">
+              <div className="rounded-2xl bg-gradient-to-br from-slate-900 via-amber-950/40 to-slate-900 p-5 text-white shadow-md border border-amber-500/20">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-lg font-semibold">{observacaoDetalhe.pacientes?.nome}</div>
-                    <div className="text-sm text-muted-foreground">
-                      Ficha {observacaoDetalhe.ficha_firebird}
+                    <div className="text-xl font-bold tracking-tight">{observacaoDetalhe.pacientes?.nome}</div>
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-amber-200/80">
+                      <span>Ficha: {observacaoDetalhe.ficha_firebird}</span>
+                      {observacaoDetalhe.pacientes?.cpf && <span>• CPF: {observacaoDetalhe.pacientes.cpf}</span>}
+                      {observacaoDetalhe.pacientes?.cns && <span>• CNS: {observacaoDetalhe.pacientes.cns}</span>}
                     </div>
                   </div>
                   <Badge
                     className={
                       observacaoDetalhe.status === "reavaliacao"
-                        ? "bg-orange-500 text-white"
-                        : "bg-amber-400 text-amber-950"
+                        ? "bg-orange-500 text-white shadow-sm"
+                        : "bg-amber-400 text-amber-950 font-semibold shadow-sm"
                     }
                   >
                     {observacaoDetalhe.status === "reavaliacao"
-                      ? "Aguardando reavaliação"
-                      : "Em observação"}
+                      ? "Aguardando Reavaliação"
+                      : "Em Observação"}
                   </Badge>
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {[
-                  [
-                    "Entrada",
-                    observacaoDetalhe.data_entrada
-                      ? new Date(observacaoDetalhe.data_entrada).toLocaleString("pt-BR")
-                      : "Não informada",
-                  ],
-                  ["Médico", observacaoDetalhe.medico?.nome ?? "Não informado"],
-                  ["Setor", observacaoDetalhe.setor ?? "Não informado"],
-                  [
-                    "Quarto / leito",
-                    [observacaoDetalhe.quarto, observacaoDetalhe.leito_descricao]
-                      .filter(Boolean)
-                      .join(" · ") || "Não vinculado",
-                  ],
-                  ["Convênio", observacaoDetalhe.convenio ?? "Não informado"],
-                  ["Classificação de risco", observacaoDetalhe.risco ?? "Não informada"],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border bg-card p-3">
-                    <div className="text-xs text-muted-foreground">{label}</div>
-                    <div className="mt-1 text-sm font-medium">{value}</div>
-                  </div>
-                ))}
-              </div>
+              <Tabs defaultValue="evolucoes" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 bg-muted/60 p-1 rounded-xl">
+                  <TabsTrigger value="evolucoes" className="rounded-lg">
+                    📋 Evoluções & Anotações ({(obsEvolucoes ?? []).length})
+                  </TabsTrigger>
+                  <TabsTrigger value="resumo" className="rounded-lg">
+                    📊 Produção Clínica
+                  </TabsTrigger>
+                  <TabsTrigger value="ficha" className="rounded-lg">
+                    🩺 Ficha do Paciente
+                  </TabsTrigger>
+                </TabsList>
 
-              <div>
-                <div className="mb-2 text-sm font-semibold">Produção do atendimento</div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {[
-                    ["Prescrições", observacaoDetalhe.qtd_prescricoes],
-                    ["Pendentes", observacaoDetalhe.qtd_medicacoes_pendentes],
-                    ["Evoluções", observacaoDetalhe.qtd_evolucoes],
-                    ["Anotações", observacaoDetalhe.qtd_anotacoes],
-                    ["Orientações", observacaoDetalhe.qtd_orientacoes],
-                    ["Receitas", observacaoDetalhe.qtd_receitas],
-                    ["Atestados", observacaoDetalhe.qtd_atestados],
-                    ["Procedimentos", observacaoDetalhe.qtd_procedimentos],
-                  ].map(([label, value]) => (
-                    <div key={String(label)} className="rounded-lg bg-muted/60 p-3 text-center">
-                      <div className="text-xl font-semibold">{Number(value ?? 0)}</div>
-                      <div className="text-xs text-muted-foreground">{label}</div>
+                <TabsContent value="evolucoes" className="mt-4 space-y-4">
+                  {loadingObsEvolucoes ? (
+                    <LoadingState />
+                  ) : (obsEvolucoes ?? []).length === 0 ? (
+                    <EmptyState
+                      title="Nenhuma evolução ou anotação registrada"
+                      description="As evoluções médicas e anotações de enfermagem feitas no Firebird aparecerão automaticamente aqui em tempo real."
+                    />
+                  ) : (
+                    <div className="relative space-y-3 pl-2 before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-muted">
+                      {(obsEvolucoes ?? []).map((e: any) => {
+                        const isAnotacao = e.anotacao || e.flg_anotacao === "S";
+                        return (
+                          <Card
+                            key={e.id}
+                            className={`relative overflow-hidden border transition-all ${
+                              isAnotacao
+                                ? "border-amber-500/30 bg-amber-50/30 dark:bg-amber-950/10"
+                                : "border-blue-500/30 bg-blue-50/30 dark:bg-blue-950/10"
+                            }`}
+                          >
+                            <CardContent className="space-y-3 p-4">
+                              <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className={`rounded-full p-1.5 ${isAnotacao ? "bg-amber-500/10 text-amber-600" : "bg-blue-500/10 text-blue-600"}`}>
+                                    <UserRound className="h-4 w-4" />
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold text-sm">
+                                      {e.profissionais?.nome || e.profissional_nome || "Profissional Responsável"}
+                                    </div>
+                                    {e.usuario && (
+                                      <div className="text-xs text-muted-foreground">
+                                        Usuário: {e.usuario}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={isAnotacao ? "secondary" : "default"} className={isAnotacao ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : "bg-blue-600 text-white"}>
+                                    {isAnotacao ? "Anotação de Enfermagem" : "Evolução Médica"}
+                                  </Badge>
+                                  <span className="text-xs font-medium text-muted-foreground">
+                                    {e.data_hora
+                                      ? new Date(e.data_hora).toLocaleString("pt-BR")
+                                      : "—"}
+                                  </span>
+                                </div>
+                              </div>
+                              {e.evolucao && (
+                                <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800 dark:text-slate-200">
+                                  {e.evolucao}
+                                </p>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  )}
+                </TabsContent>
 
-              <div className="flex items-center justify-between rounded-lg border px-4 py-3 text-xs text-muted-foreground">
-                <span>Origem: Firebird · atualização automática</span>
+                <TabsContent value="resumo" className="mt-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {[
+                      ["Evoluções", observacaoDetalhe.qtd_evolucoes, "bg-blue-50 dark:bg-blue-950/20 text-blue-600"],
+                      ["Anotações", observacaoDetalhe.qtd_anotacoes, "bg-amber-50 dark:bg-amber-950/20 text-amber-600"],
+                      ["Prescrições", observacaoDetalhe.qtd_prescricoes, "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600"],
+                      ["Medicações Pendentes", observacaoDetalhe.qtd_medicacoes_pendentes, "bg-rose-50 dark:bg-rose-950/20 text-rose-600"],
+                      ["Orientações", observacaoDetalhe.qtd_orientacoes, "bg-purple-50 dark:bg-purple-950/20 text-purple-600"],
+                      ["Receitas", observacaoDetalhe.qtd_receitas, "bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600"],
+                      ["Atestados", observacaoDetalhe.qtd_atestados, "bg-cyan-50 dark:bg-cyan-950/20 text-cyan-600"],
+                      ["Procedimentos", observacaoDetalhe.qtd_procedimentos, "bg-teal-50 dark:bg-teal-950/20 text-teal-600"],
+                    ].map(([label, value, colorClass]) => (
+                      <Card key={String(label)} className="border-0 shadow-sm ring-1 ring-border/60">
+                        <CardContent className="p-4 text-center">
+                          <div className={`text-2xl font-bold ${colorClass.split(' ').pop()}`}>
+                            {Number(value ?? 0)}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">{label}</div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="ficha" className="mt-4 space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {[
+                      ["Data Entrada", observacaoDetalhe.data_entrada ? new Date(observacaoDetalhe.data_entrada).toLocaleString("pt-BR") : "Não informada"],
+                      ["Data Alta", observacaoDetalhe.data_alta ? new Date(observacaoDetalhe.data_alta).toLocaleString("pt-BR") : "Paciente em atendimento"],
+                      ["Médico Assistente", observacaoDetalhe.medico?.nome ?? "Não informado"],
+                      ["Setor", observacaoDetalhe.setor ?? "Não informado"],
+                      ["Quarto / Leito", [observacaoDetalhe.quarto, observacaoDetalhe.leito_descricao].filter(Boolean).join(" · ") || "Não vinculado"],
+                      ["Convênio", observacaoDetalhe.convenio ?? "Não informado"],
+                      ["Classificação de Risco", observacaoDetalhe.risco ?? "Não informada"],
+                      ["Tipo Ficha", observacaoDetalhe.tipo_ficha ?? "Observação Ambulatorial"],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-xl border bg-card p-3.5 shadow-sm">
+                        <div className="text-xs text-muted-foreground">{label}</div>
+                        <div className="mt-1 text-sm font-semibold">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              <div className="flex items-center justify-between rounded-xl border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <RefreshCw className="h-3.5 w-3.5 text-emerald-500 animate-spin" /> Sincronizado automaticamente com o Firebird
+                </span>
                 <span>
-                  Atualizado{" "}
+                  Última atualização:{" "}
                   {observacaoDetalhe.payload_atualizado_em
                     ? new Date(observacaoDetalhe.payload_atualizado_em).toLocaleString("pt-BR")
                     : "agora"}
