@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/app/encaminhamentos")({ component: Guard 
 type Row = Record<string, any>;
 type Registro = { id: string; chave_origem: string | null; created_at: string; payload: Row };
 
-/** Impede que bytes inválidos do sistema legado apareçam como � na interface. */
+/** Impede que bytes inválidos do sistema legado apareçam como  na interface. */
 function limparTextoLegado(value: string) {
   return value
     .replace(/\uFFFD/g, "")
@@ -38,7 +38,7 @@ function limparTextoLegado(value: string) {
     .replace(/Ã£/g, "ã")
     .replace(/Ãµ/g, "õ")
     .replace(/Ã§/g, "ç")
-    .replace(/Ã/g, "Á")
+    .replace(/Ã /g, "Á")
     .replace(/Ã‰/g, "É")
     .replace(/Ã“/g, "Ó")
     .replace(/Ãš/g, "Ú")
@@ -104,6 +104,9 @@ function EncaminhamentosPage() {
   const [unidade, setUnidade] = useState("todas");
   const [detalhe, setDetalhe] = useState<Registro | null>(null);
 
+  // Timer de contagem regressiva da próxima sincronização do .exe (30s)
+  const [segundosParaSync, setSegundosParaSync] = useState(30);
+
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["integracao", "encaminhamentos", pagina],
     queryFn: async () => {
@@ -123,7 +126,21 @@ function EncaminhamentosPage() {
         total: count ?? 0,
       };
     },
+    refetchInterval: 30000,
   });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSegundosParaSync((prev) => {
+        if (prev <= 1) {
+          refetch();
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [refetch]);
 
   const registros = data?.registros ?? [];
   const totalRegistros = data?.total ?? 0;
@@ -189,12 +206,19 @@ function EncaminhamentosPage() {
             Guias recebidas do sistema legado, aguardando regulação (sem agenda e não reguladas).
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-3.5 py-1.5 text-xs font-mono font-bold text-cyan-700 dark:text-cyan-300 shadow-sm backdrop-blur-md">
+            <span className="h-2 w-2 animate-ping rounded-full bg-cyan-500" />
+            <span>Próxima sincronização em: 00:{segundosParaSync.toString().padStart(2, "0")}</span>
+          </div>
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Atualizar
           </Button>
           <Button variant="outline" size="sm" onClick={exportarCsv} disabled={!filtrados.length}>
             <Download className="mr-2 h-4 w-4" /> CSV
+          </Button>
+        </div>
+      </div>-4" /> CSV
           </Button>
         </div>
       </div>

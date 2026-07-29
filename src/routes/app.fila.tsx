@@ -241,21 +241,41 @@ function FilaPage() {
   };
 
   const unidadeNome = unidadesAllowed?.find((u: any) => u.id === unidadeId)?.nome ?? "";
+  const [segundosParaSync, setSegundosParaSync] = useState(30);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSegundosParaSync((prev) => {
+        if (prev <= 1) {
+          qc.invalidateQueries({ queryKey });
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [qc, queryKey]);
 
   return (
-    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: ["fila", unidadeId] })}>
+    <PullToRefresh onRefresh={async () => { await qc.invalidateQueries({ queryKey }); }}>
     <div className="space-y-4">
       <Card>
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <ListOrdered className="h-5 w-5 text-primary" /> Fila de Espera
             </CardTitle>
             <CardDescription>Pacientes aguardando agendamento por especialidade · atualiza em tempo real.</CardDescription>
           </div>
-          <Button onClick={() => setAddOpen(true)} disabled={!unidadeId}>
-            <Plus className="mr-2 h-4 w-4" /> Adicionar à fila
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-3.5 py-1.5 text-xs font-mono font-bold text-cyan-700 dark:text-cyan-300 shadow-sm backdrop-blur-md">
+              <span className="h-2 w-2 animate-ping rounded-full bg-cyan-500" />
+              <span>Próxima sincronização em: 00:{segundosParaSync.toString().padStart(2, "0")}</span>
+            </div>
+            <Button onClick={() => setAddOpen(true)} disabled={!unidadeId}>
+              <Plus className="mr-2 h-4 w-4" /> Adicionar à fila
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1.5">
