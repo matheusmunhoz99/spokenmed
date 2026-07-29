@@ -84,7 +84,10 @@ export const Route = createFileRoute("/api/public/ingest")({
           .single();
 
         if (loteErr || !lote) {
-          return jsonRes({ ok: false, error: "falha_ao_criar_lote", detalhe: loteErr?.message }, 500);
+          return jsonRes(
+            { ok: false, error: "falha_ao_criar_lote", detalhe: loteErr?.message },
+            500,
+          );
         }
 
         const linhas = registros.map((registro) => ({
@@ -125,6 +128,14 @@ export const Route = createFileRoute("/api/public/ingest")({
           if (error) erro = `materializacao_hospitalar: ${error.message}`;
           else materializados = typeof data === "number" ? data : null;
         }
+        if (!erro && tabela === "OBSERVACAO") {
+          const { data, error } = await supabaseAdmin.rpc(
+            "materializar_integracao_observacao" as never,
+            { p_lote_id: lote.id } as never,
+          );
+          if (error) erro = `materializacao_observacao: ${error.message}`;
+          else materializados = typeof data === "number" ? data : null;
+        }
 
         await supabaseAdmin
           .from("integracao_lotes")
@@ -136,7 +147,10 @@ export const Route = createFileRoute("/api/public/ingest")({
           .eq("id", lote.id);
 
         if (erro) {
-          return jsonRes({ ok: false, lote_id: lote.id, error: "falha_ao_gravar", detalhe: erro }, 500);
+          return jsonRes(
+            { ok: false, lote_id: lote.id, error: "falha_ao_gravar", detalhe: erro },
+            500,
+          );
         }
 
         return jsonRes({
