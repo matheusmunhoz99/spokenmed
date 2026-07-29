@@ -103,13 +103,17 @@ export async function carimbarPdf(
 
   // QR
   try {
-    const qrData = await QRCode.toDataURL(verifyUrl, { errorCorrectionLevel: "M", margin: 0, width: 320 });
+    const qrData = await QRCode.toDataURL(verifyUrl, { errorCorrectionLevel: "M", margin: 0, width: 240 });
     const qrImg = await pdf.embedPng(qrData);
-    const size = 120;
-    page.drawRectangle({ x: W - 40 - size - 16, y: 90, width: size + 32, height: size + 58, color: tealSoft, borderColor: teal, borderWidth: 0.8 });
-    page.drawImage(qrImg, { x: W - 40 - size, y: 122, width: size, height: size });
-    page.drawText("Aponte a câmera para", { x: W - 40 - size - 4, y: 108, size: 7, font: helvBold, color: teal });
-    page.drawText("validar este documento", { x: W - 40 - size - 4, y: 99, size: 7, font: helvBold, color: teal });
+    const size = 72;
+    const boxW = size + 24;
+    const boxH = size + 44;
+    const boxX = W - 40 - boxW;
+    const boxY = 90;
+    page.drawRectangle({ x: boxX, y: boxY, width: boxW, height: boxH, color: tealSoft, borderColor: teal, borderWidth: 0.6 });
+    page.drawImage(qrImg, { x: boxX + 12, y: boxY + 28, width: size, height: size });
+    page.drawText("Aponte a câmera", { x: boxX + 12, y: boxY + 16, size: 6.5, font: helvBold, color: teal });
+    page.drawText("para validar", { x: boxX + 12, y: boxY + 8, size: 6.5, font: helvBold, color: teal });
   } catch { /* QR opcional */ }
 
   page.drawText("Como validar:", { x: 40, y: 200, size: 9, font: helvBold, color: ink });
