@@ -1594,6 +1594,147 @@ export type Database = {
         }
         Relationships: []
       }
+      internacoes: {
+        Row: {
+          alta_motivo: string | null
+          aprovado_em: string | null
+          aprovado_por: string | null
+          cid10: string | null
+          created_at: string
+          data_admissao: string | null
+          data_alta: string | null
+          id: string
+          leito_id: string | null
+          motivo: string
+          observacoes: string | null
+          paciente_id: string
+          previsao_dias: number | null
+          prioridade: string
+          recusa_motivo: string | null
+          solicitado_em: string
+          solicitado_por: string | null
+          status: Database["public"]["Enums"]["internacao_status"]
+          unidade_id: string
+          updated_at: string
+        }
+        Insert: {
+          alta_motivo?: string | null
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          cid10?: string | null
+          created_at?: string
+          data_admissao?: string | null
+          data_alta?: string | null
+          id?: string
+          leito_id?: string | null
+          motivo: string
+          observacoes?: string | null
+          paciente_id: string
+          previsao_dias?: number | null
+          prioridade?: string
+          recusa_motivo?: string | null
+          solicitado_em?: string
+          solicitado_por?: string | null
+          status?: Database["public"]["Enums"]["internacao_status"]
+          unidade_id: string
+          updated_at?: string
+        }
+        Update: {
+          alta_motivo?: string | null
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          cid10?: string | null
+          created_at?: string
+          data_admissao?: string | null
+          data_alta?: string | null
+          id?: string
+          leito_id?: string | null
+          motivo?: string
+          observacoes?: string | null
+          paciente_id?: string
+          previsao_dias?: number | null
+          prioridade?: string
+          recusa_motivo?: string | null
+          solicitado_em?: string
+          solicitado_por?: string | null
+          status?: Database["public"]["Enums"]["internacao_status"]
+          unidade_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internacoes_leito_id_fkey"
+            columns: ["leito_id"]
+            isOneToOne: false
+            referencedRelation: "leitos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internacoes_paciente_id_fkey"
+            columns: ["paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internacoes_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leitos: {
+        Row: {
+          ala: string | null
+          ativo: boolean
+          created_at: string
+          id: string
+          numero: string
+          observacoes: string | null
+          quarto: string
+          situacao: Database["public"]["Enums"]["leito_situacao"]
+          tipo: string
+          unidade_id: string
+          updated_at: string
+        }
+        Insert: {
+          ala?: string | null
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          numero: string
+          observacoes?: string | null
+          quarto: string
+          situacao?: Database["public"]["Enums"]["leito_situacao"]
+          tipo?: string
+          unidade_id: string
+          updated_at?: string
+        }
+        Update: {
+          ala?: string | null
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          numero?: string
+          observacoes?: string | null
+          quarto?: string
+          situacao?: Database["public"]["Enums"]["leito_situacao"]
+          tipo?: string
+          unidade_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leitos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pacientes: {
         Row: {
           ativo: boolean
@@ -2958,6 +3099,18 @@ export type Database = {
       ficha_status_envio: "pendente" | "exportado" | "desatualizado"
       fila_status: "aguardando" | "agendado" | "concluido" | "cancelado"
       fila_urgencia: "normal" | "prioritaria" | "urgente"
+      internacao_status:
+        | "pendente"
+        | "aprovada"
+        | "recusada"
+        | "alta"
+        | "cancelada"
+      leito_situacao:
+        | "livre"
+        | "ocupado"
+        | "higienizacao"
+        | "bloqueado"
+        | "manutencao"
       sexo_tipo: "M" | "F" | "O"
       slot_status: "livre" | "reservado" | "bloqueado"
     }
@@ -3103,6 +3256,20 @@ export const Constants = {
       ficha_status_envio: ["pendente", "exportado", "desatualizado"],
       fila_status: ["aguardando", "agendado", "concluido", "cancelado"],
       fila_urgencia: ["normal", "prioritaria", "urgente"],
+      internacao_status: [
+        "pendente",
+        "aprovada",
+        "recusada",
+        "alta",
+        "cancelada",
+      ],
+      leito_situacao: [
+        "livre",
+        "ocupado",
+        "higienizacao",
+        "bloqueado",
+        "manutencao",
+      ],
       sexo_tipo: ["M", "F", "O"],
       slot_status: ["livre", "reservado", "bloqueado"],
     },
