@@ -103,8 +103,7 @@ export const Route = createFileRoute("/api/public/ingest")({
         if (comChave.length) {
           const { error, count } = await supabaseAdmin
             .from("integracao_registros")
-            .upsert(comChave, { onConflict: "origem,tabela,chave_origem", count: "exact" })
-            .select("id", { count: "exact", head: true });
+            .upsert(comChave, { onConflict: "origem,tabela,chave_origem", count: "exact" });
           if (error) erro = error.message;
           else inseridos += count ?? comChave.length;
         }
@@ -112,8 +111,7 @@ export const Route = createFileRoute("/api/public/ingest")({
         if (!erro && semChave.length) {
           const { error, count } = await supabaseAdmin
             .from("integracao_registros")
-            .insert(semChave, { count: "exact" })
-            .select("id", { count: "exact", head: true });
+            .insert(semChave, { count: "exact" });
           if (error) erro = error.message;
           else inseridos += count ?? semChave.length;
         }
