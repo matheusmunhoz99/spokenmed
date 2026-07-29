@@ -26,6 +26,40 @@ export const Route = createFileRoute("/app/encaminhamentos")({ component: Guard 
 type Row = Record<string, any>;
 type Registro = { id: string; chave_origem: string | null; created_at: string; payload: Row };
 
+/** Impede que bytes inválidos do sistema legado apareçam como � na interface. */
+function limparTextoLegado(value: string) {
+  return value
+    .replace(/\uFFFD/g, "")
+    .replace(/Ã¡/g, "á")
+    .replace(/Ã©/g, "é")
+    .replace(/Ã­/g, "í")
+    .replace(/Ã³/g, "ó")
+    .replace(/Ãº/g, "ú")
+    .replace(/Ã£/g, "ã")
+    .replace(/Ãµ/g, "õ")
+    .replace(/Ã§/g, "ç")
+    .replace(/Ã/g, "Á")
+    .replace(/Ã‰/g, "É")
+    .replace(/Ã“/g, "Ó")
+    .replace(/Ãš/g, "Ú")
+    .replace(/Ãƒ/g, "Ã")
+    .replace(/Ã‡/g, "Ç");
+}
+
+function limparPayloadLegado(value: unknown): unknown {
+  if (typeof value === "string") return limparTextoLegado(value);
+  if (Array.isArray(value)) return value.map(limparPayloadLegado);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+        key,
+        limparPayloadLegado(item),
+      ]),
+    );
+  }
+  return value;
+}
+
 /** Lê um campo do payload aceitando variações de caixa. */
 function f(p: Row, ...keys: string[]) {
   for (const k of keys) {
@@ -37,7 +71,7 @@ function f(p: Row, ...keys: string[]) {
 
 function txt(v: any) {
   if (v === null || v === undefined || v === "") return "—";
-  return String(v);
+  return limparTextoLegado(String(v));
 }
 
 function fmtData(v: any) {
@@ -79,7 +113,10 @@ function EncaminhamentosPage() {
         .range(inicio, inicio + PAGE_SIZE - 1);
       if (error) throw error;
       return {
-        registros: (data ?? []) as unknown as Registro[],
+        registros: (data ?? []).map((registro) => ({
+          ...registro,
+          payload: limparPayloadLegado(registro.payload) as Row,
+        })) as unknown as Registro[],
         total: count ?? 0,
       };
     },
