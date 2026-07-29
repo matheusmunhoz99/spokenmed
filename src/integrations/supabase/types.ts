@@ -1594,6 +1594,92 @@ export type Database = {
         }
         Relationships: []
       }
+      integracao_lotes: {
+        Row: {
+          created_at: string
+          erro_msg: string | null
+          id: string
+          metadata: Json
+          origem: string
+          status: string
+          tabela: string
+          total_inseridos: number
+          total_registros: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          erro_msg?: string | null
+          id?: string
+          metadata?: Json
+          origem?: string
+          status?: string
+          tabela: string
+          total_inseridos?: number
+          total_registros?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          erro_msg?: string | null
+          id?: string
+          metadata?: Json
+          origem?: string
+          status?: string
+          tabela?: string
+          total_inseridos?: number
+          total_registros?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      integracao_registros: {
+        Row: {
+          chave_origem: string | null
+          created_at: string
+          erro_msg: string | null
+          id: string
+          lote_id: string
+          origem: string
+          payload: Json
+          status: string
+          tabela: string
+          updated_at: string
+        }
+        Insert: {
+          chave_origem?: string | null
+          created_at?: string
+          erro_msg?: string | null
+          id?: string
+          lote_id: string
+          origem?: string
+          payload: Json
+          status?: string
+          tabela: string
+          updated_at?: string
+        }
+        Update: {
+          chave_origem?: string | null
+          created_at?: string
+          erro_msg?: string | null
+          id?: string
+          lote_id?: string
+          origem?: string
+          payload?: Json
+          status?: string
+          tabela?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integracao_registros_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "integracao_lotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       internacoes: {
         Row: {
           alta_motivo: string | null

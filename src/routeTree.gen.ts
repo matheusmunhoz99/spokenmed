@@ -37,6 +37,7 @@ import { Route as AppSessoesRouteImport } from './routes/app.sessoes'
 import { Route as AppTriagemRouteImport } from './routes/app.triagem'
 import { Route as AppVisitasRouteImport } from './routes/app.visitas'
 import { Route as TeleTokenRouteImport } from './routes/tele.$token'
+import { Route as ApiPublicIngestRouteImport } from './routes/api/public/ingest'
 import { Route as ApiPublicVersionRouteImport } from './routes/api/public/version'
 import { Route as AppConfiguracoesCotasRouteImport } from './routes/app.configuracoes.cotas'
 import { Route as AppConfiguracoesSistemaRouteImport } from './routes/app.configuracoes.sistema'
@@ -189,6 +190,11 @@ const TeleTokenRoute = TeleTokenRouteImport.update({
   path: '/tele/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicIngestRoute = ApiPublicIngestRouteImport.update({
+  id: '/api/public/ingest',
+  path: '/api/public/ingest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicVersionRoute = ApiPublicVersionRouteImport.update({
   id: '/api/public/version',
   path: '/api/public/version',
@@ -269,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/app/visitas': typeof AppVisitasRouteWithChildren
   '/tele/$token': typeof TeleTokenRouteWithChildren
   '/app/': typeof AppIndexRoute
+  '/api/public/ingest': typeof ApiPublicIngestRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/cotas': typeof AppConfiguracoesCotasRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
@@ -306,6 +313,7 @@ export interface FileRoutesByTo {
   '/app/triagem': typeof AppTriagemRoute
   '/tele/$token': typeof TeleTokenRouteWithChildren
   '/app': typeof AppIndexRoute
+  '/api/public/ingest': typeof ApiPublicIngestRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/cotas': typeof AppConfiguracoesCotasRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
@@ -347,6 +355,7 @@ export interface FileRoutesById {
   '/app/visitas': typeof AppVisitasRouteWithChildren
   '/tele/$token': typeof TeleTokenRouteWithChildren
   '/app/': typeof AppIndexRoute
+  '/api/public/ingest': typeof ApiPublicIngestRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/cotas': typeof AppConfiguracoesCotasRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
@@ -389,6 +398,7 @@ export interface FileRouteTypes {
     | '/app/visitas'
     | '/tele/$token'
     | '/app/'
+    | '/api/public/ingest'
     | '/api/public/version'
     | '/app/configuracoes/cotas'
     | '/app/configuracoes/sistema'
@@ -426,6 +436,7 @@ export interface FileRouteTypes {
     | '/app/triagem'
     | '/tele/$token'
     | '/app'
+    | '/api/public/ingest'
     | '/api/public/version'
     | '/app/configuracoes/cotas'
     | '/app/configuracoes/sistema'
@@ -466,6 +477,7 @@ export interface FileRouteTypes {
     | '/app/visitas'
     | '/tele/$token'
     | '/app/'
+    | '/api/public/ingest'
     | '/api/public/version'
     | '/app/configuracoes/cotas'
     | '/app/configuracoes/sistema'
@@ -486,6 +498,7 @@ export interface RootRouteChildren {
   PainelRoute: typeof PainelRoute
   VerificarRoute: typeof VerificarRoute
   TeleTokenRoute: typeof TeleTokenRouteWithChildren
+  ApiPublicIngestRoute: typeof ApiPublicIngestRoute
   ApiPublicVersionRoute: typeof ApiPublicVersionRoute
 }
 
@@ -687,6 +700,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeleTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/ingest': {
+      id: '/api/public/ingest'
+      path: '/api/public/ingest'
+      fullPath: '/api/public/ingest'
+      preLoaderRoute: typeof ApiPublicIngestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/version': {
       id: '/api/public/version'
       path: '/api/public/version'
@@ -875,18 +895,9 @@ const rootRouteChildren: RootRouteChildren = {
   PainelRoute: PainelRoute,
   VerificarRoute: VerificarRoute,
   TeleTokenRoute: TeleTokenRouteWithChildren,
+  ApiPublicIngestRoute: ApiPublicIngestRoute,
   ApiPublicVersionRoute: ApiPublicVersionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
