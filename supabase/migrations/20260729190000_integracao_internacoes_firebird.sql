@@ -147,35 +147,51 @@ BEGIN
     IF r.tabela = 'LEITO' THEN
       IF v_unidade IS NULL THEN CONTINUE; END IF;
       v_ativo := COALESCE(upper(p->>'FLG_ATIVO') <> 'N', true);
-      INSERT INTO public.leitos(
-        unidade_id, codigo_origem_firebird, ala, quarto, numero,
-        tipo, situacao, observacoes, ativo
-      )
-      VALUES (
-        v_unidade,
-        p->>'CD_LEITO',
-        NULLIF(p->>'DE_QUARTO', ''),
-        COALESCE(NULLIF(p->>'CD_QUARTO', ''), 'SEM QUARTO'),
-        COALESCE(NULLIF(p->>'DE_LEITO', ''), p->>'CD_LEITO'),
-        'clinico',
-        CASE
+      v_leito := NULL;
+      SELECT id INTO v_leito FROM public.leitos
+       WHERE codigo_origem_firebird = NULLIF(p->>'CD_LEITO', '') LIMIT 1;
+      IF v_leito IS NULL THEN
+        SELECT id INTO v_leito FROM public.leitos
+         WHERE unidade_id = v_unidade
+           AND quarto = COALESCE(NULLIF(p->>'CD_QUARTO', ''), 'SEM QUARTO')
+           AND numero = COALESCE(NULLIF(p->>'DE_LEITO', ''), p->>'CD_LEITO')
+         LIMIT 1;
+      END IF;
+      IF v_leito IS NULL THEN
+        INSERT INTO public.leitos(
+          unidade_id, codigo_origem_firebird, ala, quarto, numero,
+          tipo, situacao, observacoes, ativo
+        ) VALUES (
+          v_unidade, p->>'CD_LEITO', NULLIF(p->>'DE_QUARTO', ''),
+          COALESCE(NULLIF(p->>'CD_QUARTO', ''), 'SEM QUARTO'),
+          COALESCE(NULLIF(p->>'DE_LEITO', ''), p->>'CD_LEITO'), 'clinico',
+          CASE
+            WHEN upper(COALESCE(p->>'LEITO_SITUACAO', '')) LIKE '%OCUP%' THEN 'ocupado'::public.leito_situacao
+            WHEN upper(COALESCE(p->>'LEITO_SITUACAO', '')) LIKE '%HIGIEN%' THEN 'higienizacao'::public.leito_situacao
+            WHEN upper(COALESCE(p->>'LEITO_SITUACAO', '')) LIKE '%MANUT%' THEN 'manutencao'::public.leito_situacao
+            WHEN upper(COALESCE(p->>'LEITO_SITUACAO', '')) LIKE '%BLOQ%' THEN 'bloqueado'::public.leito_situacao
+            ELSE 'livre'::public.leito_situacao
+          END,
+          NULLIF(p->>'LEITO_SITUACAO', ''), v_ativo
+        );
+      ELSE
+        UPDATE public.leitos SET
+          unidade_id = v_unidade,
+          codigo_origem_firebird = p->>'CD_LEITO',
+          ala = NULLIF(p->>'DE_QUARTO', ''),
+          quarto = COALESCE(NULLIF(p->>'CD_QUARTO', ''), 'SEM QUARTO'),
+          numero = COALESCE(NULLIF(p->>'DE_LEITO', ''), p->>'CD_LEITO'),
+          situacao = CASE
           WHEN upper(COALESCE(p->>'LEITO_SITUACAO', '')) LIKE '%OCUP%' THEN 'ocupado'::public.leito_situacao
           WHEN upper(COALESCE(p->>'LEITO_SITUACAO', '')) LIKE '%HIGIEN%' THEN 'higienizacao'::public.leito_situacao
           WHEN upper(COALESCE(p->>'LEITO_SITUACAO', '')) LIKE '%MANUT%' THEN 'manutencao'::public.leito_situacao
           WHEN upper(COALESCE(p->>'LEITO_SITUACAO', '')) LIKE '%BLOQ%' THEN 'bloqueado'::public.leito_situacao
           ELSE 'livre'::public.leito_situacao
-        END,
-        NULLIF(p->>'LEITO_SITUACAO', ''),
-        v_ativo
-      )
-      ON CONFLICT (codigo_origem_firebird) DO UPDATE SET
-        unidade_id = EXCLUDED.unidade_id,
-        ala = EXCLUDED.ala,
-        quarto = EXCLUDED.quarto,
-        numero = EXCLUDED.numero,
-        situacao = EXCLUDED.situacao,
-        observacoes = EXCLUDED.observacoes,
-        ativo = EXCLUDED.ativo;
+          END,
+          observacoes = NULLIF(p->>'LEITO_SITUACAO', ''),
+          ativo = v_ativo
+        WHERE id = v_leito;
+      END IF;
       v_total := v_total + 1;
       CONTINUE;
     END IF;
@@ -187,6 +203,10 @@ BEGIN
       IF v_paciente IS NULL AND NULLIF(p->>'PACIENTE_CPF', '') IS NOT NULL THEN
         SELECT id INTO v_paciente FROM public.pacientes
          WHERE cpf = NULLIF(regexp_replace(p->>'PACIENTE_CPF', '\D', '', 'g'), '') LIMIT 1;
+      END IF;
+      IF v_paciente IS NULL AND NULLIF(p->>'PACIENTE_CNS', '') IS NOT NULL THEN
+        SELECT id INTO v_paciente FROM public.pacientes
+         WHERE cns = NULLIF(regexp_replace(p->>'PACIENTE_CNS', '\D', '', 'g'), '') LIMIT 1;
       END IF;
       IF v_paciente IS NULL THEN
         INSERT INTO public.pacientes(
