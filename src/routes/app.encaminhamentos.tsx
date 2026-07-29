@@ -218,9 +218,6 @@ function EncaminhamentosPage() {
             <Download className="mr-2 h-4 w-4" /> CSV
           </Button>
         </div>
-      </div>-4" /> CSV
-          </Button>
-        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
