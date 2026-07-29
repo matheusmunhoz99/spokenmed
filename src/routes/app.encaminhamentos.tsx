@@ -59,6 +59,8 @@ function prioridadeBadge(p: any) {
 }
 
 function EncaminhamentosPage() {
+  const PAGE_SIZE = 100;
+  const [pagina, setPagina] = useState(0);
   const [busca, setBusca] = useState("");
   const [tipo, setTipo] = useState("todos");
   const [especialidade, setEspecialidade] = useState("todas");
@@ -66,20 +68,26 @@ function EncaminhamentosPage() {
   const [detalhe, setDetalhe] = useState<Registro | null>(null);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["integracao", "encaminhamentos"],
+    queryKey: ["integracao", "encaminhamentos", pagina],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const inicio = pagina * PAGE_SIZE;
+      const { data, error, count } = await supabase
         .from("integracao_registros")
-        .select("id, chave_origem, created_at, payload")
+        .select("id, chave_origem, created_at, payload", { count: "exact" })
         .ilike("tabela", "ENCAMINHAMENTO")
         .order("created_at", { ascending: false })
-        .limit(1000);
+        .range(inicio, inicio + PAGE_SIZE - 1);
       if (error) throw error;
-      return (data ?? []) as unknown as Registro[];
+      return {
+        registros: (data ?? []) as unknown as Registro[],
+        total: count ?? 0,
+      };
     },
   });
 
-  const registros = data ?? [];
+  const registros = data?.registros ?? [];
+  const totalRegistros = data?.total ?? 0;
+  const totalPaginas = Math.max(1, Math.ceil(totalRegistros / PAGE_SIZE));
 
   const opcoes = useMemo(() => {
     const tipos = new Set<string>();
@@ -152,7 +160,7 @@ function EncaminhamentosPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Guias recebidas</div><div className="text-2xl font-semibold">{registros.length}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Guias recebidas</div><div className="text-2xl font-semibold">{totalRegistros.toLocaleString("pt-BR")}</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Após filtros</div><div className="text-2xl font-semibold">{filtrados.length}</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Especialidades</div><div className="text-2xl font-semibold">{opcoes.esps.length}</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Unidades solicitantes</div><div className="text-2xl font-semibold">{opcoes.unis.length}</div></CardContent></Card>
@@ -201,8 +209,9 @@ function EncaminhamentosPage() {
               description="Assim que o integrador enviar a tabela ENCAMINHAMENTO, as guias aparecem aqui."
             />
           ) : (
-            <div className="overflow-x-auto rounded-md border">
-              <Table>
+            <>
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Guia</TableHead>
@@ -260,8 +269,33 @@ function EncaminhamentosPage() {
                     );
                   })}
                 </TableBody>
-              </Table>
-            </div>
+                </Table>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-muted-foreground">
+                  Página {pagina + 1} de {totalPaginas} · exibindo {registros.length} de{" "}
+                  {totalRegistros.toLocaleString("pt-BR")} guias
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pagina === 0 || isFetching}
+                    onClick={() => setPagina((p) => Math.max(0, p - 1))}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pagina + 1 >= totalPaginas || isFetching}
+                    onClick={() => setPagina((p) => p + 1)}
+                  >
+                    Próxima
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
