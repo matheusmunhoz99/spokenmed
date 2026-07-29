@@ -38,6 +38,7 @@ const titles: Record<string, string> = {
   "/app/auditoria": "Central de Auditoria",
   "/app/relatorios": "Relatórios & Dashboards",
   "/app/exportar-esus": "Exportar para e-SUS PEC",
+  "/app/encaminhamentos": "Encaminhamentos / Regulação",
   "/app/leitos": "Controle de Leitos & Internações",
   "/app/sessoes": "Segurança & Sessões",
 };

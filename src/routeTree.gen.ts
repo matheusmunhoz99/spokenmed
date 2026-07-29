@@ -24,6 +24,7 @@ import { Route as AppAuditoriaRouteImport } from './routes/app.auditoria'
 import { Route as AppCadastrosRouteImport } from './routes/app.cadastros'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
 import { Route as AppDomiciliosRouteImport } from './routes/app.domicilios'
+import { Route as AppEncaminhamentosRouteImport } from './routes/app.encaminhamentos'
 import { Route as AppExportarEsusRouteImport } from './routes/app.exportar-esus'
 import { Route as AppFilaRouteImport } from './routes/app.fila'
 import { Route as AppHistoricoAtendimentosRouteImport } from './routes/app.historico-atendimentos'
@@ -122,6 +123,11 @@ const AppConfiguracoesRoute = AppConfiguracoesRouteImport.update({
 const AppDomiciliosRoute = AppDomiciliosRouteImport.update({
   id: '/domicilios',
   path: '/domicilios',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEncaminhamentosRoute = AppEncaminhamentosRouteImport.update({
+  id: '/encaminhamentos',
+  path: '/encaminhamentos',
   getParentRoute: () => AppRoute,
 } as any)
 const AppExportarEsusRoute = AppExportarEsusRouteImport.update({
@@ -261,6 +267,7 @@ export interface FileRoutesByFullPath {
   '/app/cadastros': typeof AppCadastrosRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/domicilios': typeof AppDomiciliosRouteWithChildren
+  '/app/encaminhamentos': typeof AppEncaminhamentosRoute
   '/app/exportar-esus': typeof AppExportarEsusRoute
   '/app/fila': typeof AppFilaRoute
   '/app/historico-atendimentos': typeof AppHistoricoAtendimentosRoute
@@ -300,6 +307,7 @@ export interface FileRoutesByTo {
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/cadastros': typeof AppCadastrosRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
+  '/app/encaminhamentos': typeof AppEncaminhamentosRoute
   '/app/exportar-esus': typeof AppExportarEsusRoute
   '/app/fila': typeof AppFilaRoute
   '/app/historico-atendimentos': typeof AppHistoricoAtendimentosRoute
@@ -341,6 +349,7 @@ export interface FileRoutesById {
   '/app/cadastros': typeof AppCadastrosRoute
   '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/domicilios': typeof AppDomiciliosRouteWithChildren
+  '/app/encaminhamentos': typeof AppEncaminhamentosRoute
   '/app/exportar-esus': typeof AppExportarEsusRoute
   '/app/fila': typeof AppFilaRoute
   '/app/historico-atendimentos': typeof AppHistoricoAtendimentosRoute
@@ -384,6 +393,7 @@ export interface FileRouteTypes {
     | '/app/cadastros'
     | '/app/configuracoes'
     | '/app/domicilios'
+    | '/app/encaminhamentos'
     | '/app/exportar-esus'
     | '/app/fila'
     | '/app/historico-atendimentos'
@@ -423,6 +433,7 @@ export interface FileRouteTypes {
     | '/app/auditoria'
     | '/app/cadastros'
     | '/app/configuracoes'
+    | '/app/encaminhamentos'
     | '/app/exportar-esus'
     | '/app/fila'
     | '/app/historico-atendimentos'
@@ -463,6 +474,7 @@ export interface FileRouteTypes {
     | '/app/cadastros'
     | '/app/configuracoes'
     | '/app/domicilios'
+    | '/app/encaminhamentos'
     | '/app/exportar-esus'
     | '/app/fila'
     | '/app/historico-atendimentos'
@@ -607,6 +619,13 @@ declare module '@tanstack/react-router' {
       path: '/domicilios'
       fullPath: '/app/domicilios'
       preLoaderRoute: typeof AppDomiciliosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/encaminhamentos': {
+      id: '/app/encaminhamentos'
+      path: '/encaminhamentos'
+      fullPath: '/app/encaminhamentos'
+      preLoaderRoute: typeof AppEncaminhamentosRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/exportar-esus': {
@@ -832,6 +851,7 @@ interface AppRouteChildren {
   AppCadastrosRoute: typeof AppCadastrosRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRouteWithChildren
   AppDomiciliosRoute: typeof AppDomiciliosRouteWithChildren
+  AppEncaminhamentosRoute: typeof AppEncaminhamentosRoute
   AppExportarEsusRoute: typeof AppExportarEsusRoute
   AppFilaRoute: typeof AppFilaRoute
   AppHistoricoAtendimentosRoute: typeof AppHistoricoAtendimentosRoute
@@ -857,6 +877,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCadastrosRoute: AppCadastrosRoute,
   AppConfiguracoesRoute: AppConfiguracoesRouteWithChildren,
   AppDomiciliosRoute: AppDomiciliosRouteWithChildren,
+  AppEncaminhamentosRoute: AppEncaminhamentosRoute,
   AppExportarEsusRoute: AppExportarEsusRoute,
   AppFilaRoute: AppFilaRoute,
   AppHistoricoAtendimentosRoute: AppHistoricoAtendimentosRoute,
@@ -901,13 +922,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
