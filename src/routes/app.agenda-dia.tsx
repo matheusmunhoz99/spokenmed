@@ -61,8 +61,20 @@ function AgendaDiaPage() {
   const [historico, setHistorico] = useState<any>(null);
   const [encaixeOpen, setEncaixeOpen] = useState(false);
   const [anexos, setAnexos] = useState<any>(null);
-  const [consultorio, setConsultorio] = useState<any>(null);
-  const canManage = can("agenda_dia", "manage");
+  const [segundosParaSync, setSegundosParaSync] = useState(2);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSegundosParaSync((prev) => {
+        if (prev <= 1) {
+          qc.invalidateQueries({ queryKey: ["agendamentos-dia"] });
+          return 2;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [qc]);
 
   // Auto-abre o consultório quando navegamos com ?abrir=<agendamento_id> (vindo do Reabrir do Histórico).
   useEffect(() => {
