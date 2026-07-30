@@ -61,6 +61,8 @@ function AgendaDiaPage() {
   const [historico, setHistorico] = useState<any>(null);
   const [encaixeOpen, setEncaixeOpen] = useState(false);
   const [anexos, setAnexos] = useState<any>(null);
+  const [consultorio, setConsultorio] = useState<any>(null);
+  const canManage = can("agenda_dia", "manage");
   const [segundosParaSync, setSegundosParaSync] = useState(2);
 
   useEffect(() => {
