@@ -1,4 +1,4 @@
--- Migration Master (V3): Reprocessamento Retroativo Completo de Pacientes, Agendas e Guias
+-- Migration Master (V4): Cast de hora_inicio para TIME em public.agendamentos
 
 CREATE OR REPLACE FUNCTION public.clean_cpf(p_cpf text)
 RETURNS text
@@ -91,7 +91,7 @@ CREATE TRIGGER trigger_materializar_cadsocial
   EXECUTE FUNCTION public.materializar_integracao_cadsocial();
 
 
--- 3. Função para materializar Agendamentos (AGENDA, AGENDAMENTO, AGENDAMEDICA, AGENDASERV)
+-- 3. Função para materializar Agendamentos (com cast explícito ::time)
 CREATE OR REPLACE FUNCTION public.materializar_integracao_agenda()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -111,7 +111,8 @@ DECLARE
   v_profissional_id uuid;
   v_cd_agendamento text;
   v_data date;
-  v_hora text;
+  v_hora_str text;
+  v_hora_time time;
   v_situacao text;
   v_is_encaixe boolean;
 BEGIN
@@ -141,7 +142,14 @@ BEGIN
     (NEW.payload->>'DT_AGENDAMENTO')::date,
     CURRENT_DATE
   );
-  v_hora := COALESCE(NEW.payload->>'HORA', NEW.payload->>'HORA_AGENDAMENTO', '08:00');
+
+  v_hora_str := COALESCE(NEW.payload->>'HORA', NEW.payload->>'HORA_AGENDAMENTO', '08:00');
+  BEGIN
+    v_hora_time := v_hora_str::time;
+  EXCEPTION WHEN OTHERS THEN
+    v_hora_time := '08:00'::time;
+  END;
+
   v_situacao := LOWER(COALESCE(NEW.payload->>'SITUACAO', NEW.payload->>'STATUS', 'agendado'));
   v_is_encaixe := COALESCE((NEW.payload->>'IS_ENCAIXE')::boolean, false);
 
@@ -211,7 +219,7 @@ BEGIN
     END IF;
   END IF;
 
-  -- 4. Insere ou Atualiza Agendamento
+  -- 4. Insere ou Atualiza Agendamento (com v_hora_time do tipo TIME)
   IF v_paciente_id IS NOT NULL AND v_unidade_id IS NOT NULL AND v_profissional_id IS NOT NULL THEN
     INSERT INTO public.agendamentos (
       codigo_origem_firebird,
@@ -228,7 +236,7 @@ BEGIN
       v_unidade_id,
       v_profissional_id,
       v_data,
-      v_hora,
+      v_hora_time,
       v_situacao,
       v_is_encaixe
     )
@@ -254,7 +262,7 @@ CREATE TRIGGER trigger_materializar_agenda
   EXECUTE FUNCTION public.materializar_integracao_agenda();
 
 
--- 4. DISPARA O REPROCESSAMENTO E CORREÇÃO RETROATIVA DE TODOS OS REGISTROS PASSADOS!
+-- 4. DISPARA O REPROCESSAMENTO RETROATIVO COMPLETO
 UPDATE public.integracao_registros 
 SET updated_at = now() 
 WHERE UPPER(COALESCE(tabela, '')) IN ('CADSOCIAL', 'PACIENTE', 'PACIENTES', 'AGENDA', 'AGENDAMENTO', 'AGENDAMENTOS', 'AGENDAMEDICA', 'AGENDASERV', 'AGENDAINTERNA', 'ENCAMINHAMENTO');
