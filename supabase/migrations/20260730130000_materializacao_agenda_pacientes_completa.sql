@@ -1,4 +1,21 @@
--- Migration Master: Materialização Completa de Agendamentos e Pacientes (Firebird CADSOCIAL -> Supabase)
+-- Migration Master (V2): Materialização Completa sem Conflitos de CPF
+
+CREATE OR REPLACE FUNCTION public.clean_cpf(p_cpf text)
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+  v_cleaned text;
+BEGIN
+  IF p_cpf IS NULL THEN RETURN NULL; END IF;
+  v_cleaned := REGEXP_REPLACE(p_cpf, '\D', '', 'g');
+  IF LENGTH(v_cleaned) <> 11 OR v_cleaned IN ('00000000000', '11111111111', '22222222222', '33333333333', '44444444444', '55555555555', '66666666666', '77777777777', '88888888888', '99999999999') THEN
+    RETURN NULL;
+  END IF;
+  RETURN v_cleaned;
+END;
+$$;
 
 -- 1. Garante colunas de código de origem de integração em pacientes, unidades e profissionais
 ALTER TABLE public.pacientes ADD COLUMN IF NOT EXISTS codigo_origem_firebird text UNIQUE;
@@ -15,7 +32,8 @@ AS $$
 DECLARE
   v_nmatricula text;
   v_nome text;
-  v_cpf text;
+  v_cpf_raw text;
+  v_cpf_limpo text;
   v_fone text;
   v_mae text;
 BEGIN
@@ -25,12 +43,21 @@ BEGIN
 
   v_nmatricula := COALESCE(NEW.payload->>'NMATRICULA', NEW.payload->>'CD_PACIENTE', NEW.chave_origem);
   v_nome := COALESCE(NEW.payload->>'NM_PACIENTE', NEW.payload->>'NOME', NEW.payload->>'PACIENTE');
-  v_cpf := COALESCE(NEW.payload->>'CPF', NEW.payload->>'PACIENTE_CPF', '');
-  v_fone := COALESCE(NEW.payload->>'TELEFONE', NEW.payload->>'FONE', '');
+  v_cpf_raw := COALESCE(NEW.payload->>'CPF', NEW.payload->>'PACIENTE_CPF', '');
+  v_cpf_limpo := public.clean_cpf(v_cpf_raw);
+  v_fone := COALESCE(NEW.payload->>'TELEFONE', NEW.payload->>'FONE', NEW.payload->>'CELULAR', '');
   v_mae := COALESCE(NEW.payload->>'MAE', NEW.payload->>'NMMAMAE', '');
 
   IF v_nome IS NULL OR LENGTH(TRIM(v_nome)) = 0 THEN
     RETURN NEW;
+  END IF;
+
+  -- Se o CPF limpo já pertencer a outro paciente cadastrado no Supabase, anula o CPF para não estourar constraint
+  IF v_cpf_limpo IS NOT NULL AND EXISTS (
+    SELECT 1 FROM public.pacientes 
+    WHERE cpf = v_cpf_limpo AND (v_nmatricula IS NULL OR codigo_origem_firebird <> v_nmatricula)
+  ) THEN
+    v_cpf_limpo := NULL;
   END IF;
 
   INSERT INTO public.pacientes (
@@ -42,7 +69,7 @@ BEGIN
   ) VALUES (
     v_nmatricula,
     v_nome,
-    NULLIF(v_cpf, ''),
+    v_cpf_limpo,
     NULLIF(v_fone, ''),
     NULLIF(v_mae, '')
   )
@@ -73,7 +100,8 @@ AS $$
 DECLARE
   v_nmatricula text;
   v_nm_paciente text;
-  v_cpf text;
+  v_cpf_raw text;
+  v_cpf_limpo text;
   v_paciente_id uuid;
   v_cd_unidade text;
   v_nm_unidade text;
@@ -87,18 +115,19 @@ DECLARE
   v_situacao text;
   v_is_encaixe boolean;
 BEGIN
-  IF UPPER(COALESCE(NEW.tabela, '')) NOT IN ('AGENDAMENTO', 'AGENDAMENTOS') THEN
+  IF UPPER(COALESCE(NEW.tabela, '')) NOT IN ('AGENDA', 'AGENDAMENTO', 'AGENDAMENTOS') THEN
     RETURN NEW;
   END IF;
 
-  v_cd_agendamento := COALESCE(NEW.payload->>'CD_AGENDAMENTO', NEW.payload->>'ID_AGENDAMENTO', NEW.chave_origem);
+  v_cd_agendamento := COALESCE(NEW.payload->>'CD_AGENDAMENTO', NEW.payload->>'CD_AGENDA', NEW.payload->>'ID_AGENDAMENTO', NEW.chave_origem);
   IF v_cd_agendamento IS NULL THEN
     RETURN NEW;
   END IF;
 
   v_nmatricula := COALESCE(NEW.payload->>'NMATRICULA', NEW.payload->>'CD_PACIENTE', NEW.payload->>'PACIENTE_ID');
-  v_nm_paciente := COALESCE(NEW.payload->>'NM_PACIENTE', NEW.payload->>'PACIENTE', NEW.payload->>'NOME_PACIENTE', 'Paciente Firebird');
-  v_cpf := COALESCE(NEW.payload->>'CPF', NEW.payload->>'PACIENTE_CPF', '');
+  v_nm_paciente := COALESCE(NEW.payload->>'NM_PACIENTE', NEW.payload->>'PACIENTE', NEW.payload->>'NOME', 'Paciente Firebird');
+  v_cpf_raw := COALESCE(NEW.payload->>'CPF', NEW.payload->>'PACIENTE_CPF', '');
+  v_cpf_limpo := public.clean_cpf(v_cpf_raw);
   
   v_cd_unidade := COALESCE(NEW.payload->>'CD_UNIDADE', NEW.payload->>'UNIDADE_ID', '1');
   v_nm_unidade := COALESCE(NEW.payload->>'NM_UNIDADE', NEW.payload->>'UNIDADE', 'Unidade de Saúde');
@@ -108,6 +137,7 @@ BEGIN
 
   v_data := COALESCE(
     (NEW.payload->>'DATA')::date,
+    (NEW.payload->>'DATAAGEND')::date,
     (NEW.payload->>'DT_AGENDAMENTO')::date,
     CURRENT_DATE
   );
@@ -115,17 +145,25 @@ BEGIN
   v_situacao := LOWER(COALESCE(NEW.payload->>'SITUACAO', NEW.payload->>'STATUS', 'agendado'));
   v_is_encaixe := COALESCE((NEW.payload->>'IS_ENCAIXE')::boolean, false);
 
+  -- Se o CPF limpo pertencer a outro paciente, evita violar unique key
+  IF v_cpf_limpo IS NOT NULL AND EXISTS (
+    SELECT 1 FROM public.pacientes 
+    WHERE cpf = v_cpf_limpo AND (v_nmatricula IS NULL OR codigo_origem_firebird <> v_nmatricula)
+  ) THEN
+    v_cpf_limpo := NULL;
+  END IF;
+
   -- 1. Busca ou Cria Paciente
   SELECT id INTO v_paciente_id
   FROM public.pacientes
   WHERE (v_nmatricula IS NOT NULL AND codigo_origem_firebird = v_nmatricula)
-     OR (v_cpf <> '' AND cpf = v_cpf)
+     OR (v_cpf_limpo IS NOT NULL AND cpf = v_cpf_limpo)
      OR (LOWER(nome) = LOWER(v_nm_paciente))
   LIMIT 1;
 
   IF v_paciente_id IS NULL THEN
     INSERT INTO public.pacientes (nome, cpf, codigo_origem_firebird)
-    VALUES (v_nm_paciente, NULLIF(v_cpf, ''), v_nmatricula)
+    VALUES (v_nm_paciente, v_cpf_limpo, v_nmatricula)
     ON CONFLICT DO NOTHING
     RETURNING id INTO v_paciente_id;
 
@@ -220,4 +258,4 @@ CREATE TRIGGER trigger_materializar_agenda
 -- 4. EXECUTA A MATERIALIZAÇÃO RETROATIVA COMPLETA DISPARANDO O GATILHO EM TODOS OS REGISTROS JÁ INGERIDOS!
 UPDATE public.integracao_registros 
 SET updated_at = now() 
-WHERE UPPER(COALESCE(tabela, '')) IN ('CADSOCIAL', 'PACIENTE', 'PACIENTES', 'AGENDAMENTO', 'AGENDAMENTOS');
+WHERE UPPER(COALESCE(tabela, '')) IN ('CADSOCIAL', 'PACIENTE', 'PACIENTES', 'AGENDA', 'AGENDAMENTO', 'AGENDAMENTOS');
