@@ -1,4 +1,4 @@
--- Migration Master (V5 - Definitiva): Tipagem Perfeita com enum public.agendamento_status
+-- Migration Master (V6 - Definitiva): Bypass de reserva de slot para agendamentos de integração Firebird
 
 CREATE OR REPLACE FUNCTION public.clean_cpf(p_cpf text)
 RETURNS text
@@ -17,14 +17,34 @@ BEGIN
 END;
 $$;
 
--- 1. Colunas de Código de Origem de Integração
+-- 1. Desativa restrição de reserva de slot interno para agendamentos vindos da integração do Firebird
+CREATE OR REPLACE FUNCTION public.fn_ag_reserva_slot()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Se o agendamento possui código de origem do Firebird, permite inserção direta sem exigir slot manual
+  IF NEW.codigo_origem_firebird IS NOT NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.agenda_slot_id IS NULL AND (NEW.is_encaixe IS NOT TRUE) THEN
+    NEW.is_encaixe := true;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- 2. Colunas de Código de Origem de Integração
 ALTER TABLE public.pacientes ADD COLUMN IF NOT EXISTS codigo_origem_firebird text UNIQUE;
 ALTER TABLE public.unidades ADD COLUMN IF NOT EXISTS codigo_origem_firebird text UNIQUE;
 ALTER TABLE public.profissionais ADD COLUMN IF NOT EXISTS codigo_origem_firebird text UNIQUE;
 ALTER TABLE public.agendamentos ADD COLUMN IF NOT EXISTS codigo_origem_firebird text UNIQUE;
 ALTER TABLE public.encaminhamentos ADD COLUMN IF NOT EXISTS codigo_origem_firebird text UNIQUE;
 
--- 2. Função para materializar Pacientes (CADSOCIAL / PACIENTE)
+-- 3. Função para materializar Pacientes (CADSOCIAL / PACIENTE)
 CREATE OR REPLACE FUNCTION public.materializar_integracao_cadsocial()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -91,7 +111,7 @@ CREATE TRIGGER trigger_materializar_cadsocial
   EXECUTE FUNCTION public.materializar_integracao_cadsocial();
 
 
--- 3. Função para materializar Agendamentos (com cast explícito para TIME e ENUM agendamento_status)
+-- 4. Função para materializar Agendamentos do Firebird
 CREATE OR REPLACE FUNCTION public.materializar_integracao_agenda()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -161,7 +181,8 @@ BEGIN
     ELSE v_status_enum := 'agendado'::public.agendamento_status;
   END CASE;
 
-  v_is_encaixe := COALESCE((NEW.payload->>'IS_ENCAIXE')::boolean, false);
+  -- Para agendamentos importados do Firebird, define encaixe como verdadeiro para liberar slot interno
+  v_is_encaixe := COALESCE((NEW.payload->>'IS_ENCAIXE')::boolean, true);
 
   IF v_cpf_limpo IS NOT NULL AND EXISTS (
     SELECT 1 FROM public.pacientes 
@@ -229,7 +250,7 @@ BEGIN
     END IF;
   END IF;
 
-  -- 4. Insere ou Atualiza Agendamento (status de tipo public.agendamento_status)
+  -- 4. Insere ou Atualiza Agendamento
   IF v_paciente_id IS NOT NULL AND v_unidade_id IS NOT NULL AND v_profissional_id IS NOT NULL THEN
     INSERT INTO public.agendamentos (
       codigo_origem_firebird,
@@ -272,7 +293,7 @@ CREATE TRIGGER trigger_materializar_agenda
   EXECUTE FUNCTION public.materializar_integracao_agenda();
 
 
--- 4. DISPARA O REPROCESSAMENTO RETROATIVO COMPLETO
+-- 5. DISPARA O REPROCESSAMENTO RETROATIVO COMPLETO
 UPDATE public.integracao_registros 
 SET updated_at = now() 
 WHERE UPPER(COALESCE(tabela, '')) IN ('CADSOCIAL', 'PACIENTE', 'PACIENTES', 'AGENDA', 'AGENDAMENTO', 'AGENDAMENTOS', 'AGENDAMEDICA', 'AGENDASERV', 'AGENDAINTERNA', 'ENCAMINHAMENTO');
