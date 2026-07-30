@@ -445,12 +445,35 @@ function AgendaDiaPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base sm:text-lg">{ags?.length ?? 0} consultas em {new Date(data + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base sm:text-lg">
+            {todasDatas || buscaText.trim()
+              ? `${ags?.length ?? 0} consultas encontradas`
+              : `${ags?.length ?? 0} consultas em ${new Date(data + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}`}
+          </CardTitle>
+        </CardHeader>
         <CardContent>
           {isLoading ? (
             <LoadingState variant="list" rows={6} />
           ) : ags?.length === 0 ? (
-            <EmptyState icon={CalendarClock} title="Sem agendamentos" description="Não há consultas para o filtro selecionado." />
+            <div className="space-y-3">
+              <EmptyState
+                icon={CalendarClock}
+                title="Sem agendamentos nesta data"
+                description={
+                  (totalNoBanco ?? 0) > 0
+                    ? `Existem ${totalNoBanco} agendamentos no banco em outras datas.`
+                    : "Ainda não há consultas sincronizadas."
+                }
+              />
+              {(totalNoBanco ?? 0) > 0 && !todasDatas && (
+                <div className="flex justify-center">
+                  <Button variant="outline" onClick={() => setTodasDatas(true)}>
+                    Ver agendamentos de todas as datas
+                  </Button>
+                </div>
+              )}
+            </div>
           ) : (
             <ul className="divide-y">
               {ags?.map((a: any) => (
