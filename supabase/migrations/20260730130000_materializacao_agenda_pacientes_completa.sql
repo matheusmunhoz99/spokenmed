@@ -1,4 +1,30 @@
--- Migration Master (V7 - Definitiva): Tratamento de Exceção para agendamentos_paciente_horario_uniq
+-- Migration Master (V9): Suporte a Histórico Antigo (2018 até hoje) com Parser Seguro de Datas
+
+CREATE OR REPLACE FUNCTION public.parse_firebird_date(p_val text)
+RETURNS date
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+BEGIN
+  IF p_val IS NULL OR TRIM(p_val) = '' THEN
+    RETURN CURRENT_DATE;
+  END IF;
+  
+  -- Se for no formato ISO 'YYYY-MM-DD' ou 'YYYY-MM-DDTHH:MI:SS'
+  IF p_val ~ '^\d{4}-\d{2}-\d{2}' THEN
+    RETURN (SUBSTRING(p_val FROM 1 FOR 10))::date;
+  END IF;
+  
+  -- Se for no formato brasileiro 'DD/MM/YYYY'
+  IF p_val ~ '^\d{2}/\d{2}/\d{4}' THEN
+    RETURN to_date(SUBSTRING(p_val FROM 1 FOR 10), 'DD/MM/YYYY');
+  END IF;
+  
+  RETURN p_val::date;
+EXCEPTION WHEN OTHERS THEN
+  RETURN CURRENT_DATE;
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION public.clean_cpf(p_cpf text)
 RETURNS text
@@ -17,7 +43,7 @@ BEGIN
 END;
 $$;
 
--- 1. Bypass de reserva de slot interno para agendamentos de integração do Firebird
+-- 1. Bypass de reserva de slot interno para agendamentos do Firebird
 CREATE OR REPLACE FUNCTION public.fn_ag_reserva_slot()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -110,7 +136,7 @@ CREATE TRIGGER trigger_materializar_cadsocial
   EXECUTE FUNCTION public.materializar_integracao_cadsocial();
 
 
--- 4. Função para materializar Agendamentos (com suporte total a conflito paciente+data+hora)
+-- 4. Função para materializar Agendamentos do Firebird com parse_firebird_date
 CREATE OR REPLACE FUNCTION public.materializar_integracao_agenda()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -156,11 +182,8 @@ BEGIN
   v_cd_medico := COALESCE(NEW.payload->>'CD_MEDICO', NEW.payload->>'CD_PROFISSIONAL', '1');
   v_nm_medico := COALESCE(NEW.payload->>'NM_MEDICO', NEW.payload->>'MEDICO', NEW.payload->>'PROFISSIONAL', 'Profissional Firebird');
 
-  v_data := COALESCE(
-    (NEW.payload->>'DATA')::date,
-    (NEW.payload->>'DATAAGEND')::date,
-    (NEW.payload->>'DT_AGENDAMENTO')::date,
-    CURRENT_DATE
+  v_data := public.parse_firebird_date(
+    COALESCE(NEW.payload->>'DATA', NEW.payload->>'DATAAGEND', NEW.payload->>'DT_AGENDAMENTO', '')
   );
 
   v_hora_str := COALESCE(NEW.payload->>'HORA', NEW.payload->>'HORA_AGENDAMENTO', '08:00');
@@ -248,7 +271,7 @@ BEGIN
     END IF;
   END IF;
 
-  -- 4. Insere ou Atualiza Agendamento tratando conflitos de chave única e de horário do paciente
+  -- 4. Insere ou Atualiza Agendamento tratando conflitos
   IF v_paciente_id IS NOT NULL AND v_unidade_id IS NOT NULL AND v_profissional_id IS NOT NULL THEN
     BEGIN
       INSERT INTO public.agendamentos (
@@ -299,9 +322,3 @@ CREATE TRIGGER trigger_materializar_agenda
   AFTER INSERT OR UPDATE ON public.integracao_registros
   FOR EACH ROW
   EXECUTE FUNCTION public.materializar_integracao_agenda();
-
-
--- 5. DISPARA O REPROCESSAMENTO RETROATIVO COMPLETO
-UPDATE public.integracao_registros 
-SET updated_at = now() 
-WHERE UPPER(COALESCE(tabela, '')) IN ('CADSOCIAL', 'PACIENTE', 'PACIENTES', 'AGENDA', 'AGENDAMENTO', 'AGENDAMENTOS', 'AGENDAMEDICA', 'AGENDASERV', 'AGENDAINTERNA', 'ENCAMINHAMENTO');
