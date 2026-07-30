@@ -16,9 +16,8 @@ DECLARE
   v_nmatricula text;
   v_nome text;
   v_cpf text;
-  v_dt_nasc date;
-  v_mae text;
   v_fone text;
+  v_mae text;
 BEGIN
   IF UPPER(COALESCE(NEW.tabela, '')) NOT IN ('CADSOCIAL', 'PACIENTE', 'PACIENTES') THEN
     RETURN NEW;
@@ -218,19 +217,7 @@ CREATE TRIGGER trigger_materializar_agenda
   EXECUTE FUNCTION public.materializar_integracao_agenda();
 
 
--- 4. EXECUTA A MATERIALIZAÇÃO RETROATIVA COMPLETA DE TODOS OS PACIENTES E AGENDAMENTOS JÁ INGERIDOS!
-DO $$
-DECLARE
-  r RECORD;
-BEGIN
-  -- Primeiramente materializa os pacientes
-  FOR r IN SELECT * FROM public.integracao_registros WHERE UPPER(COALESCE(tabela, '')) IN ('CADSOCIAL', 'PACIENTE', 'PACIENTES') LOOP
-    PERFORM public.materializar_integracao_cadsocial();
-  END FOR;
-
-  -- Em seguida materializa os agendamentos vinculando os pacientes, unidades e médicos
-  FOR r IN SELECT * FROM public.integracao_registros WHERE UPPER(COALESCE(tabela, '')) IN ('AGENDAMENTO', 'AGENDAMENTOS') LOOP
-    PERFORM public.materializar_integracao_agenda();
-  END FOR;
-END;
-$$;
+-- 4. EXECUTA A MATERIALIZAÇÃO RETROATIVA COMPLETA DISPARANDO O GATILHO EM TODOS OS REGISTROS JÁ INGERIDOS!
+UPDATE public.integracao_registros 
+SET updated_at = now() 
+WHERE UPPER(COALESCE(tabela, '')) IN ('CADSOCIAL', 'PACIENTE', 'PACIENTES', 'AGENDAMENTO', 'AGENDAMENTOS');
