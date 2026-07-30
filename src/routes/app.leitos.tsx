@@ -143,15 +143,15 @@ function LeitosPage() {
   const [buscaObs, setBuscaObs] = useState("");
   const [filtroStatusObs, setFiltroStatusObs] = useState<string>("todos");
 
-  // Timer de contagem regressiva da próxima sincronização do .exe (30s)
-  const [segundosParaSync, setSegundosParaSync] = useState(30);
+  // Timer de contagem regressiva da próxima sincronização do .exe (10s)
+  const [segundosParaSync, setSegundosParaSync] = useState(10);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setSegundosParaSync((prev) => {
         if (prev <= 1) {
           refresh();
-          return 30;
+          return 10;
         }
         return prev - 1;
       });
