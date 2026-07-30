@@ -1,4 +1,4 @@
--- Migration Master (V2): Materialização Completa sem Conflitos de CPF
+-- Migration Master (V3): Reprocessamento Retroativo Completo de Pacientes, Agendas e Guias
 
 CREATE OR REPLACE FUNCTION public.clean_cpf(p_cpf text)
 RETURNS text
@@ -17,13 +17,14 @@ BEGIN
 END;
 $$;
 
--- 1. Garante colunas de código de origem de integração em pacientes, unidades e profissionais
+-- 1. Colunas de Código de Origem de Integração
 ALTER TABLE public.pacientes ADD COLUMN IF NOT EXISTS codigo_origem_firebird text UNIQUE;
 ALTER TABLE public.unidades ADD COLUMN IF NOT EXISTS codigo_origem_firebird text UNIQUE;
 ALTER TABLE public.profissionais ADD COLUMN IF NOT EXISTS codigo_origem_firebird text UNIQUE;
 ALTER TABLE public.agendamentos ADD COLUMN IF NOT EXISTS codigo_origem_firebird text UNIQUE;
+ALTER TABLE public.encaminhamentos ADD COLUMN IF NOT EXISTS codigo_origem_firebird text UNIQUE;
 
--- 2. Função para materializar Pacientes vindo da tabela CADSOCIAL do Firebird
+-- 2. Função para materializar Pacientes (CADSOCIAL / PACIENTE)
 CREATE OR REPLACE FUNCTION public.materializar_integracao_cadsocial()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -52,7 +53,6 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Se o CPF limpo já pertencer a outro paciente cadastrado no Supabase, anula o CPF para não estourar constraint
   IF v_cpf_limpo IS NOT NULL AND EXISTS (
     SELECT 1 FROM public.pacientes 
     WHERE cpf = v_cpf_limpo AND (v_nmatricula IS NULL OR codigo_origem_firebird <> v_nmatricula)
@@ -91,7 +91,7 @@ CREATE TRIGGER trigger_materializar_cadsocial
   EXECUTE FUNCTION public.materializar_integracao_cadsocial();
 
 
--- 3. Função para materializar Agendamentos do Firebird
+-- 3. Função para materializar Agendamentos (AGENDA, AGENDAMENTO, AGENDAMEDICA, AGENDASERV)
 CREATE OR REPLACE FUNCTION public.materializar_integracao_agenda()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -115,7 +115,7 @@ DECLARE
   v_situacao text;
   v_is_encaixe boolean;
 BEGIN
-  IF UPPER(COALESCE(NEW.tabela, '')) NOT IN ('AGENDA', 'AGENDAMENTO', 'AGENDAMENTOS') THEN
+  IF UPPER(COALESCE(NEW.tabela, '')) NOT IN ('AGENDA', 'AGENDAMENTO', 'AGENDAMENTOS', 'AGENDAMEDICA', 'AGENDASERV', 'AGENDAINTERNA') THEN
     RETURN NEW;
   END IF;
 
@@ -145,7 +145,6 @@ BEGIN
   v_situacao := LOWER(COALESCE(NEW.payload->>'SITUACAO', NEW.payload->>'STATUS', 'agendado'));
   v_is_encaixe := COALESCE((NEW.payload->>'IS_ENCAIXE')::boolean, false);
 
-  -- Se o CPF limpo pertencer a outro paciente, evita violar unique key
   IF v_cpf_limpo IS NOT NULL AND EXISTS (
     SELECT 1 FROM public.pacientes 
     WHERE cpf = v_cpf_limpo AND (v_nmatricula IS NULL OR codigo_origem_firebird <> v_nmatricula)
@@ -255,7 +254,7 @@ CREATE TRIGGER trigger_materializar_agenda
   EXECUTE FUNCTION public.materializar_integracao_agenda();
 
 
--- 4. EXECUTA A MATERIALIZAÇÃO RETROATIVA COMPLETA DISPARANDO O GATILHO EM TODOS OS REGISTROS JÁ INGERIDOS!
+-- 4. DISPARA O REPROCESSAMENTO E CORREÇÃO RETROATIVA DE TODOS OS REGISTROS PASSADOS!
 UPDATE public.integracao_registros 
 SET updated_at = now() 
-WHERE UPPER(COALESCE(tabela, '')) IN ('CADSOCIAL', 'PACIENTE', 'PACIENTES', 'AGENDA', 'AGENDAMENTO', 'AGENDAMENTOS');
+WHERE UPPER(COALESCE(tabela, '')) IN ('CADSOCIAL', 'PACIENTE', 'PACIENTES', 'AGENDA', 'AGENDAMENTO', 'AGENDAMENTOS', 'AGENDAMEDICA', 'AGENDASERV', 'AGENDAINTERNA', 'ENCAMINHAMENTO');
