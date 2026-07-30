@@ -134,17 +134,49 @@ function AgendaDiaPage() {
     },
   });
 
+  const [buscaText, setBuscaText] = useState("");
+  const [todasDatas, setTodasDatas] = useState(false);
+
+  const { data: totalNoBanco } = useQuery({
+    queryKey: ["total-agendamentos-banco"],
+    refetchInterval: 3000,
+    queryFn: async () => {
+      const { count } = await supabase.from("agendamentos").select("id", { count: "exact", head: true });
+      return count ?? 0;
+    },
+  });
+
   const { data: ags, isLoading } = useQuery({
-    queryKey: ["agenda-dia", data, profId, unidadeId, allowedIds.join(",")],
+    queryKey: ["agenda-dia", data, profId, unidadeId, allowedIds.join(","), todasDatas, buscaText],
     enabled: !!unidades,
     queryFn: async () => {
       let q = supabase.from("agendamentos")
-        .select("id, hora_inicio, status, motivo, paciente_id, slot_id, profissional_id, unidade_id, is_encaixe, encaixe_prioridade, encaixe_justificativa, reagendado_em, chegou_em, triagem_em, atendido_em, pacientes(nome, cpf, telefone), profissionais(id, nome, sala, user_id, especialidades(nome)), unidades(nome)")
-        .eq("data", data).order("hora_inicio");
+        .select("id, data, hora_inicio, status, motivo, paciente_id, slot_id, profissional_id, unidade_id, is_encaixe, encaixe_prioridade, encaixe_justificativa, reagendado_em, chegou_em, triagem_em, atendido_em, pacientes(nome, cpf, telefone), profissionais(id, nome, sala, user_id, especialidades(nome)), unidades(nome)")
+        .order("data", { ascending: false })
+        .order("hora_inicio", { ascending: true })
+        .limit(5000);
+
+      if (!todasDatas && !buscaText.trim()) {
+        q = q.eq("data", data);
+      }
       if (profId !== "all") q = q.eq("profissional_id", profId);
       if (unidadeId !== "all") q = q.eq("unidade_id", unidadeId);
       else if (allowedIds.length > 0) q = q.in("unidade_id", allowedIds);
-      return (await q).data ?? [];
+
+      const { data: res } = await q;
+      let rows = res ?? [];
+
+      if (buscaText.trim()) {
+        const term = buscaText.toLowerCase();
+        rows = rows.filter((r: any) => 
+          r.pacientes?.nome?.toLowerCase().includes(term) ||
+          r.pacientes?.cpf?.includes(term) ||
+          r.profissionais?.nome?.toLowerCase().includes(term) ||
+          r.unidades?.nome?.toLowerCase().includes(term)
+        );
+      }
+
+      return rows;
     },
   });
 
@@ -321,27 +353,49 @@ function AgendaDiaPage() {
           <div><strong>{prontosPraMim}</strong> {prontosPraMim === 1 ? "paciente pronto" : "pacientes prontos"} pra você atender (já passaram pela triagem).</div>
         </div>
       )}
-      {/* Header com 10s Sync Countdown Badge */}
-      <div className="flex items-center justify-between bg-card p-3.5 rounded-xl border shadow-sm">
+      {/* Header com 2s Sync Countdown e Contador do Firebird */}
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-card p-3.5 rounded-xl border shadow-sm">
         <div className="flex items-center gap-2">
           <CalendarClock className="h-5 w-5 text-primary" />
           <span className="font-bold text-sm">Agenda do Dia</span>
+          <Badge variant="secondary" className="bg-primary/10 text-primary font-bold px-2.5 py-0.5 text-xs">
+            🔥 Sincronizado: {totalNoBanco ?? 0} agendamentos no banco
+          </Badge>
         </div>
-        <Badge variant="outline" className="px-3 py-1 text-xs font-semibold border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 animate-pulse flex items-center gap-1.5">
-          <Zap className="h-3.5 w-3.5" /> ⏱️ Próxima sincronização em: 00:{segundosParaSync < 10 ? `0${segundosParaSync}` : segundosParaSync}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant={todasDatas ? "default" : "outline"} 
+            size="sm"
+            onClick={() => setTodasDatas(!todasDatas)}
+            className="text-xs font-bold"
+          >
+            {todasDatas ? "📅 Mostrando Todas as Datas" : "📅 Filtrar por Data Atual"}
+          </Button>
+          <Badge variant="outline" className="px-3 py-1 text-xs font-semibold border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 animate-pulse flex items-center gap-1.5">
+            <Zap className="h-3.5 w-3.5" /> ⏱️ Sync: 00:{segundosParaSync < 10 ? `0${segundosParaSync}` : segundosParaSync}
+          </Badge>
+        </div>
       </div>
 
       <Card>
-        <CardContent className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
+        <CardContent className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-5">
+          <div className="space-y-1.5 lg:col-span-2">
+            <div className="text-xs text-muted-foreground font-bold">🔎 Buscar Paciente / CPF / Médico / Unidade</div>
+            <Input 
+              placeholder="Digite o nome do paciente, CPF..." 
+              value={buscaText} 
+              onChange={(e) => setBuscaText(e.target.value)} 
+              className="w-full font-medium"
+            />
+          </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>Data</span>
-              <button type="button" onClick={() => setData(format(new Date(), "yyyy-MM-dd"))} className="text-primary hover:underline font-bold text-[11px] flex items-center gap-1">
+              <button type="button" onClick={() => { setData(format(new Date(), "yyyy-MM-dd")); setTodasDatas(false); }} className="text-primary hover:underline font-bold text-[11px] flex items-center gap-1">
                 📅 Ir para Hoje
               </button>
             </div>
-            <Input type="date" value={data} onChange={(e) => setData(e.target.value)} className="w-full" />
+            <Input type="date" value={data} onChange={(e) => { setData(e.target.value); setTodasDatas(false); }} className="w-full" />
           </div>
           <div className="space-y-1.5">
             <div className="text-xs text-muted-foreground">Unidade</div>
