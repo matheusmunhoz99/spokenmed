@@ -335,7 +335,12 @@ function AgendaDiaPage() {
       <Card>
         <CardContent className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
           <div className="space-y-1.5">
-            <div className="text-xs text-muted-foreground">Data</div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Data</span>
+              <button type="button" onClick={() => setData(format(new Date(), "yyyy-MM-dd"))} className="text-primary hover:underline font-bold text-[11px] flex items-center gap-1">
+                📅 Ir para Hoje
+              </button>
+            </div>
             <Input type="date" value={data} onChange={(e) => setData(e.target.value)} className="w-full" />
           </div>
           <div className="space-y-1.5">

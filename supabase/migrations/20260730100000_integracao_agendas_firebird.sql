@@ -147,12 +147,28 @@ BEGIN
       SELECT id INTO v_agenda_id FROM public.agendas WHERE codigo_origem_firebird = v_codigo_agenda LIMIT 1;
     END IF;
 
-    -- Resolver Paciente
+    -- Resolver Paciente (com Auto-Criação se ainda não existir)
     IF v_codigo_paciente IS NOT NULL THEN
       SELECT id INTO v_paciente_id FROM public.pacientes WHERE codigo_origem_firebird = v_codigo_paciente LIMIT 1;
     END IF;
     IF v_paciente_id IS NULL AND v_cpf_paciente <> '' THEN
       SELECT id INTO v_paciente_id FROM public.pacientes WHERE regexp_replace(COALESCE(cpf, ''), '\D', '', 'g') = v_cpf_paciente LIMIT 1;
+    END IF;
+
+    -- Se o paciente ainda não existir na base do Lovable, criar automaticamente!
+    IF v_paciente_id IS NULL THEN
+      INSERT INTO public.pacientes (
+        nome,
+        cpf,
+        codigo_origem_firebird,
+        sincronizado_firebird
+      ) VALUES (
+        COALESCE(v_payload->>'NM_PACIENTE', v_payload->>'PACIENTE', v_payload->>'NOME_PACIENTE', 'Paciente Firebird ' || COALESCE(v_codigo_paciente, v_codigo_agendamento)),
+        NULLIF(v_cpf_paciente, ''),
+        v_codigo_paciente,
+        true
+      )
+      RETURNING id INTO v_paciente_id;
     END IF;
 
     v_data := COALESCE((v_payload->>'DATA')::date, (v_payload->>'DT_AGENDAMENTO')::date, (v_payload->>'DATA_AGENDAMENTO')::date, CURRENT_DATE);
