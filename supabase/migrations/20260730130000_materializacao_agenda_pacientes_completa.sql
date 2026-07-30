@@ -1,4 +1,4 @@
--- Migration Master (V4): Cast de hora_inicio para TIME em public.agendamentos
+-- Migration Master (V5 - Definitiva): Tipagem Perfeita com enum public.agendamento_status
 
 CREATE OR REPLACE FUNCTION public.clean_cpf(p_cpf text)
 RETURNS text
@@ -91,7 +91,7 @@ CREATE TRIGGER trigger_materializar_cadsocial
   EXECUTE FUNCTION public.materializar_integracao_cadsocial();
 
 
--- 3. Função para materializar Agendamentos (com cast explícito ::time)
+-- 3. Função para materializar Agendamentos (com cast explícito para TIME e ENUM agendamento_status)
 CREATE OR REPLACE FUNCTION public.materializar_integracao_agenda()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -113,7 +113,8 @@ DECLARE
   v_data date;
   v_hora_str text;
   v_hora_time time;
-  v_situacao text;
+  v_situacao_raw text;
+  v_status_enum public.agendamento_status;
   v_is_encaixe boolean;
 BEGIN
   IF UPPER(COALESCE(NEW.tabela, '')) NOT IN ('AGENDA', 'AGENDAMENTO', 'AGENDAMENTOS', 'AGENDAMEDICA', 'AGENDASERV', 'AGENDAINTERNA') THEN
@@ -150,7 +151,16 @@ BEGIN
     v_hora_time := '08:00'::time;
   END;
 
-  v_situacao := LOWER(COALESCE(NEW.payload->>'SITUACAO', NEW.payload->>'STATUS', 'agendado'));
+  v_situacao_raw := LOWER(COALESCE(NEW.payload->>'SITUACAO', NEW.payload->>'STATUS', 'agendado'));
+  CASE v_situacao_raw
+    WHEN 'atendido' THEN v_status_enum := 'atendido'::public.agendamento_status;
+    WHEN 'faltou' THEN v_status_enum := 'faltou'::public.agendamento_status;
+    WHEN 'cancelado' THEN v_status_enum := 'cancelado'::public.agendamento_status;
+    WHEN 'confirmado' THEN v_status_enum := 'confirmado'::public.agendamento_status;
+    WHEN 'em_atendimento' THEN v_status_enum := 'em_atendimento'::public.agendamento_status;
+    ELSE v_status_enum := 'agendado'::public.agendamento_status;
+  END CASE;
+
   v_is_encaixe := COALESCE((NEW.payload->>'IS_ENCAIXE')::boolean, false);
 
   IF v_cpf_limpo IS NOT NULL AND EXISTS (
@@ -219,7 +229,7 @@ BEGIN
     END IF;
   END IF;
 
-  -- 4. Insere ou Atualiza Agendamento (com v_hora_time do tipo TIME)
+  -- 4. Insere ou Atualiza Agendamento (status de tipo public.agendamento_status)
   IF v_paciente_id IS NOT NULL AND v_unidade_id IS NOT NULL AND v_profissional_id IS NOT NULL THEN
     INSERT INTO public.agendamentos (
       codigo_origem_firebird,
@@ -237,7 +247,7 @@ BEGIN
       v_profissional_id,
       v_data,
       v_hora_time,
-      v_situacao,
+      v_status_enum,
       v_is_encaixe
     )
     ON CONFLICT (codigo_origem_firebird) DO UPDATE SET
