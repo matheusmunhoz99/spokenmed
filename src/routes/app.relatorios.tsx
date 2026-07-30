@@ -131,6 +131,36 @@ function RelatoriosPage() {
       if (error) throw error;
       let rows = data ?? [];
       if (espId !== "all") rows = rows.filter((r: any) => r.profissionais?.especialidade_id === espId);
+
+      // Fallback para integracao_registros se a tabela agendamentos estiver vazia (Exibe Firebird direto!)
+      if (rows.length === 0) {
+        const { data: rawData } = await supabase
+          .from("integracao_registros")
+          .select("id, created_at, payload")
+          .ilike("tabela", "AGENDAMENTO")
+          .order("created_at", { ascending: false })
+          .limit(5000);
+
+        if (rawData && rawData.length > 0) {
+          rows = rawData.map((item: any) => {
+            const p = item.payload ?? {};
+            const dRaw = p.DATA ?? p.DT_AGENDAMENTO ?? p.DATA_AGENDAMENTO;
+            const dClean = dRaw ? String(dRaw).slice(0, 10) : format(new Date(item.created_at), "yyyy-MM-dd");
+            return {
+              id: item.id,
+              data: dClean,
+              hora_inicio: String(p.HORA ?? p.HORA_AGENDAMENTO ?? "08:00"),
+              status: String(p.SITUACAO ?? p.STATUS ?? "agendado").toLowerCase(),
+              is_encaixe: false,
+              pacientes: { nome: p.NM_PACIENTE ?? p.PACIENTE ?? p.NOME_PACIENTE ?? "Paciente Firebird", cpf: p.CPF ?? p.PACIENTE_CPF ?? "" },
+              profissionais: { nome: p.MEDICO ?? p.PROFISSIONAL ?? p.NOME_MEDICO ?? "Profissional Firebird", especialidades: { nome: p.ESPECIALIDADE ?? "Geral" } },
+              unidades: { nome: p.UNIDADE ?? p.NM_UNIDADE ?? "Unidade de Saúde" },
+              procedimentos: { codigo_sigtap: "", nome: "" },
+            };
+          });
+        }
+      }
+
       return rows;
     },
   });
@@ -283,7 +313,12 @@ function RelatoriosPage() {
     <div className="space-y-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
-          <CardTitle className="text-base flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Filtros</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /> Filtros de Relatório</CardTitle>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" className="text-xs font-bold text-primary h-7" onClick={() => { setFrom(d30); setTo(today); }}>
+              📅 Resetar Período (Últimos 30 Dias)
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-6">
           <div>

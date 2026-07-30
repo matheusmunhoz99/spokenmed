@@ -39,6 +39,7 @@ import { Route as AppTriagemRouteImport } from './routes/app.triagem'
 import { Route as AppVisitasRouteImport } from './routes/app.visitas'
 import { Route as TeleTokenRouteImport } from './routes/tele.$token'
 import { Route as ApiPublicIngestRouteImport } from './routes/api/public/ingest'
+import { Route as ApiPublicOutboxRouteImport } from './routes/api/public/outbox'
 import { Route as ApiPublicVersionRouteImport } from './routes/api/public/version'
 import { Route as AppConfiguracoesCotasRouteImport } from './routes/app.configuracoes.cotas'
 import { Route as AppConfiguracoesSistemaRouteImport } from './routes/app.configuracoes.sistema'
@@ -201,6 +202,11 @@ const ApiPublicIngestRoute = ApiPublicIngestRouteImport.update({
   path: '/api/public/ingest',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicOutboxRoute = ApiPublicOutboxRouteImport.update({
+  id: '/api/public/outbox',
+  path: '/api/public/outbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicVersionRoute = ApiPublicVersionRouteImport.update({
   id: '/api/public/version',
   path: '/api/public/version',
@@ -283,6 +289,7 @@ export interface FileRoutesByFullPath {
   '/tele/$token': typeof TeleTokenRouteWithChildren
   '/app/': typeof AppIndexRoute
   '/api/public/ingest': typeof ApiPublicIngestRoute
+  '/api/public/outbox': typeof ApiPublicOutboxRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/cotas': typeof AppConfiguracoesCotasRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
@@ -322,6 +329,7 @@ export interface FileRoutesByTo {
   '/tele/$token': typeof TeleTokenRouteWithChildren
   '/app': typeof AppIndexRoute
   '/api/public/ingest': typeof ApiPublicIngestRoute
+  '/api/public/outbox': typeof ApiPublicOutboxRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/cotas': typeof AppConfiguracoesCotasRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
@@ -365,6 +373,7 @@ export interface FileRoutesById {
   '/tele/$token': typeof TeleTokenRouteWithChildren
   '/app/': typeof AppIndexRoute
   '/api/public/ingest': typeof ApiPublicIngestRoute
+  '/api/public/outbox': typeof ApiPublicOutboxRoute
   '/api/public/version': typeof ApiPublicVersionRoute
   '/app/configuracoes/cotas': typeof AppConfiguracoesCotasRoute
   '/app/configuracoes/sistema': typeof AppConfiguracoesSistemaRoute
@@ -409,6 +418,7 @@ export interface FileRouteTypes {
     | '/tele/$token'
     | '/app/'
     | '/api/public/ingest'
+    | '/api/public/outbox'
     | '/api/public/version'
     | '/app/configuracoes/cotas'
     | '/app/configuracoes/sistema'
@@ -448,6 +458,7 @@ export interface FileRouteTypes {
     | '/tele/$token'
     | '/app'
     | '/api/public/ingest'
+    | '/api/public/outbox'
     | '/api/public/version'
     | '/app/configuracoes/cotas'
     | '/app/configuracoes/sistema'
@@ -490,6 +501,7 @@ export interface FileRouteTypes {
     | '/tele/$token'
     | '/app/'
     | '/api/public/ingest'
+    | '/api/public/outbox'
     | '/api/public/version'
     | '/app/configuracoes/cotas'
     | '/app/configuracoes/sistema'
@@ -511,6 +523,7 @@ export interface RootRouteChildren {
   VerificarRoute: typeof VerificarRoute
   TeleTokenRoute: typeof TeleTokenRouteWithChildren
   ApiPublicIngestRoute: typeof ApiPublicIngestRoute
+  ApiPublicOutboxRoute: typeof ApiPublicOutboxRoute
   ApiPublicVersionRoute: typeof ApiPublicVersionRoute
 }
 
@@ -726,6 +739,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicIngestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/outbox': {
+      id: '/api/public/outbox'
+      path: '/api/public/outbox'
+      fullPath: '/api/public/outbox'
+      preLoaderRoute: typeof ApiPublicOutboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/version': {
       id: '/api/public/version'
       path: '/api/public/version'
@@ -917,6 +937,7 @@ const rootRouteChildren: RootRouteChildren = {
   VerificarRoute: VerificarRoute,
   TeleTokenRoute: TeleTokenRouteWithChildren,
   ApiPublicIngestRoute: ApiPublicIngestRoute,
+  ApiPublicOutboxRoute: ApiPublicOutboxRoute,
   ApiPublicVersionRoute: ApiPublicVersionRoute,
 }
 export const routeTree = rootRouteImport
