@@ -118,7 +118,7 @@ function RelatoriosPage() {
     queryFn: async () => {
       let q = supabase
         .from("agendamentos")
-        .select("id,data,status,is_encaixe,unidade_id,profissional_id,procedimento_id,profissionais(nome,especialidade_id,especialidades(nome)),unidades(nome),procedimentos(codigo_sigtap,nome)")
+        .select("id,data,hora_inicio,status,is_encaixe,unidade_id,profissional_id,procedimento_id,pacientes(nome,cpf),profissionais(nome,especialidade_id,especialidades(nome)),unidades(nome),procedimentos(codigo_sigtap,nome)")
         .gte("data", from)
         .lte("data", to)
         .order("data", { ascending: true })
@@ -362,6 +362,7 @@ function RelatoriosPage() {
           <TabsTrigger value="producao">Produção</TabsTrigger>
           <TabsTrigger value="profissional">Por Profissional</TabsTrigger>
           <TabsTrigger value="especialidade">Por Especialidade</TabsTrigger>
+          <TabsTrigger value="listagem">Listagem Agendamentos</TabsTrigger>
           <TabsTrigger value="fila">Fila</TabsTrigger>
         </TabsList>
 
@@ -491,6 +492,65 @@ function RelatoriosPage() {
                     <Bar dataKey="normal" stackId="s" fill={URG_COLORS.normal} name="Normal" />
                   </BarChart>
                 </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="listagem" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-base">Listagem Detalhada de Agendamentos</CardTitle>
+                <p className="text-xs text-muted-foreground">Todos os agendamentos registrados no período filtrado por profissional e unidade.</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={exportProducao}><Download className="mr-1 h-4 w-4" /> Exportar CSV / Excel</Button>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skel />
+              ) : !ags || ags.length === 0 ? (
+                <Empty />
+              ) : (
+                <div className="overflow-x-auto border rounded-lg max-h-[500px]">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50 border-b sticky top-0 bg-card">
+                      <tr className="text-left font-bold text-muted-foreground">
+                        <th className="p-2.5">Data / Hora</th>
+                        <th className="p-2.5">Paciente</th>
+                        <th className="p-2.5">Profissional</th>
+                        <th className="p-2.5">Especialidade</th>
+                        <th className="p-2.5">Unidade</th>
+                        <th className="p-2.5 text-center">Encaixe</th>
+                        <th className="p-2.5 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {ags.map((r: any) => (
+                        <tr key={r.id} className="hover:bg-muted/30">
+                          <td className="p-2.5 font-semibold">
+                            {r.data ? format(new Date(r.data + "T00:00:00"), "dd/MM/yyyy") : "—"} {r.hora_inicio ? `· ${r.hora_inicio.slice(0,5)}` : ""}
+                          </td>
+                          <td className="p-2.5 font-bold text-foreground">
+                            {r.pacientes?.nome ?? "Paciente não identificado"}
+                            {r.pacientes?.cpf ? <span className="block text-[10px] font-normal text-muted-foreground">CPF: {r.pacientes.cpf}</span> : null}
+                          </td>
+                          <td className="p-2.5">{r.profissionais?.nome ?? "—"}</td>
+                          <td className="p-2.5">{r.profissionais?.especialidades?.nome ?? "—"}</td>
+                          <td className="p-2.5">{r.unidades?.nome ?? "—"}</td>
+                          <td className="p-2.5 text-center">
+                            {r.is_encaixe ? <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/30">Sim</Badge> : "Não"}
+                          </td>
+                          <td className="p-2.5 text-right">
+                            <Badge className="text-[10px] uppercase font-bold" style={{ backgroundColor: STATUS_COLORS[r.status] ?? "#64748b" }}>
+                              {STATUS_LABEL[r.status] ?? r.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </CardContent>
           </Card>
