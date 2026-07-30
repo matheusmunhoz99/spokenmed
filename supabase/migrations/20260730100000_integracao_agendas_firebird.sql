@@ -1,18 +1,34 @@
 -- Migration para integração total de Agendas, Vagas, Horários e Agendamentos do Firebird
 -- Suporta tabelas AGENDAMEDICA, AGENDA, AGENDAMENTO, AGENDA_HORARIO do Fiorilli SSA.
 
-ALTER TABLE IF EXISTS public.agendas
-  ADD COLUMN IF NOT EXISTS codigo_origem_firebird text UNIQUE,
-  ADD COLUMN IF NOT EXISTS sincronizado_firebird boolean DEFAULT true,
-  ADD COLUMN IF NOT EXISTS total_vagas integer DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS vagas_ocupadas integer DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS vagas_disponiveis integer DEFAULT 0;
+CREATE TABLE IF NOT EXISTS public.agendas (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  codigo_origem_firebird text UNIQUE,
+  unidade_id uuid REFERENCES public.unidades(id),
+  profissional_id uuid REFERENCES public.profissionais(id),
+  especialidade_id uuid REFERENCES public.especialidades(id),
+  data date NOT NULL DEFAULT CURRENT_DATE,
+  total_vagas integer NOT NULL DEFAULT 0,
+  vagas_ocupadas integer NOT NULL DEFAULT 0,
+  vagas_disponiveis integer NOT NULL DEFAULT 0,
+  sincronizado_firebird boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE IF EXISTS public.agendas_config
+  ADD COLUMN IF NOT EXISTS codigo_origem_firebird text UNIQUE;
+
+-- Permitir agendamentos diretos do Firebird sem slot_id prévio
+ALTER TABLE IF EXISTS public.agendamentos
+  ALTER COLUMN slot_id DROP NOT NULL;
 
 ALTER TABLE IF EXISTS public.agendamentos
   ADD COLUMN IF NOT EXISTS codigo_origem_firebird text UNIQUE,
   ADD COLUMN IF NOT EXISTS sincronizado_firebird boolean DEFAULT true,
   ADD COLUMN IF NOT EXISTS horario_origem_firebird text,
-  ADD COLUMN IF NOT EXISTS prioridade text DEFAULT 'normal';
+  ADD COLUMN IF NOT EXISTS prioridade text DEFAULT 'normal',
+  ADD COLUMN IF NOT EXISTS especialidade_id uuid REFERENCES public.especialidades(id);
 
 CREATE INDEX IF NOT EXISTS agendas_firebird_idx ON public.agendas(codigo_origem_firebird);
 CREATE INDEX IF NOT EXISTS agendamentos_firebird_idx ON public.agendamentos(codigo_origem_firebird);
@@ -155,13 +171,12 @@ BEGIN
     IF v_paciente_id IS NOT NULL THEN
       INSERT INTO public.agendamentos (
         codigo_origem_firebird,
-        agenda_id,
         paciente_id,
         profissional_id,
         unidade_id,
         especialidade_id,
         data,
-        horario,
+        hora_inicio,
         horario_origem_firebird,
         status,
         prioridade,
@@ -170,28 +185,26 @@ BEGIN
         updated_at
       ) VALUES (
         v_codigo_agendamento,
-        v_agenda_id,
         v_paciente_id,
         v_profissional_id,
         v_unidade_id,
         v_especialidade_id,
         v_data,
+        v_hora::time,
         v_hora,
-        v_hora,
-        v_situacao,
+        v_situacao::public.agendamento_status,
         v_prioridade,
         v_observacoes,
         true,
         now()
       )
       ON CONFLICT (codigo_origem_firebird) DO UPDATE SET
-        agenda_id = COALESCE(EXCLUDED.agenda_id, public.agendamentos.agenda_id),
         paciente_id = EXCLUDED.paciente_id,
         profissional_id = COALESCE(EXCLUDED.profissional_id, public.agendamentos.profissional_id),
         unidade_id = COALESCE(EXCLUDED.unidade_id, public.agendamentos.unidade_id),
         especialidade_id = COALESCE(EXCLUDED.especialidade_id, public.agendamentos.especialidade_id),
         data = EXCLUDED.data,
-        horario = EXCLUDED.horario,
+        hora_inicio = EXCLUDED.hora_inicio,
         status = EXCLUDED.status,
         prioridade = EXCLUDED.prioridade,
         observacoes = EXCLUDED.observacoes,

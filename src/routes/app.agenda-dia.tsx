@@ -307,6 +307,17 @@ function AgendaDiaPage() {
           <div><strong>{prontosPraMim}</strong> {prontosPraMim === 1 ? "paciente pronto" : "pacientes prontos"} pra você atender (já passaram pela triagem).</div>
         </div>
       )}
+      {/* Header com 10s Sync Countdown Badge */}
+      <div className="flex items-center justify-between bg-card p-3.5 rounded-xl border shadow-sm">
+        <div className="flex items-center gap-2">
+          <CalendarClock className="h-5 w-5 text-primary" />
+          <span className="font-bold text-sm">Agenda do Dia</span>
+        </div>
+        <Badge variant="outline" className="px-3 py-1 text-xs font-semibold border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 animate-pulse flex items-center gap-1.5">
+          <Zap className="h-3.5 w-3.5" /> ⏱️ Próxima sincronização em: 00:{segundosParaSync < 10 ? `0${segundosParaSync}` : segundosParaSync}
+        </Badge>
+      </div>
+
       <Card>
         <CardContent className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
           <div className="space-y-1.5">

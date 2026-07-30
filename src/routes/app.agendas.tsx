@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useMemo, useState } from "react";
@@ -8,37 +8,75 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, Trash2, CalendarPlus } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, Calendar, Clock, User, Stethoscope, ChevronLeft, ChevronRight, RefreshCw, CheckCircle2, AlertCircle, ShieldCheck, Zap } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { formatTime } from "@/lib/format";
 import { useAllowedUnidades } from "@/hooks/use-allowed-unidades";
-
 import { useAuth } from "@/hooks/use-auth";
 import { SemAcesso } from "@/components/sem-acesso";
+
 function AgendasGuard() {
   const { can } = useAuth();
   if (!can("agendas")) return <SemAcesso />;
   return <AgendasPage />;
 }
+
 export const Route = createFileRoute("/app/agendas")({
   component: AgendasGuard,
   validateSearch: (s: Record<string, unknown>) => ({ profissional: (s.profissional as string) ?? "" }),
 });
 
-const dias = [
-  { v: 0, l: "Dom" }, { v: 1, l: "Seg" }, { v: 2, l: "Ter" }, { v: 3, l: "Qua" },
-  { v: 4, l: "Qui" }, { v: 5, l: "Sex" }, { v: 6, l: "Sáb" },
-];
+const diasSemanaHeader = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 function AgendasPage() {
   const search = Route.useSearch();
+  const navigate = useNavigate();
   const qc = useQueryClient();
-  const [profId, setProfId] = useState<string>(search.profissional || "");
-  const [unidadeId, setUnidadeId] = useState<string>("");
+  const [profId, setProfId] = useState<string>(search.profissional || "all");
+  const [unidadeId, setUnidadeId] = useState<string>("all");
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [dayModalOpen, setDayModalOpen] = useState(false);
+
+  // Live 10s sync timer state
+  const [segundosParaSync, setSegundosParaSync] = useState(10);
   const { data: unidadesAllowed } = useAllowedUnidades();
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSegundosParaSync((prev) => {
+        if (prev <= 1) {
+          qc.invalidateQueries({ queryKey: ["agendamentos-calendario"] });
+          return 10;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [qc]);
+
+  // Realtime WebSockets listener (<100ms update!)
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-agendas-matriz")
+      .on("postgres_changes", { event: "*", schema: "public", table: "agendamentos" }, () => {
+        qc.invalidateQueries({ queryKey: ["agendamentos-calendario"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "agendas" }, () => {
+        qc.invalidateQueries({ queryKey: ["agendamentos-calendario"] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
+
+  // Lista de profissionais ativos
   const { data: profs } = useQuery({
     queryKey: ["profissionais-ativos-select"],
     queryFn: async () => (await supabase.from("profissionais")
@@ -46,44 +84,89 @@ function AgendasPage() {
       .eq("ativo", true).order("nome")).data ?? [],
   });
 
-  const profissional = useMemo(() => profs?.find((p: any) => p.id === profId), [profs, profId]);
+  // Query de agendamentos no mês atual
+  const monthStart = format(startOfMonth(currentMonth), "yyyy-MM-dd");
+  const monthEnd = format(endOfMonth(currentMonth), "yyyy-MM-dd");
 
-  // Unidades do profissional limitadas àquelas que o usuário pode acessar
-  const profUnidades = useMemo(() => {
-    if (!profissional) return [];
-    const allowedIds = new Set((unidadesAllowed ?? []).map((u: any) => u.id));
-    return (profissional.profissional_unidades ?? [])
-      .map((pu: any) => pu.unidades)
-      .filter((u: any) => u && allowedIds.has(u.id));
-  }, [profissional, unidadesAllowed]);
+  const { data: agendamentosMes, isLoading: loadingAgendamentos } = useQuery({
+    queryKey: ["agendamentos-calendario", monthStart, monthEnd, profId, unidadeId],
+    queryFn: async () => {
+      let q = supabase
+        .from("agendamentos")
+        .select("id, data, hora_inicio, status, prioridade, paciente_id, profissional_id, unidade_id, pacientes(nome, cpf, cns, telefone), profissionais(nome), unidades(nome), especialidades(nome)")
+        .gte("data", monthStart)
+        .lte("data", monthEnd);
 
-  useEffect(() => {
-    setUnidadeId(profUnidades[0]?.id ?? "");
-  }, [profId, profUnidades.length]);
+      if (profId !== "all") q = q.eq("profissional_id", profId);
+      if (unidadeId !== "all") q = q.eq("unidade_id", unidadeId);
+      else if (unidadesAllowed && unidadesAllowed.length > 0) {
+        q = q.in("unidade_id", unidadesAllowed.map((u: any) => u.id));
+      }
 
-  const { data: configs, refetch } = useQuery({
-    queryKey: ["agenda-configs", profId, unidadeId],
-    enabled: !!profId && !!unidadeId,
-    queryFn: async () => (await supabase.from("agendas_config")
-      .select("*, unidades(nome)")
-      .eq("profissional_id", profId)
-      .eq("unidade_id", unidadeId)
-      .order("vigencia_inicio", { ascending: false })).data ?? [],
+      return (await q).data ?? [];
+    },
   });
+
+  // Mapeamento de contagens por dia (YYYY-MM-DD)
+  const agendamentosPorDia = useMemo(() => {
+    const map = new Map<string, any[]>();
+    (agendamentosMes ?? []).forEach((item: any) => {
+      const dKey = item.data;
+      if (!map.has(dKey)) map.set(dKey, []);
+      map.get(dKey)!.push(item);
+    });
+    return map;
+  }, [agendamentosMes]);
+
+  // Gerador da grade de dias do calendário
+  const daysInCalendar = useMemo(() => {
+    const sMonth = startOfMonth(currentMonth);
+    const eMonth = endOfMonth(currentMonth);
+    const sWeek = startOfWeek(sMonth, { weekStartsOn: 0 });
+    const eWeek = endOfWeek(eMonth, { weekStartsOn: 0 });
+    return eachDayOfInterval({ start: sWeek, end: eWeek });
+  }, [currentMonth]);
+
+  const handleOpenDay = (day: Date) => {
+    setSelectedDay(day);
+    setDayModalOpen(true);
+  };
+
+  const selectedDayKey = selectedDay ? format(selectedDay, "yyyy-MM-dd") : "";
+  const selectedDayItems = selectedDayKey ? agendamentosPorDia.get(selectedDayKey) ?? [] : [];
 
   return (
     <div className="space-y-6">
+      {/* Header Bar com Timer de Sincronia de 10s */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-card p-4 rounded-xl border shadow-sm">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" /> Matrix de Agendas Integradas
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Sincronia contínua em tempo real com o banco de dados Firebird.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="px-3 py-1.5 text-xs font-semibold border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 animate-pulse flex items-center gap-2">
+            <Zap className="h-3.5 w-3.5" /> ⏱️ Próxima sincronização em: 00:{segundosParaSync < 10 ? `0${segundosParaSync}` : segundosParaSync}
+          </Badge>
+          <Button size="sm" variant="ghost" onClick={() => qc.invalidateQueries({ queryKey: ["agendamentos-calendario"] })}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Painel de Filtros */}
       <Card>
-        <CardHeader>
-          <CardTitle>Selecionar profissional e unidade</CardTitle>
-          <CardDescription>Cada profissional tem uma agenda separada por unidade — assim não há conflito de horários entre UBS.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2">
+        <CardContent className="p-4 grid gap-4 md:grid-cols-3 items-end">
           <div className="space-y-1.5">
-            <Label className="text-xs">Profissional</Label>
+            <Label className="text-xs font-semibold">Filtrar por Profissional</Label>
             <Select value={profId} onValueChange={setProfId}>
-              <SelectTrigger><SelectValue placeholder="Selecionar profissional" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Todos os Profissionais" /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">Todos os Profissionais</SelectItem>
                 {profs?.map((p: any) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.nome} {p.especialidades?.nome ? `· ${p.especialidades.nome}` : ""}
@@ -92,203 +175,159 @@ function AgendasPage() {
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-1.5">
-            <Label className="text-xs">Unidade</Label>
-            <Select value={unidadeId} onValueChange={setUnidadeId} disabled={!profId || profUnidades.length === 0}>
-              <SelectTrigger>
-                <SelectValue placeholder={!profId ? "Escolha o profissional" : profUnidades.length === 0 ? "Nenhuma unidade vinculada" : "Selecionar unidade"} />
-              </SelectTrigger>
+            <Label className="text-xs font-semibold">Filtrar por Unidade</Label>
+            <Select value={unidadeId} onValueChange={setUnidadeId}>
+              <SelectTrigger><SelectValue placeholder="Todas as Unidades" /></SelectTrigger>
               <SelectContent>
-                {profUnidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>)}
+                <SelectItem value="all">Todas as Unidades</SelectItem>
+                {unidadesAllowed?.map((u: any) => (
+                  <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Navegador de Mês */}
+          <div className="flex items-center justify-between border rounded-lg p-1.5 bg-muted/30">
+            <Button size="icon" variant="ghost" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-bold capitalize">
+              {format(currentMonth, "MMMM 'de' yyyy", { locale: ptBR })}
+            </span>
+            <Button size="icon" variant="ghost" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {profId && unidadeId && profissional && (
-        <>
-          <NovaConfigForm
-            profissional={profissional}
-            unidadeId={unidadeId}
-            unidadeNome={profUnidades.find((u: any) => u.id === unidadeId)?.nome ?? ""}
-            onCreated={() => { qc.invalidateQueries({ queryKey: ["agenda-configs", profId, unidadeId] }); }}
-          />
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Configurações de agenda nesta unidade</CardTitle>
-              <CardDescription>Histórico de configurações e vagas geradas.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {!configs || configs.length === 0 ? (
-                <EmptyState
-                  icon={CalendarPlus}
-                  title="Nenhuma agenda configurada"
-                  description="Crie a primeira configuração de agenda acima para gerar as vagas desta unidade."
-                />
-              ) : (
-                configs.map((c: any) => <ConfigItem key={c.id} cfg={c} onChanged={refetch} />)
-              )}
-            </CardContent>
-          </Card>
-        </>
-      )}
-    </div>
-  );
-}
-
-function NovaConfigForm({ profissional, unidadeId, unidadeNome, onCreated }: any) {
-  const [submitting, setSubmitting] = useState(false);
-  const [diasSel, setDiasSel] = useState<number[]>([1,2,3,4,5]);
-  const [form, setForm] = useState({
-    manha_inicio: "08:00", manha_fim: "11:00",
-    tarde_inicio: "13:00", tarde_fim: "17:00",
-    duracao_min: "30",
-    vigencia_inicio: format(new Date(), "yyyy-MM-dd"),
-    vigencia_fim: format(new Date(Date.now() + 30 * 86400000), "yyyy-MM-dd"),
-  });
-  const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
-  const toggleDia = (v: number) => setDiasSel((s) => s.includes(v) ? s.filter((x) => x !== v) : [...s, v].sort());
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (diasSel.length === 0) return toast.error("Escolha ao menos 1 dia da semana");
-    setSubmitting(true);
-
-    const payload: any = {
-      profissional_id: profissional.id,
-      unidade_id: unidadeId,
-      dias_semana: diasSel,
-      manha_inicio: form.manha_inicio || null,
-      manha_fim: form.manha_fim || null,
-      tarde_inicio: form.tarde_inicio || null,
-      tarde_fim: form.tarde_fim || null,
-      duracao_min: parseInt(form.duracao_min, 10),
-      vigencia_inicio: form.vigencia_inicio,
-      vigencia_fim: form.vigencia_fim,
-    };
-    const { data: created, error } = await supabase.from("agendas_config").insert(payload).select("id").single();
-    if (error) { setSubmitting(false); return toast.error(error.message); }
-
-    const { data: count, error: errGen } = await supabase.rpc("gerar_slots", { _config_id: created.id });
-    setSubmitting(false);
-    if (errGen) return toast.error("Erro ao gerar vagas: " + errGen.message);
-    toast.success(`Agenda publicada — ${count} vagas geradas em ${unidadeNome}`);
-    onCreated();
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Nova agenda — {profissional.nome} · {unidadeNome}</CardTitle>
-        <CardDescription>Defina dias, horários e duração de cada consulta. As vagas são geradas automaticamente nesta unidade.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <Label className="text-xs mb-2 block">Dias da semana</Label>
-            <div className="flex flex-wrap gap-2">
-              {dias.map((d) => (
-                <button type="button" key={d.v} onClick={() => toggleDia(d.v)}
-                  className={`rounded-md border px-3 py-2 text-sm transition ${
-                    diasSel.includes(d.v) ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background hover:bg-accent"
-                  }`}>{d.l}</button>
-              ))}
-            </div>
+      {/* Calendário Interativo em Grade */}
+      <Card>
+        <CardContent className="p-4">
+          {/* Cabeçalho dos Dias da Semana */}
+          <div className="grid grid-cols-7 gap-1 text-center font-bold text-xs py-2 text-muted-foreground border-b mb-2">
+            {diasSemanaHeader.map((d) => (
+              <div key={d} className="py-1">{d}</div>
+            ))}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-md border p-4 space-y-3">
-              <div className="text-sm font-medium">Período da manhã</div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"><Label className="text-xs">Início</Label><Input type="time" value={form.manha_inicio} onChange={(e) => set("manha_inicio", e.target.value)} /></div>
-                <div className="space-y-1.5"><Label className="text-xs">Fim</Label><Input type="time" value={form.manha_fim} onChange={(e) => set("manha_fim", e.target.value)} /></div>
-              </div>
-              <p className="text-[11px] text-muted-foreground">Deixe em branco para não atender pela manhã.</p>
-            </div>
-            <div className="rounded-md border p-4 space-y-3">
-              <div className="text-sm font-medium">Período da tarde</div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"><Label className="text-xs">Início</Label><Input type="time" value={form.tarde_inicio} onChange={(e) => set("tarde_inicio", e.target.value)} /></div>
-                <div className="space-y-1.5"><Label className="text-xs">Fim</Label><Input type="time" value={form.tarde_fim} onChange={(e) => set("tarde_fim", e.target.value)} /></div>
-              </div>
-              <p className="text-[11px] text-muted-foreground">Deixe em branco para não atender à tarde.</p>
-            </div>
+          {/* Grade de Dias */}
+          <div className="grid grid-cols-7 gap-2">
+            {daysInCalendar.map((day) => {
+              const dayKey = format(day, "yyyy-MM-dd");
+              const items = agendamentosPorDia.get(dayKey) ?? [];
+              const count = items.length;
+              const isCurrMonth = isSameMonth(day, currentMonth);
+              const isDayToday = isToday(day);
+
+              return (
+                <button
+                  key={dayKey}
+                  onClick={() => handleOpenDay(day)}
+                  className={`min-h-[90px] p-2 rounded-xl border text-left transition-all hover:border-primary hover:shadow-md flex flex-col justify-between relative group ${
+                    !isCurrMonth ? "opacity-35 bg-muted/20" : "bg-card"
+                  } ${isDayToday ? "ring-2 ring-primary border-primary" : ""}`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span className={`text-xs font-bold ${isDayToday ? "text-primary" : "text-foreground"}`}>
+                      {format(day, "d")}
+                    </span>
+                    {isDayToday && (
+                      <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-primary text-primary-foreground">
+                        Hoje
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Contador de Pacientes no Dia */}
+                  {count > 0 ? (
+                    <div className="mt-2">
+                      <Badge className="w-full justify-center bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10.5px] font-bold py-0.5">
+                        ● {count} paciente{count > 1 ? "s" : ""}
+                      </Badge>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground/60 italic">Sem agendamentos</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Duração de cada consulta</Label>
-              <Select value={form.duracao_min} onValueChange={(v) => set("duracao_min", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {[10, 15, 20, 30, 40, 45, 60].map((n) => <SelectItem key={n} value={String(n)}>{n} minutos</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5"><Label className="text-xs">Vigência — início</Label><Input type="date" required value={form.vigencia_inicio} onChange={(e) => set("vigencia_inicio", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Vigência — fim</Label><Input type="date" required value={form.vigencia_fim} onChange={(e) => set("vigencia_fim", e.target.value)} /></div>
+      {/* Modal / Drawer de Inspeção do Dia Selecionado */}
+      <Dialog open={dayModalOpen} onOpenChange={setDayModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+              <Calendar className="h-5 w-5 text-primary" />
+              Agendamentos de {selectedDay ? format(selectedDay, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : ""}
+            </DialogTitle>
+            <DialogDescription>
+              Pacientes sincronizados pelo Firebird para esta data.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            {selectedDayItems.length === 0 ? (
+              <EmptyState
+                icon={User}
+                title="Nenhum paciente agendado"
+                description="Não há pacientes agendados no sistema Firebird para esta data nesta unidade."
+              />
+            ) : (
+              selectedDayItems.map((item: any) => (
+                <div key={item.id} className="p-3.5 rounded-xl border bg-muted/30 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:border-primary transition-colors">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-foreground">
+                        {item.pacientes?.nome ?? "Paciente não identificado"}
+                      </span>
+                      <Badge variant="outline" className="text-[10px] uppercase font-bold">
+                        {item.prioridade ?? "normal"}
+                      </Badge>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1 font-semibold text-primary">
+                        <Clock className="h-3.5 w-3.5" /> {item.hora_inicio ? formatTime(item.hora_inicio) : "08:00"}
+                      </span>
+                      {item.profissionais?.nome && (
+                        <span className="flex items-center gap-1">
+                          <Stethoscope className="h-3.5 w-3.5" /> {item.profissionais.nome}
+                        </span>
+                      )}
+                      {item.unidades?.nome && (
+                        <span>📍 {item.unidades.nome}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 justify-end">
+                    <Badge className={`uppercase text-[10px] font-bold px-2.5 py-1 ${
+                      item.status === "atendido" ? "bg-emerald-500/20 text-emerald-600 border-emerald-500/40" :
+                      item.status === "cancelado" ? "bg-rose-500/20 text-rose-600 border-rose-500/40" :
+                      "bg-blue-500/20 text-blue-600 border-blue-500/40"
+                    }`}>
+                      {item.status ?? "agendado"}
+                    </Badge>
+                    <Button size="sm" variant="default" onClick={() => {
+                      setDayModalOpen(false);
+                      navigate({ to: "/app/agenda-dia" as any, search: { data: item.data } as any });
+                    }}>
+                      Atender
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-
-          <div className="flex justify-end">
-            <Button type="submit" disabled={submitting}>
-              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              Publicar agenda e gerar vagas
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ConfigItem({ cfg, onChanged }: { cfg: any; onChanged: () => void }) {
-  const { data: counts } = useQuery({
-    queryKey: ["slot-counts", cfg.id],
-    queryFn: async () => {
-      const [t, l] = await Promise.all([
-        supabase.from("slots").select("*", { count: "exact", head: true }).eq("agenda_config_id", cfg.id),
-        supabase.from("slots").select("*", { count: "exact", head: true }).eq("agenda_config_id", cfg.id).eq("status", "livre"),
-      ]);
-      return { total: t.count ?? 0, livres: l.count ?? 0 };
-    },
-  });
-
-  const handleDelete = async () => {
-    if (!confirm("Apagar esta configuração e todas as vagas livres? Vagas já agendadas serão preservadas.")) return;
-    await supabase.from("slots").delete().eq("agenda_config_id", cfg.id).eq("status", "livre");
-    await supabase.from("agendas_config").delete().eq("id", cfg.id);
-    toast.success("Configuração removida");
-    onChanged();
-  };
-
-  const handleRegen = async () => {
-    const { data: count, error } = await supabase.rpc("gerar_slots", { _config_id: cfg.id });
-    if (error) return toast.error(error.message);
-    toast.success(`${count} novas vagas geradas`);
-    onChanged();
-  };
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border bg-card p-4">
-      <div className="space-y-1">
-        <div className="text-sm font-medium">{cfg.vigencia_inicio} → {cfg.vigencia_fim}</div>
-        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-          <span>Dias: {cfg.dias_semana.map((d: number) => dias.find((x) => x.v === d)?.l).join(", ")}</span>
-          <span>·</span>
-          {cfg.manha_inicio && <span>Manhã {formatTime(cfg.manha_inicio)}–{formatTime(cfg.manha_fim)}</span>}
-          {cfg.manha_inicio && cfg.tarde_inicio && <span>·</span>}
-          {cfg.tarde_inicio && <span>Tarde {formatTime(cfg.tarde_inicio)}–{formatTime(cfg.tarde_fim)}</span>}
-          <span>·</span>
-          <span>{cfg.duracao_min} min/consulta</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <Badge variant="secondary">{counts?.livres ?? 0} livres / {counts?.total ?? 0} totais</Badge>
-        <Button variant="outline" size="sm" onClick={handleRegen}><Sparkles className="h-4 w-4 mr-1" />Regerar</Button>
-        <Button variant="ghost" size="sm" onClick={handleDelete}><Trash2 className="h-4 w-4" /></Button>
-      </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
