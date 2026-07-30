@@ -256,6 +256,24 @@ function FilaPage() {
     return () => clearInterval(timer);
   }, [qc, queryKey]);
 
+  // Inscrição Supabase Realtime via WebSockets (Atualização instantânea < 100ms)
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-fila-espera")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "fila_espera" },
+        () => {
+          qc.invalidateQueries({ queryKey });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc, queryKey]);
+
   return (
     <PullToRefresh onRefresh={async () => { await qc.invalidateQueries({ queryKey }); }}>
     <div className="space-y-4">

@@ -142,6 +142,24 @@ function EncaminhamentosPage() {
     return () => clearInterval(timer);
   }, [refetch]);
 
+  // Inscrição Supabase Realtime via WebSockets (Atualização instantânea < 100ms)
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-encaminhamentos")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "integracao_registros" },
+        () => {
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch]);
+
   const registros = data?.registros ?? [];
   const totalRegistros = data?.total ?? 0;
   const totalPaginas = Math.max(1, Math.ceil(totalRegistros / PAGE_SIZE));

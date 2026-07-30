@@ -159,6 +159,46 @@ function LeitosPage() {
     return () => clearInterval(timer);
   }, []);
 
+  // Inscrição Supabase Realtime via WebSockets (Atualização instantânea < 100ms)
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-observacoes-leitos")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "observacoes" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["observacoes"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "observacao_evolucoes" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["observacao-evolucoes"] });
+          qc.invalidateQueries({ queryKey: ["observacoes"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "internacoes" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["internacoes"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "leitos" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["leitos"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
+
   const [leitoOpen, setLeitoOpen] = useState(false);
   const [internacaoOpen, setInternacaoOpen] = useState(false);
   const [altaAlvo, setAltaAlvo] = useState<any>(null);
