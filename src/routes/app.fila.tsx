@@ -247,14 +247,14 @@ function FilaPage() {
     const timer = setInterval(() => {
       setSegundosParaSync((prev) => {
         if (prev <= 1) {
-          qc.invalidateQueries({ queryKey });
+          qc.invalidateQueries({ queryKey: ["fila", unidadeId] });
           return 2;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [qc, queryKey]);
+  }, [qc, unidadeId]);
 
   // Inscrição Supabase Realtime via WebSockets (Atualização instantânea < 100ms)
   useEffect(() => {

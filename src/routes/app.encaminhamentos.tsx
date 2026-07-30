@@ -104,8 +104,8 @@ function EncaminhamentosPage() {
   const [unidade, setUnidade] = useState("todas");
   const [detalhe, setDetalhe] = useState<Registro | null>(null);
 
-  // Timer de contagem regressiva da próxima sincronização do .exe (30s)
-  const [segundosParaSync, setSegundosParaSync] = useState(30);
+  // Timer de contagem regressiva da próxima sincronização do .exe (2s Ultra-Realtime)
+  const [segundosParaSync, setSegundosParaSync] = useState(2);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["integracao", "encaminhamentos", pagina],

@@ -150,14 +150,16 @@ function LeitosPage() {
     const timer = setInterval(() => {
       setSegundosParaSync((prev) => {
         if (prev <= 1) {
-          refresh();
+          qc.invalidateQueries({ queryKey: ["observacoes"] });
+          qc.invalidateQueries({ queryKey: ["internacoes"] });
+          qc.invalidateQueries({ queryKey: ["leitos"] });
           return 2;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [qc]);
 
   // Inscrição Supabase Realtime via WebSockets (Atualização instantânea < 100ms)
   useEffect(() => {
