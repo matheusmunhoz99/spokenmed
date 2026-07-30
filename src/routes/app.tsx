@@ -11,6 +11,8 @@ import { PageTransition } from "@/components/page-transition";
 import { Button } from "@/components/ui/button";
 import { Keyboard, Loader2 } from "lucide-react";
 
+import { GlobalTelemetryBadge } from "@/components/global-telemetry-badge";
+
 export const Route = createFileRoute("/app")({
   beforeLoad: async () => {
     // Server/client-side gate: ensure session is hydrated before children load.
@@ -86,7 +88,8 @@ function AppLayout() {
                 <span className="truncate text-sm font-semibold">{title}</span>
                 <span className="truncate text-[11px] text-muted-foreground">SpokenMED · Secretaria de Saúde</span>
               </div>
-              <div className="ml-auto flex items-center">
+              <div className="ml-auto flex items-center gap-3">
+                <GlobalTelemetryBadge />
                 <HelpButton />
               </div>
             </header>
