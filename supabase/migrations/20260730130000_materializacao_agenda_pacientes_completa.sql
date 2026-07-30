@@ -1,4 +1,4 @@
--- Migration Master (V6 - Definitiva): Bypass de reserva de slot para agendamentos de integração Firebird
+-- Migration Master (V7 - Definitiva): Tratamento de Exceção para agendamentos_paciente_horario_uniq
 
 CREATE OR REPLACE FUNCTION public.clean_cpf(p_cpf text)
 RETURNS text
@@ -17,14 +17,13 @@ BEGIN
 END;
 $$;
 
--- 1. Desativa restrição de reserva de slot interno para agendamentos vindos da integração do Firebird
+-- 1. Bypass de reserva de slot interno para agendamentos de integração do Firebird
 CREATE OR REPLACE FUNCTION public.fn_ag_reserva_slot()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  -- Se o agendamento possui código de origem do Firebird, permite inserção direta sem exigir slot manual
   IF NEW.codigo_origem_firebird IS NOT NULL THEN
     RETURN NEW;
   END IF;
@@ -111,7 +110,7 @@ CREATE TRIGGER trigger_materializar_cadsocial
   EXECUTE FUNCTION public.materializar_integracao_cadsocial();
 
 
--- 4. Função para materializar Agendamentos do Firebird
+-- 4. Função para materializar Agendamentos (com suporte total a conflito paciente+data+hora)
 CREATE OR REPLACE FUNCTION public.materializar_integracao_agenda()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -181,7 +180,6 @@ BEGIN
     ELSE v_status_enum := 'agendado'::public.agendamento_status;
   END CASE;
 
-  -- Para agendamentos importados do Firebird, define encaixe como verdadeiro para liberar slot interno
   v_is_encaixe := COALESCE((NEW.payload->>'IS_ENCAIXE')::boolean, true);
 
   IF v_cpf_limpo IS NOT NULL AND EXISTS (
@@ -250,36 +248,46 @@ BEGIN
     END IF;
   END IF;
 
-  -- 4. Insere ou Atualiza Agendamento
+  -- 4. Insere ou Atualiza Agendamento tratando conflitos de chave única e de horário do paciente
   IF v_paciente_id IS NOT NULL AND v_unidade_id IS NOT NULL AND v_profissional_id IS NOT NULL THEN
-    INSERT INTO public.agendamentos (
-      codigo_origem_firebird,
-      paciente_id,
-      unidade_id,
-      profissional_id,
-      data,
-      hora_inicio,
-      status,
-      is_encaixe
-    ) VALUES (
-      v_cd_agendamento,
-      v_paciente_id,
-      v_unidade_id,
-      v_profissional_id,
-      v_data,
-      v_hora_time,
-      v_status_enum,
-      v_is_encaixe
-    )
-    ON CONFLICT (codigo_origem_firebird) DO UPDATE SET
-      paciente_id = EXCLUDED.paciente_id,
-      unidade_id = EXCLUDED.unidade_id,
-      profissional_id = EXCLUDED.profissional_id,
-      data = EXCLUDED.data,
-      hora_inicio = EXCLUDED.hora_inicio,
-      status = EXCLUDED.status,
-      is_encaixe = EXCLUDED.is_encaixe,
-      updated_at = now();
+    BEGIN
+      INSERT INTO public.agendamentos (
+        codigo_origem_firebird,
+        paciente_id,
+        unidade_id,
+        profissional_id,
+        data,
+        hora_inicio,
+        status,
+        is_encaixe
+      ) VALUES (
+        v_cd_agendamento,
+        v_paciente_id,
+        v_unidade_id,
+        v_profissional_id,
+        v_data,
+        v_hora_time,
+        v_status_enum,
+        v_is_encaixe
+      )
+      ON CONFLICT (codigo_origem_firebird) DO UPDATE SET
+        paciente_id = EXCLUDED.paciente_id,
+        unidade_id = EXCLUDED.unidade_id,
+        profissional_id = EXCLUDED.profissional_id,
+        data = EXCLUDED.data,
+        hora_inicio = EXCLUDED.hora_inicio,
+        status = EXCLUDED.status,
+        is_encaixe = EXCLUDED.is_encaixe,
+        updated_at = now();
+    EXCEPTION WHEN unique_violation THEN
+      UPDATE public.agendamentos SET
+        codigo_origem_firebird = v_cd_agendamento,
+        unidade_id = v_unidade_id,
+        profissional_id = v_profissional_id,
+        status = v_status_enum,
+        updated_at = now()
+      WHERE paciente_id = v_paciente_id AND data = v_data AND hora_inicio = v_hora_time;
+    END;
   END IF;
 
   RETURN NEW;
