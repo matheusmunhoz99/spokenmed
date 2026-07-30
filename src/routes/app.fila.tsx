@@ -241,14 +241,14 @@ function FilaPage() {
   };
 
   const unidadeNome = unidadesAllowed?.find((u: any) => u.id === unidadeId)?.nome ?? "";
-  const [segundosParaSync, setSegundosParaSync] = useState(10);
+  const [segundosParaSync, setSegundosParaSync] = useState(2);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setSegundosParaSync((prev) => {
         if (prev <= 1) {
           qc.invalidateQueries({ queryKey });
-          return 10;
+          return 2;
         }
         return prev - 1;
       });

@@ -126,7 +126,7 @@ function EncaminhamentosPage() {
         total: count ?? 0,
       };
     },
-    refetchInterval: 10000,
+    refetchInterval: 2000,
   });
 
   useEffect(() => {
@@ -134,7 +134,7 @@ function EncaminhamentosPage() {
       setSegundosParaSync((prev) => {
         if (prev <= 1) {
           refetch();
-          return 10;
+          return 2;
         }
         return prev - 1;
       });

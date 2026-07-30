@@ -42,8 +42,8 @@ function AgendasPage() {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [dayModalOpen, setDayModalOpen] = useState(false);
 
-  // Live 10s sync timer state
-  const [segundosParaSync, setSegundosParaSync] = useState(10);
+  // Live 2s sync timer state (Ultra-Realtime)
+  const [segundosParaSync, setSegundosParaSync] = useState(2);
   const { data: unidadesAllowed } = useAllowedUnidades();
 
   useEffect(() => {
@@ -51,7 +51,7 @@ function AgendasPage() {
       setSegundosParaSync((prev) => {
         if (prev <= 1) {
           qc.invalidateQueries({ queryKey: ["agendamentos-calendario"] });
-          return 10;
+          return 2;
         }
         return prev - 1;
       });
