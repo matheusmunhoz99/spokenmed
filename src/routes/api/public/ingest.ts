@@ -20,7 +20,7 @@ const bodySchema = z.object({
   tabela: z.string().trim().min(1).max(120),
   chave_primaria: z.union([z.string().max(120), z.array(z.string().max(120))]).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
-  registros: z.array(z.record(z.string(), z.unknown())).min(1).max(2000),
+  registros: z.array(z.record(z.string(), z.unknown())).min(1).max(10000),
 });
 
 function chaveDe(
