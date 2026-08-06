@@ -121,6 +121,7 @@ export type Database = {
             | Database["public"]["Enums"]["classificacao_risco"]
             | null
           codigo: string
+          codigo_origem_firebird: string | null
           created_at: string
           criado_por: string | null
           data: string
@@ -128,7 +129,9 @@ export type Database = {
           encaixe_prioridade:
             | Database["public"]["Enums"]["fila_urgencia"]
             | null
+          especialidade_id: string | null
           hora_inicio: string
+          horario_origem_firebird: string | null
           id: string
           is_encaixe: boolean
           modalidade: string
@@ -136,10 +139,12 @@ export type Database = {
           observacoes: string | null
           origem_agenda: string
           paciente_id: string
+          prioridade: string | null
           procedimento_id: string | null
           profissional_id: string
           reagendado_de: string | null
           reagendado_em: string | null
+          sincronizado_firebird: boolean | null
           slot_id: string | null
           solicitante_cbo: string | null
           solicitante_cnes: string | null
@@ -161,6 +166,7 @@ export type Database = {
             | Database["public"]["Enums"]["classificacao_risco"]
             | null
           codigo?: string
+          codigo_origem_firebird?: string | null
           created_at?: string
           criado_por?: string | null
           data: string
@@ -168,7 +174,9 @@ export type Database = {
           encaixe_prioridade?:
             | Database["public"]["Enums"]["fila_urgencia"]
             | null
+          especialidade_id?: string | null
           hora_inicio: string
+          horario_origem_firebird?: string | null
           id?: string
           is_encaixe?: boolean
           modalidade?: string
@@ -176,10 +184,12 @@ export type Database = {
           observacoes?: string | null
           origem_agenda?: string
           paciente_id: string
+          prioridade?: string | null
           procedimento_id?: string | null
           profissional_id: string
           reagendado_de?: string | null
           reagendado_em?: string | null
+          sincronizado_firebird?: boolean | null
           slot_id?: string | null
           solicitante_cbo?: string | null
           solicitante_cnes?: string | null
@@ -201,6 +211,7 @@ export type Database = {
             | Database["public"]["Enums"]["classificacao_risco"]
             | null
           codigo?: string
+          codigo_origem_firebird?: string | null
           created_at?: string
           criado_por?: string | null
           data?: string
@@ -208,7 +219,9 @@ export type Database = {
           encaixe_prioridade?:
             | Database["public"]["Enums"]["fila_urgencia"]
             | null
+          especialidade_id?: string | null
           hora_inicio?: string
+          horario_origem_firebird?: string | null
           id?: string
           is_encaixe?: boolean
           modalidade?: string
@@ -216,10 +229,12 @@ export type Database = {
           observacoes?: string | null
           origem_agenda?: string
           paciente_id?: string
+          prioridade?: string | null
           procedimento_id?: string | null
           profissional_id?: string
           reagendado_de?: string | null
           reagendado_em?: string | null
+          sincronizado_firebird?: boolean | null
           slot_id?: string | null
           solicitante_cbo?: string | null
           solicitante_cnes?: string | null
@@ -234,6 +249,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "agendamentos_especialidade_id_fkey"
+            columns: ["especialidade_id"]
+            isOneToOne: false
+            referencedRelation: "especialidades"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "agendamentos_paciente_id_fkey"
             columns: ["paciente_id"]
@@ -278,8 +300,76 @@ export type Database = {
           },
         ]
       }
+      agendas: {
+        Row: {
+          codigo_origem_firebird: string | null
+          created_at: string
+          data: string
+          especialidade_id: string | null
+          id: string
+          profissional_id: string | null
+          sincronizado_firebird: boolean
+          total_vagas: number
+          unidade_id: string | null
+          updated_at: string
+          vagas_disponiveis: number
+          vagas_ocupadas: number
+        }
+        Insert: {
+          codigo_origem_firebird?: string | null
+          created_at?: string
+          data?: string
+          especialidade_id?: string | null
+          id?: string
+          profissional_id?: string | null
+          sincronizado_firebird?: boolean
+          total_vagas?: number
+          unidade_id?: string | null
+          updated_at?: string
+          vagas_disponiveis?: number
+          vagas_ocupadas?: number
+        }
+        Update: {
+          codigo_origem_firebird?: string | null
+          created_at?: string
+          data?: string
+          especialidade_id?: string | null
+          id?: string
+          profissional_id?: string | null
+          sincronizado_firebird?: boolean
+          total_vagas?: number
+          unidade_id?: string | null
+          updated_at?: string
+          vagas_disponiveis?: number
+          vagas_ocupadas?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agendas_especialidade_id_fkey"
+            columns: ["especialidade_id"]
+            isOneToOne: false
+            referencedRelation: "especialidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendas_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendas_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agendas_config: {
         Row: {
+          codigo_origem_firebird: string | null
           created_at: string
           dias_semana: number[]
           duracao_min: number
@@ -296,6 +386,7 @@ export type Database = {
           vigencia_inicio: string
         }
         Insert: {
+          codigo_origem_firebird?: string | null
           created_at?: string
           dias_semana: number[]
           duracao_min?: number
@@ -312,6 +403,7 @@ export type Database = {
           vigencia_inicio: string
         }
         Update: {
+          codigo_origem_firebird?: string | null
           created_at?: string
           dias_semana?: number[]
           duracao_min?: number
@@ -1150,6 +1242,80 @@ export type Database = {
           },
         ]
       }
+      encaminhamentos: {
+        Row: {
+          codigo_origem_firebird: string | null
+          created_at: string
+          especialidade_id: string | null
+          id: string
+          observacoes: string | null
+          paciente_id: string | null
+          prioridade: string
+          profissional_id: string | null
+          sincronizado_firebird: boolean | null
+          status: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          codigo_origem_firebird?: string | null
+          created_at?: string
+          especialidade_id?: string | null
+          id?: string
+          observacoes?: string | null
+          paciente_id?: string | null
+          prioridade?: string
+          profissional_id?: string | null
+          sincronizado_firebird?: boolean | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          codigo_origem_firebird?: string | null
+          created_at?: string
+          especialidade_id?: string | null
+          id?: string
+          observacoes?: string | null
+          paciente_id?: string | null
+          prioridade?: string
+          profissional_id?: string | null
+          sincronizado_firebird?: boolean | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "encaminhamentos_especialidade_id_fkey"
+            columns: ["especialidade_id"]
+            isOneToOne: false
+            referencedRelation: "especialidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "encaminhamentos_paciente_id_fkey"
+            columns: ["paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "encaminhamentos_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "encaminhamentos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipes: {
         Row: {
           ativo: boolean
@@ -1633,6 +1799,69 @@ export type Database = {
         }
         Relationships: []
       }
+      integracao_materializacao_erros: {
+        Row: {
+          chave_origem: string | null
+          created_at: string
+          erro: string
+          id: string
+          integracao_registro_id: string | null
+          resolved_at: string | null
+          tabela: string
+        }
+        Insert: {
+          chave_origem?: string | null
+          created_at?: string
+          erro: string
+          id?: string
+          integracao_registro_id?: string | null
+          resolved_at?: string | null
+          tabela: string
+        }
+        Update: {
+          chave_origem?: string | null
+          created_at?: string
+          erro?: string
+          id?: string
+          integracao_registro_id?: string | null
+          resolved_at?: string | null
+          tabela?: string
+        }
+        Relationships: []
+      }
+      integracao_outbox: {
+        Row: {
+          acao: string
+          chave_origem: string
+          created_at: string
+          id: string
+          payload: Json
+          processed_at: string | null
+          status: string
+          tabela: string
+        }
+        Insert: {
+          acao?: string
+          chave_origem: string
+          created_at?: string
+          id?: string
+          payload: Json
+          processed_at?: string | null
+          status?: string
+          tabela: string
+        }
+        Update: {
+          acao?: string
+          chave_origem?: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          status?: string
+          tabela?: string
+        }
+        Relationships: []
+      }
       integracao_registros: {
         Row: {
           chave_origem: string | null
@@ -1680,26 +1909,117 @@ export type Database = {
           },
         ]
       }
+      internacao_evolucoes: {
+        Row: {
+          anotacao: boolean
+          bpm: number | null
+          codigo_origem_firebird: string
+          created_at: string
+          data_hora: string | null
+          evolucao: string | null
+          fracao_o2: number | null
+          glicemia: number | null
+          id: string
+          internacao_id: string
+          peso: number | null
+          prescricao: string | null
+          pressao_diastolica: number | null
+          pressao_sistolica: number | null
+          profissional_id: string | null
+          rpm: number | null
+          saturacao: number | null
+          situacao: string | null
+          temperatura: number | null
+          updated_at: string
+        }
+        Insert: {
+          anotacao?: boolean
+          bpm?: number | null
+          codigo_origem_firebird: string
+          created_at?: string
+          data_hora?: string | null
+          evolucao?: string | null
+          fracao_o2?: number | null
+          glicemia?: number | null
+          id?: string
+          internacao_id: string
+          peso?: number | null
+          prescricao?: string | null
+          pressao_diastolica?: number | null
+          pressao_sistolica?: number | null
+          profissional_id?: string | null
+          rpm?: number | null
+          saturacao?: number | null
+          situacao?: string | null
+          temperatura?: number | null
+          updated_at?: string
+        }
+        Update: {
+          anotacao?: boolean
+          bpm?: number | null
+          codigo_origem_firebird?: string
+          created_at?: string
+          data_hora?: string | null
+          evolucao?: string | null
+          fracao_o2?: number | null
+          glicemia?: number | null
+          id?: string
+          internacao_id?: string
+          peso?: number | null
+          prescricao?: string | null
+          pressao_diastolica?: number | null
+          pressao_sistolica?: number | null
+          profissional_id?: string | null
+          rpm?: number | null
+          saturacao?: number | null
+          situacao?: string | null
+          temperatura?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internacao_evolucoes_internacao_id_fkey"
+            columns: ["internacao_id"]
+            isOneToOne: false
+            referencedRelation: "internacoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internacao_evolucoes_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       internacoes: {
         Row: {
           alta_motivo: string | null
           aprovado_em: string | null
           aprovado_por: string | null
           cid10: string | null
+          codigo_internacao_firebird: string | null
+          codigo_origem_firebird: string | null
           created_at: string
           data_admissao: string | null
           data_alta: string | null
           id: string
           leito_id: string | null
+          medico_alta_id: string | null
+          medico_responsavel_id: string | null
+          medico_solicitante_id: string | null
           motivo: string
           observacoes: string | null
           paciente_id: string
           previsao_dias: number | null
           prioridade: string
           recusa_motivo: string | null
+          sincronizado_firebird: boolean
           solicitado_em: string
           solicitado_por: string | null
           status: Database["public"]["Enums"]["internacao_status"]
+          status_origem: string | null
           unidade_id: string
           updated_at: string
         }
@@ -1708,20 +2028,27 @@ export type Database = {
           aprovado_em?: string | null
           aprovado_por?: string | null
           cid10?: string | null
+          codigo_internacao_firebird?: string | null
+          codigo_origem_firebird?: string | null
           created_at?: string
           data_admissao?: string | null
           data_alta?: string | null
           id?: string
           leito_id?: string | null
+          medico_alta_id?: string | null
+          medico_responsavel_id?: string | null
+          medico_solicitante_id?: string | null
           motivo: string
           observacoes?: string | null
           paciente_id: string
           previsao_dias?: number | null
           prioridade?: string
           recusa_motivo?: string | null
+          sincronizado_firebird?: boolean
           solicitado_em?: string
           solicitado_por?: string | null
           status?: Database["public"]["Enums"]["internacao_status"]
+          status_origem?: string | null
           unidade_id: string
           updated_at?: string
         }
@@ -1730,20 +2057,27 @@ export type Database = {
           aprovado_em?: string | null
           aprovado_por?: string | null
           cid10?: string | null
+          codigo_internacao_firebird?: string | null
+          codigo_origem_firebird?: string | null
           created_at?: string
           data_admissao?: string | null
           data_alta?: string | null
           id?: string
           leito_id?: string | null
+          medico_alta_id?: string | null
+          medico_responsavel_id?: string | null
+          medico_solicitante_id?: string | null
           motivo?: string
           observacoes?: string | null
           paciente_id?: string
           previsao_dias?: number | null
           prioridade?: string
           recusa_motivo?: string | null
+          sincronizado_firebird?: boolean
           solicitado_em?: string
           solicitado_por?: string | null
           status?: Database["public"]["Enums"]["internacao_status"]
+          status_origem?: string | null
           unidade_id?: string
           updated_at?: string
         }
@@ -1753,6 +2087,27 @@ export type Database = {
             columns: ["leito_id"]
             isOneToOne: false
             referencedRelation: "leitos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internacoes_medico_alta_id_fkey"
+            columns: ["medico_alta_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internacoes_medico_responsavel_id_fkey"
+            columns: ["medico_responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internacoes_medico_solicitante_id_fkey"
+            columns: ["medico_solicitante_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
             referencedColumns: ["id"]
           },
           {
@@ -1775,6 +2130,7 @@ export type Database = {
         Row: {
           ala: string | null
           ativo: boolean
+          codigo_origem_firebird: string | null
           created_at: string
           id: string
           numero: string
@@ -1788,6 +2144,7 @@ export type Database = {
         Insert: {
           ala?: string | null
           ativo?: boolean
+          codigo_origem_firebird?: string | null
           created_at?: string
           id?: string
           numero: string
@@ -1801,6 +2158,7 @@ export type Database = {
         Update: {
           ala?: string | null
           ativo?: boolean
+          codigo_origem_firebird?: string | null
           created_at?: string
           id?: string
           numero?: string
@@ -1821,6 +2179,239 @@ export type Database = {
           },
         ]
       }
+      observacao_evolucoes: {
+        Row: {
+          anotacao: boolean
+          bpm: number | null
+          codigo_origem_firebird: string
+          created_at: string
+          data_hora: string | null
+          especialidade: string | null
+          evolucao: string | null
+          flg_anotacao: string | null
+          id: string
+          observacao_id: string
+          pressao_diastolica: number | null
+          pressao_sistolica: number | null
+          profissional_id: string | null
+          profissional_nome: string | null
+          saturacao: number | null
+          situacao: string | null
+          temperatura: number | null
+          updated_at: string
+          usuario: string | null
+        }
+        Insert: {
+          anotacao?: boolean
+          bpm?: number | null
+          codigo_origem_firebird: string
+          created_at?: string
+          data_hora?: string | null
+          especialidade?: string | null
+          evolucao?: string | null
+          flg_anotacao?: string | null
+          id?: string
+          observacao_id: string
+          pressao_diastolica?: number | null
+          pressao_sistolica?: number | null
+          profissional_id?: string | null
+          profissional_nome?: string | null
+          saturacao?: number | null
+          situacao?: string | null
+          temperatura?: number | null
+          updated_at?: string
+          usuario?: string | null
+        }
+        Update: {
+          anotacao?: boolean
+          bpm?: number | null
+          codigo_origem_firebird?: string
+          created_at?: string
+          data_hora?: string | null
+          especialidade?: string | null
+          evolucao?: string | null
+          flg_anotacao?: string | null
+          id?: string
+          observacao_id?: string
+          pressao_diastolica?: number | null
+          pressao_sistolica?: number | null
+          profissional_id?: string | null
+          profissional_nome?: string | null
+          saturacao?: number | null
+          situacao?: string | null
+          temperatura?: number | null
+          updated_at?: string
+          usuario?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observacao_evolucoes_observacao_id_fkey"
+            columns: ["observacao_id"]
+            isOneToOne: false
+            referencedRelation: "observacoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observacao_evolucoes_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      observacoes: {
+        Row: {
+          codigo_origem_firebird: string
+          convenio: string | null
+          created_at: string
+          data_alta: string | null
+          data_entrada: string | null
+          data_reavaliacao: string | null
+          ficha_firebird: string
+          flag_observacao: string | null
+          id: string
+          leito_descricao: string | null
+          leito_id: string | null
+          medico_id: string | null
+          paciente_id: string
+          payload_atualizado_em: string
+          pos_consulta: string | null
+          qtd_acompanhantes: number
+          qtd_anotacoes: number
+          qtd_atestados: number
+          qtd_evolucoes: number
+          qtd_guias: number
+          qtd_medicacoes_pendentes: number
+          qtd_orientacoes: number
+          qtd_prescricoes: number
+          qtd_procedimentos: number
+          qtd_questionarios: number
+          qtd_receitas: number
+          quarto: string | null
+          reavaliar: boolean
+          risco: string | null
+          risco_cor: string | null
+          risco_prioridade: number | null
+          setor: string | null
+          setor_cor: string | null
+          sincronizado_firebird: boolean
+          status: string
+          tipo_ficha: string | null
+          unidade_id: string
+          updated_at: string
+        }
+        Insert: {
+          codigo_origem_firebird: string
+          convenio?: string | null
+          created_at?: string
+          data_alta?: string | null
+          data_entrada?: string | null
+          data_reavaliacao?: string | null
+          ficha_firebird: string
+          flag_observacao?: string | null
+          id?: string
+          leito_descricao?: string | null
+          leito_id?: string | null
+          medico_id?: string | null
+          paciente_id: string
+          payload_atualizado_em?: string
+          pos_consulta?: string | null
+          qtd_acompanhantes?: number
+          qtd_anotacoes?: number
+          qtd_atestados?: number
+          qtd_evolucoes?: number
+          qtd_guias?: number
+          qtd_medicacoes_pendentes?: number
+          qtd_orientacoes?: number
+          qtd_prescricoes?: number
+          qtd_procedimentos?: number
+          qtd_questionarios?: number
+          qtd_receitas?: number
+          quarto?: string | null
+          reavaliar?: boolean
+          risco?: string | null
+          risco_cor?: string | null
+          risco_prioridade?: number | null
+          setor?: string | null
+          setor_cor?: string | null
+          sincronizado_firebird?: boolean
+          status?: string
+          tipo_ficha?: string | null
+          unidade_id: string
+          updated_at?: string
+        }
+        Update: {
+          codigo_origem_firebird?: string
+          convenio?: string | null
+          created_at?: string
+          data_alta?: string | null
+          data_entrada?: string | null
+          data_reavaliacao?: string | null
+          ficha_firebird?: string
+          flag_observacao?: string | null
+          id?: string
+          leito_descricao?: string | null
+          leito_id?: string | null
+          medico_id?: string | null
+          paciente_id?: string
+          payload_atualizado_em?: string
+          pos_consulta?: string | null
+          qtd_acompanhantes?: number
+          qtd_anotacoes?: number
+          qtd_atestados?: number
+          qtd_evolucoes?: number
+          qtd_guias?: number
+          qtd_medicacoes_pendentes?: number
+          qtd_orientacoes?: number
+          qtd_prescricoes?: number
+          qtd_procedimentos?: number
+          qtd_questionarios?: number
+          qtd_receitas?: number
+          quarto?: string | null
+          reavaliar?: boolean
+          risco?: string | null
+          risco_cor?: string | null
+          risco_prioridade?: number | null
+          setor?: string | null
+          setor_cor?: string | null
+          sincronizado_firebird?: boolean
+          status?: string
+          tipo_ficha?: string | null
+          unidade_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observacoes_leito_id_fkey"
+            columns: ["leito_id"]
+            isOneToOne: false
+            referencedRelation: "leitos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observacoes_medico_id_fkey"
+            columns: ["medico_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observacoes_paciente_id_fkey"
+            columns: ["paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observacoes_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pacientes: {
         Row: {
           ativo: boolean
@@ -1830,6 +2421,7 @@ export type Database = {
           cidade: string | null
           cns: string | null
           cns_secundario: string | null
+          codigo_origem_firebird: string | null
           complemento: string | null
           condicoes_saude: Json
           cpf: string | null
@@ -1877,6 +2469,7 @@ export type Database = {
           cidade?: string | null
           cns?: string | null
           cns_secundario?: string | null
+          codigo_origem_firebird?: string | null
           complemento?: string | null
           condicoes_saude?: Json
           cpf?: string | null
@@ -1924,6 +2517,7 @@ export type Database = {
           cidade?: string | null
           cns?: string | null
           cns_secundario?: string | null
+          codigo_origem_firebird?: string | null
           complemento?: string | null
           condicoes_saude?: Json
           cpf?: string | null
@@ -2056,6 +2650,7 @@ export type Database = {
           ativo: boolean
           cbo: string | null
           cns: string | null
+          codigo_origem_firebird: string | null
           conselho: string | null
           conselho_numero: string | null
           conselho_uf: string | null
@@ -2075,6 +2670,7 @@ export type Database = {
           ativo?: boolean
           cbo?: string | null
           cns?: string | null
+          codigo_origem_firebird?: string | null
           conselho?: string | null
           conselho_numero?: string | null
           conselho_uf?: string | null
@@ -2094,6 +2690,7 @@ export type Database = {
           ativo?: boolean
           cbo?: string | null
           cns?: string | null
+          codigo_origem_firebird?: string | null
           conselho?: string | null
           conselho_numero?: string | null
           conselho_uf?: string | null
@@ -2669,6 +3266,7 @@ export type Database = {
           bairro: string | null
           cep: string | null
           cnes: string | null
+          codigo_origem_firebird: string | null
           created_at: string
           endereco: string | null
           ibge_municipio: string | null
@@ -2687,6 +3285,7 @@ export type Database = {
           bairro?: string | null
           cep?: string | null
           cnes?: string | null
+          codigo_origem_firebird?: string | null
           created_at?: string
           endereco?: string | null
           ibge_municipio?: string | null
@@ -2705,6 +3304,7 @@ export type Database = {
           bairro?: string | null
           cep?: string | null
           cnes?: string | null
+          codigo_origem_firebird?: string | null
           created_at?: string
           endereco?: string | null
           ibge_municipio?: string | null
@@ -3001,6 +3601,7 @@ export type Database = {
           unidade_nome: string
         }[]
       }
+      clean_cpf: { Args: { p_cpf: string }; Returns: string }
       consumo_cota: {
         Args: {
           _competencia: string
@@ -3062,6 +3663,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      materializar_integracao_hospitalar: {
+        Args: { p_lote_id: string }
+        Returns: number
+      }
+      materializar_integracao_observacao: {
+        Args: { p_lote_id: string }
+        Returns: number
+      }
+      parse_firebird_date: { Args: { p_val: string }; Returns: string }
       set_audit_context: {
         Args: { p_ip?: string; p_modulo?: string; p_ua?: string }
         Returns: undefined
@@ -3100,6 +3710,10 @@ export type Database = {
           _unidade_id: string
         }
         Returns: number
+      }
+      upsert_profissional_firebird: {
+        Args: { p_codigo: string; p_nome: string; p_unidade: string }
+        Returns: string
       }
       verificar_assinatura_pdf: {
         Args: { p_protocolo: string }
