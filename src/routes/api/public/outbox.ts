@@ -37,7 +37,7 @@ export const Route = createFileRoute("/api/public/outbox")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await (supabaseAdmin as any)
           .from("integracao_outbox")
           .select("*")
           .eq("status", "pendente")
@@ -76,7 +76,7 @@ export const Route = createFileRoute("/api/public/outbox")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        const { error } = await supabaseAdmin
+        const { error } = await (supabaseAdmin as any)
           .from("integracao_outbox")
           .update({ status: "processado", processed_at: new Date().toISOString() })
           .in("id", parsed.data.outbox_ids);
