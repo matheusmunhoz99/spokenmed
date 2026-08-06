@@ -150,7 +150,7 @@ function RelatoriosPage() {
               id: item.id,
               data: dClean,
               hora_inicio: String(p.HORA ?? p.HORA_AGENDAMENTO ?? "08:00"),
-              status: String(p.SITUACAO ?? p.STATUS ?? "agendado").toLowerCase(),
+              status: "agendado",
               is_encaixe: false,
               unidade_id: item.id,
               profissional_id: item.id,
