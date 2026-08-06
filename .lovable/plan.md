@@ -1,49 +1,54 @@
+# Plano: Prompt de Fila e Regulação para outro sistema
 
 ## Objetivo
-Hoje a tela `/app/configuracoes` empilha Unidades, Especialidades, Equipes e Procedimentos numa página só, enquanto Profissionais, Cotas e Sistema estão em rotas soltas. A ideia é criar um **hub único e organizado** com navegação por abas, cada cadastro na sua própria página, mantendo tudo o que já existe funcionando.
+Criar um artefato (prompt/documento) completo e autocontido explicando como funciona a estrutura de **Fila de Espera**, **Regulação** e **Cotas por unidade** do SpokenMed, para que o usuário possa colar em outro projeto Lovable e o outro sistema reimplemente o mesmo comportamento.
 
-## Nova estrutura de navegação
+## Escopo do documento
+O prompt vai cobrir:
 
-Sidebar (agrupamento "Administração") passa a ter só **um item** chamado **"Cadastros & Configurações"** apontando para `/app/cadastros`. Dentro dele, um layout com abas horizontais (estilo shadcn `Tabs` + `Link`) leva a cada seção:
+1. **Conceitos e fluxo geral**
+   - Diferença entre fila de espera local (UBS) e fila/regulação municipal (encaminhamentos).
+   - Fluxo: recepção/triagem coloca na fila → regulação distribui vagas → agendamento consome cota.
 
-```text
-/app/cadastros
- ├── /unidades           (UBS, postos, hospitais)
- ├── /especialidades     (especialidades médicas)
- ├── /equipes            (eSF/eAP com INE)
- ├── /procedimentos      (SIGTAP)
- ├── /profissionais      (move da rota atual)
- ├── /cotas              (move de /configuracoes/cotas)
- ├── /usuarios           (move de /configuracoes/sistema)
- └── /auditoria          (atalho para /app/auditoria — opcional, ou fica solto)
-```
+2. **Cotas de agendamento**
+   - Regime por unidade: `livre` (sem limite) vs `cota` (limitado mensalmente).
+   - Cotas por especialidade (`cotas_especialidade`): vagas UBS + vagas extras da Secretaria.
+   - Cotas por procedimento SIGTAP (`cotas_procedimento`): opcional, só limita se houver cota cadastrada.
+   - Cota extra da Secretaria de Saúde para urgências (`origem_agenda = 'secretaria'`).
+   - Funções de controle: `consumo_cota()` e trigger `fn_ag_valida_cota()`.
 
-Cada aba é uma rota-filho independente, com título próprio no header, breadcrumb simples ("Cadastros › Unidades") e botão de ação primário fixo no topo direito ("Nova unidade", "Novo profissional", etc.).
+3. **Fila de Espera**
+   - Tabela `fila_espera` com campos: paciente, especialidade, unidade, classificação de risco SUS, urgência, CID, solicitante, procedimento, status.
+   - Ordenação: status aguardando → classificação de risco → urgência → data de entrada.
+   - TME (Tempo Máximo de Espera) default por cor e customizável por especialidade/unidade.
+   - Ações: adicionar, alterar urgência, remover (soft-delete com motivo), agendar a partir da fila.
+   - Realtime / atualização a cada 2s.
 
-## Melhorias visuais por página
+4. **Regulação / Encaminhamentos**
+   - Endpoint público `/api/public/ingest` recebe JSON do sistema legado (`.exe`).
+   - Tabelas `integracao_lotes` e `integracao_registros` guardam os dados brutos.
+   - Tela `/app/encaminhamentos` lista guias pendentes com filtros e exportação CSV.
+   - Materialização opcional para tabelas específicas (hospitalar, observação).
 
-- **Página-índice `/app/cadastros`**: grid de cards (um por seção) com ícone, título, descrição curta e contador (ex.: "12 unidades ativas"). Serve de landing quando o admin entra sem escolher aba.
-- **Unidades**: extrair o formulão de 10 campos para um `Dialog` "Nova unidade" (como já é em Profissionais), deixando a página só com a tabela + busca + filtro ativo/inativo + botão importar CSV.
-- **Especialidades**: página enxuta com input inline + lista/chips, busca por nome.
-- **Equipes**: manter o form compacto mas em `Dialog`, tabela com filtro por unidade.
-- **Procedimentos**: tabela com busca por código/nome, botão "Novo" em dialog, importar CSV mantido.
-- **Profissionais**: mantém o dialog atual, apenas passa a viver sob `/app/cadastros/profissionais`.
-- **Cotas**: idem, movida para `/app/cadastros/cotas`.
-- **Usuários (Sistema)**: idem, movida para `/app/cadastros/usuarios`.
+5. **Permissões**
+   - Módulos: `fila`, `regulacao`, `cotas`, `secretaria_agendar`, `agendar`, `agenda_dia`.
+   - Roles: admin, recepcionista, triagem, médico, ACS.
+   - Regra: `isAdmin` tem tudo; demais precisam de `can(module, "view"|"manage")`.
 
-Header de cada aba usa o mesmo padrão: título grande + descrição curta + ação primária à direita, seguido do conteúdo. Espaçamento consistente (`space-y-4`, cards `rounded-lg border bg-card`).
+6. **Tabelas e migrations necessárias**
+   - Listar DDLs essenciais: `unidades.regime_agendamento`, `cotas_especialidade`, `cotas_procedimento`, `agendamentos.origem_agenda`, `fila_espera`, `integracao_lotes`, `integracao_registros`, funções `consumo_cota` e `fn_ag_valida_cota`.
 
-## Detalhes técnicos
+7. **Checklist de implementação no outro sistema**
+   - Criar tabelas/migrations.
+   - Configurar roles e permissões.
+   - Criar telas: fila, regulação, cotas, agendar.
+   - Criar endpoint de ingestão com API key.
+   - Testar fluxo completo.
 
-- Nova rota-layout `src/routes/app.cadastros.tsx` renderizando `<Outlet />` com barra de abas (usando `Link` do TanStack e `useRouterState` pra marcar ativo).
-- Novas rotas-filhas: `app.cadastros.index.tsx`, `app.cadastros.unidades.tsx`, `app.cadastros.especialidades.tsx`, `app.cadastros.equipes.tsx`, `app.cadastros.procedimentos.tsx`.
-- Mover conteúdo: `app.profissionais.tsx` → `app.cadastros.profissionais.tsx`; `app.configuracoes.cotas.tsx` → `app.cadastros.cotas.tsx`; `app.configuracoes.sistema.tsx` → `app.cadastros.usuarios.tsx`. As rotas antigas viram redirects (`beforeLoad` → `throw redirect`) pra não quebrar links salvos.
-- Extrair os 4 cards atuais de `app.configuracoes.tsx` em componentes reutilizáveis (`UnidadesTable`, `EspecialidadesList`, `EquipesTable`, `ProcedimentosTable`) sob `src/components/cadastros/`, e envolver os formulários em `Dialog`s dedicados.
-- Sidebar (`app-sidebar.tsx`): substituir os 3 itens ("Unidades & Especialidades", "Cotas", "Configurações") por um único **"Cadastros & Configurações"** → `/app/cadastros`. "Profissionais" e "Agendas" continuam onde estão em "Cadastros" da sidebar (ou também consolidamos — ver pergunta abaixo).
-- Guards: cada rota-filha usa `can(...)` do jeito atual; a barra de abas esconde as abas sem permissão.
-- Títulos em `app.tsx` (mapa `titles`) atualizados.
-- **Sem** alteração de schema/DB, **sem** alteração de lógica de negócio (agendamento, cotas, permissões). Só reorganização visual/rotas.
+## Formato de entrega
+Arquivo `docs/prompt-fila-regulacao.md` no repositório, escrito em português, em tom de "prompt para outro agente Lovable", com exemplos de SQL, payload JSON e estrutura de telas.
 
-## Ponto a decidir antes de implementar
-
-Uma dúvida: "Profissionais" e "Agendas" (que hoje ficam no grupo "Cadastros" da sidebar, fora de Administração) devem entrar também nas abas do hub `/app/cadastros`, ou continuam como itens diretos na sidebar? Minha sugestão é **entrar no hub** (fica tudo num lugar só, como você pediu), mas se preferir manter atalho direto na sidebar pra Profissionais/Agendas eu deixo os dois caminhos.
+## Não está no escopo
+- Alterar código do SpokenMed atual.
+- Implementar a funcionalidade no outro sistema (apenas documentar).
+- Criar código executável.
